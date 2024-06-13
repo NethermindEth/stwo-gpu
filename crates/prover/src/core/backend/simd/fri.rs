@@ -18,6 +18,9 @@ use crate::core::poly::line::LineEvaluation;
 use crate::core::poly::twiddles::TwiddleTree;
 use crate::core::poly::utils::domain_line_twiddles_from_tree;
 
+// #[cfg(feature = "parallel")]
+// use rayon::prelude::*;
+
 impl FriOps for SimdBackend {
     fn fold_line(
         eval: &LineEvaluation<Self>,
@@ -35,6 +38,8 @@ impl FriOps for SimdBackend {
 
         let mut folded_values = SecureColumn::<Self>::zeros(1 << (log_size - 1));
 
+
+        // folded_values.into_par_iter().for_each(|vec_index|{
         for vec_index in 0..(1 << (log_size - 1 - LOG_N_LANES)) {
             let value = unsafe {
                 let twiddle_dbl: [u32; 16] =
@@ -51,7 +56,7 @@ impl FriOps for SimdBackend {
             };
             unsafe { folded_values.set_packed(vec_index, value) };
         }
-
+    
         LineEvaluation::new(domain.double(), folded_values)
     }
 
