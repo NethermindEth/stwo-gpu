@@ -4,6 +4,7 @@ use std::simd::u32x8;
 use num_traits::Zero;
 
 use super::m31::{PackedBaseField, LOG_N_LANES, N_LANES};
+use super::qm31::PackedQM31;
 use super::SimdBackend;
 use crate::core::backend::simd::fft::compute_first_twiddles;
 use crate::core::backend::simd::fft::ifft::simd_ibutterfly;
@@ -38,6 +39,7 @@ impl FriOps for SimdBackend {
 
         let mut folded_values = SecureColumn::<Self>::zeros(1 << (log_size - 1));
 
+        let mut vector_of_qm31 = vec![PackedQM31::zero(); 1 << (log_size - 1 - LOG_N_LANES)];
 
         // folded_values.into_par_iter().for_each(|vec_index|{
         for vec_index in 0..(1 << (log_size - 1 - LOG_N_LANES)) {
@@ -54,7 +56,13 @@ impl FriOps for SimdBackend {
                 let val1 = PackedSecureField::from_packed_m31s(array::from_fn(|i| pairs[i].1));
                 val0 + PackedSecureField::broadcast(alpha) * val1
             };
-            unsafe { folded_values.set_packed(vec_index, value) };
+            // unsafe { folded_values.set_packed(vec_index, value) };
+            vector_of_qm31[vec_index] = value;
+        }
+
+        for vec_index in 0..(1 << (log_size - 1 - LOG_N_LANES)){
+            unsafe{folded_values.set_packed(vec_index, vector_of_qm31[vec_index])};
+            
         }
     
         LineEvaluation::new(domain.double(), folded_values)
