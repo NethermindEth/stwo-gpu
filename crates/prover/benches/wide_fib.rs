@@ -14,7 +14,7 @@ use tracing::{span, Level};
 
 const LOG_N_ROWS: u32 = 16;
 
-const LOG_N_COLS: u32 = 10;
+const LOG_N_COLS: u32 = 8;
 
 fn test_simd_wide_fib_prove() {
     // const LOG_N_ROWS: u32 = 16;

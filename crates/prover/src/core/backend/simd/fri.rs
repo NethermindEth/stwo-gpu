@@ -2,6 +2,7 @@ use std::array;
 use std::simd::u32x8;
 
 use num_traits::Zero;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use super::m31::{PackedBaseField, LOG_N_LANES, N_LANES};
 use super::qm31::PackedQM31;
@@ -39,10 +40,11 @@ impl FriOps for SimdBackend {
 
         let mut folded_values = SecureColumn::<Self>::zeros(1 << (log_size - 1));
 
-        let mut vector_of_qm31 = vec![PackedQM31::zero(); 1 << (log_size - 1 - LOG_N_LANES)];
+        // let mut vector_of_qm31 = vec![PackedQM31::zero(); 1 << (log_size - 1 - LOG_N_LANES)];
 
         // folded_values.into_par_iter().for_each(|vec_index|{
-        for vec_index in 0..(1 << (log_size - 1 - LOG_N_LANES)) {
+        // for vec_index in 0..(1 << (log_size - 1 - LOG_N_LANES)) {
+        let vector_of_qm31: Vec<PackedQM31> = (0..(1 << (log_size - 1 - LOG_N_LANES))).into_par_iter().map(|vec_index|{   
             let value = unsafe {
                 let twiddle_dbl: [u32; 16] =
                     array::from_fn(|i| *itwiddles.get_unchecked(vec_index * 16 + i));
@@ -57,8 +59,8 @@ impl FriOps for SimdBackend {
                 val0 + PackedSecureField::broadcast(alpha) * val1
             };
             // unsafe { folded_values.set_packed(vec_index, value) };
-            vector_of_qm31[vec_index] = value;
-        }
+            value
+        }).collect();
 
         for vec_index in 0..(1 << (log_size - 1 - LOG_N_LANES)){
             unsafe{folded_values.set_packed(vec_index, vector_of_qm31[vec_index])};
