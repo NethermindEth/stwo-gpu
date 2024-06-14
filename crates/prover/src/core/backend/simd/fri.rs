@@ -2,6 +2,8 @@ use std::array;
 use std::simd::u32x8;
 
 use num_traits::Zero;
+
+#[cfg(feature = "parallel")]
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use super::m31::{PackedBaseField, LOG_N_LANES, N_LANES};
@@ -44,7 +46,14 @@ impl FriOps for SimdBackend {
 
         // folded_values.into_par_iter().for_each(|vec_index|{
         // for vec_index in 0..(1 << (log_size - 1 - LOG_N_LANES)) {
-        let vector_of_qm31: Vec<PackedQM31> = (0..(1 << (log_size - 1 - LOG_N_LANES))).into_par_iter().map(|vec_index|{   
+        #[cfg(not(feature = "parallel"))]
+        let iter = (0..(1 << (log_size - 1 - LOG_N_LANES))).into_iter();   
+
+        #[cfg(feature = "parallel")]
+        let iter = (0..(1 << (log_size - 1 - LOG_N_LANES))).into_par_iter();   
+
+        let vector_of_qm31: Vec<PackedQM31> = iter.map(|vec_index|{   
+            
             let value = unsafe {
                 let twiddle_dbl: [u32; 16] =
                     array::from_fn(|i| *itwiddles.get_unchecked(vec_index * 16 + i));
