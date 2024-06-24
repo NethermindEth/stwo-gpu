@@ -39,6 +39,7 @@ impl Load for Device {
         LoadBaseField::load(&self);
         column::load_batch_inverse_ptx(&self);
         circle::load_circle(&self);
+        fri::load_fri(&self);
         self
     }
 }

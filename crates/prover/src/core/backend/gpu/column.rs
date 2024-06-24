@@ -2,11 +2,13 @@ use std::sync::Arc;
 
 use cudarc::driver::{CudaDevice, CudaSlice, DeviceSlice, LaunchAsync, LaunchConfig};
 use cudarc::nvrtc::compile_ptx;
+use itertools::izip;
 
 use super::{GpuBackend, DEVICE};
-use crate::core::backend::Column;
+use crate::core::backend::{Column, CpuBackend};
 use crate::core::fields::m31::{BaseField, M31};
 use crate::core::fields::qm31::{SecureField, QM31};
+use crate::core::fields::secure_column::SecureColumn;
 use crate::core::fields::FieldOps;
 
 
@@ -89,8 +91,8 @@ impl BaseFieldCudaColumn {
 }
 
 impl FromIterator<BaseField> for BaseFieldCudaColumn {
-    fn from_iter<T: IntoIterator<Item = BaseField>>(_iter: T) -> Self {
-        todo!()
+    fn from_iter<T: IntoIterator<Item = BaseField>>(iter: T) -> Self {
+        Self(DEVICE.htod_sync_copy(&iter.into_iter().collect::<Vec<M31>>()).unwrap())
     }
 }
 
@@ -135,10 +137,35 @@ impl SecureFieldCudaColumn {
 }
 
 impl FromIterator<SecureField> for SecureFieldCudaColumn {
-    fn from_iter<T: IntoIterator<Item = SecureField>>(_iter: T) -> Self {
-        todo!()
+    fn from_iter<T: IntoIterator<Item = SecureField>>(iter: T) -> Self {
+        Self(DEVICE.htod_sync_copy(&iter.into_iter().collect::<Vec<QM31>>()).unwrap())
     }
 }
+
+impl FromIterator<SecureField> for SecureColumn<GpuBackend> {
+    fn from_iter<I: IntoIterator<Item = SecureField>>(iter: I) -> Self {
+        let cpu_col = SecureColumn::<CpuBackend>::from_iter(iter);
+        let columns = cpu_col.columns.map(|col| col.into_iter().collect());
+        SecureColumn { columns }
+    }
+}
+
+
+impl SecureColumn<GpuBackend> {
+    pub fn to_vec(&self) -> Vec<SecureField> {
+        izip!(
+            self.columns[0].to_cpu(),
+            self.columns[1].to_cpu(),
+            self.columns[2].to_cpu(),
+            self.columns[3].to_cpu(),
+        )
+        .map(|(a, b, c, d)| SecureField::from_m31_array([a, b, c, d]))
+        .collect()
+    }
+}
+
+
+
 
 impl Column<SecureField> for SecureFieldCudaColumn {
     fn zeros(_len: usize) -> Self {
