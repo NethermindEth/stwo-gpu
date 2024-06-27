@@ -11,6 +11,7 @@ use crate::core::constraints::{coset_vanishing, pair_vanishing};
 use crate::core::fields::m31::BaseField;
 use crate::core::fields::qm31::SecureField;
 use crate::core::fields::{ExtensionOf, FieldExpOps};
+use crate::core::pcs::TreeVec;
 use crate::core::poly::circle::{CanonicCoset, CircleEvaluation};
 use crate::core::poly::BitReversedOrder;
 use crate::core::utils::bit_reverse_index;
@@ -80,19 +81,26 @@ impl Component for FibonacciComponent {
         self.log_size + 1
     }
 
-    fn trace_log_degree_bounds(&self) -> Vec<u32> {
-        vec![self.log_size]
+    fn n_interaction_phases(&self) -> u32 {
+        1
+    }
+
+    fn trace_log_degree_bounds(&self) -> TreeVec<ColumnVec<u32>> {
+        TreeVec::new(vec![vec![self.log_size], vec![]])
     }
 
     fn mask_points(
         &self,
         point: CirclePoint<SecureField>,
-    ) -> ColumnVec<Vec<CirclePoint<SecureField>>> {
-        shifted_mask_points(
-            &vec![vec![0, 1, 2]],
-            &[CanonicCoset::new(self.log_size)],
-            point,
-        )
+    ) -> TreeVec<ColumnVec<Vec<CirclePoint<SecureField>>>> {
+        TreeVec::new(vec![
+            shifted_mask_points(
+                &vec![vec![0, 1, 2]],
+                &[CanonicCoset::new(self.log_size)],
+                point,
+            ),
+            vec![],
+        ])
     }
 
     fn interaction_element_ids(&self) -> Vec<String> {
@@ -104,6 +112,7 @@ impl Component for FibonacciComponent {
         point: CirclePoint<SecureField>,
         mask: &ColumnVec<Vec<SecureField>>,
         evaluation_accumulator: &mut PointEvaluationAccumulator,
+        _interaction_elements: &InteractionElements,
     ) {
         evaluation_accumulator.accumulate(
             self.step_constraint_eval_quotient_by_mask(point, &mask[0][..].try_into().unwrap()),
@@ -132,8 +141,9 @@ impl ComponentProver<CpuBackend> for FibonacciComponent {
         &self,
         trace: &ComponentTrace<'_, CpuBackend>,
         evaluation_accumulator: &mut DomainEvaluationAccumulator<CpuBackend>,
+        _interaction_elements: &InteractionElements,
     ) {
-        let poly = &trace.polys[0];
+        let poly = &trace.polys[0][0];
         let trace_domain = CanonicCoset::new(self.log_size);
         let trace_eval_domain = CanonicCoset::new(self.log_size + 1).circle_domain();
         let trace_eval = poly.evaluate(trace_eval_domain).bit_reverse();

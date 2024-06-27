@@ -26,7 +26,7 @@ pub mod vcs;
 pub type ColumnVec<T> = Vec<T>;
 
 /// A vector of [ColumnVec]s. Each [ColumnVec] relates (by index) to a component in the air.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ComponentVec<T>(pub Vec<ColumnVec<T>>);
 
 impl<T> ComponentVec<T> {
@@ -61,7 +61,18 @@ impl<T> DerefMut for ComponentVec<T> {
     }
 }
 
+#[derive(Default)]
 pub struct InteractionElements(BTreeMap<String, BaseField>);
+
+impl InteractionElements {
+    pub fn new(elements: BTreeMap<String, BaseField>) -> Self {
+        Self(elements)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
 
 impl Index<&str> for InteractionElements {
     type Output = BaseField;

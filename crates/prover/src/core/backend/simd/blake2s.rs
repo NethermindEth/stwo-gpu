@@ -110,10 +110,8 @@ impl MerkleOps<Blake2sMerkleHasher> for SimdBackend {
                 state = compress16(state, msgs, zeros, zeros, zeros, zeros);
             }
             let state: [Blake2sHash; 16] = unsafe { transmute(untranspose_states(state)) };
-            // res.extend_from_slice(&state);
             chunk.copy_from_slice(&state);
         });
-        // );
         res
     }
 }
