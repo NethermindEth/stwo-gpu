@@ -75,6 +75,10 @@ extern "C"
 __global__ void sum(uint32_t *from, uint32_t* temp, uint32_t *results, int result_offset, int size) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
+    if (size > 2048) {
+        size = 2048;
+    }
+
     from = &from[2 * blockIdx.x * blockDim.x];
     results = &results[result_offset];
 
