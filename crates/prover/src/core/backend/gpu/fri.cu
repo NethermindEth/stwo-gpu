@@ -116,7 +116,7 @@ __global__ void pairwise_sum(uint32_t *from, uint32_t* temp, uint32_t *result, i
             temp[idx] = m31_add(temp[idx], temp[idx + (size >> 1)]);
         }
         
-        __syncthreads();  // Can this be optimized if it's inside the if statement?
+        __syncthreads();
     
         size >>= 1;
     }
