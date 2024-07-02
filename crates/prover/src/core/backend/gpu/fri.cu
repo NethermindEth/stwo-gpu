@@ -72,27 +72,23 @@ __device__ qm31 qm31_add(qm31 x, qm31 y) {
 
 
 extern "C"
-__global__ void sum(uint32_t *from, uint32_t* temp, uint32_t *results, int result_offset, int size) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (size > 2048) {
-        size = 2048;
-    }
-
-    from = &from[2 * blockIdx.x * blockDim.x];
-    results = &results[result_offset];
-
-    if (idx < (size >> 1)) {
-        temp[idx] = m31_sub(from[idx], from[idx + (size >> 1)]);
-    }
-    __syncthreads();
-
+__global__ void sum(uint32_t *from, uint32_t* temp, uint32_t *results, int size) {
+    int idx = threadIdx.x;
+    from = &from[blockIdx.x * blockDim.x];
+    temp = &temp[blockIdx.x * blockDim.x];
+    int data_size = size;
+    size = min(size, 2048);
+    
+    temp[idx] = m31_sub(from[idx], from[idx + (data_size >> 1)]);
     size >>= 1;
+
+    __syncthreads();
 
     while(size > 1) {
         if (idx < size) {
             temp[idx] = m31_add(temp[idx], temp[idx + (size >> 1)]);
         }
+        
         __syncthreads();
     
         size >>= 1;
@@ -100,6 +96,33 @@ __global__ void sum(uint32_t *from, uint32_t* temp, uint32_t *results, int resul
 
     if(threadIdx.x == 0) {
         results[blockIdx.x] = temp[0];
+    }
+}
+
+extern "C"
+__global__ void pairwise_sum(uint32_t *from, uint32_t* temp, uint32_t *result, int size) {
+    int idx = threadIdx.x;
+    from = &from[blockIdx.x * blockDim.x];
+    temp = &temp[blockIdx.x * blockDim.x];
+    size = min(size, 2048);
+
+    temp[idx] = m31_add(from[idx], from[idx + (size >> 1)]);
+    size >>= 1;
+
+    __syncthreads();
+
+    while(size > 1) {
+        if (idx < size) {
+            temp[idx] = m31_add(temp[idx], temp[idx + (size >> 1)]);
+        }
+        
+        __syncthreads();  // Can this be optimized if it's inside the if statement?
+    
+        size >>= 1;
+    }
+
+    if(blockIdx.x == 0 && threadIdx.x == 0) {
+        result[0] = temp[0];
     }
 }
 

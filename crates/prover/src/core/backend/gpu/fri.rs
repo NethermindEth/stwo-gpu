@@ -65,20 +65,43 @@ impl FriOps for GpuBackend {
 impl GpuBackend {
     unsafe fn sum(column: &BaseFieldCudaColumn) -> M31 {
         let size = column.len();
-        let mut gpu_result: CudaSlice<M31> = DEVICE.alloc(1).unwrap();
+        let sum_launch_config = LaunchConfig::for_num_elems(size as u32 >> 1);
+        let amount_of_partial_results = sum_launch_config.grid_dim.0;
+
+        let mut partial_results: CudaSlice<M31> = DEVICE.alloc(amount_of_partial_results as usize).unwrap();
         let mut temp: CudaSlice<M31> = DEVICE.alloc(size >> 1).unwrap();
 
         let kernel = DEVICE.get_func("fri", "sum").unwrap();
         kernel.launch(
-            LaunchConfig::for_num_elems(size as u32 >> 1), 
+            sum_launch_config, 
             (
-                column.as_slice(), 
-                &mut temp, 
-                &mut gpu_result, 
-                0,
+                column.as_slice(),
+                &mut temp,
+                &mut partial_results,
                 size
             )
         ).unwrap();
+        DEVICE.synchronize().unwrap();
+        
+        let mut gpu_result: CudaSlice<M31> = DEVICE.alloc(1).unwrap();
+        if amount_of_partial_results == 1 {
+            return DEVICE.dtoh_sync_copy(&partial_results).unwrap()[0];
+        }
+
+        // Ojo que esto puede tener más de 2 ^ 10 elementos. Testear ese caso con datos de, por ejemplo, log_size = 24.
+        let pairwise_sum_launch_config = LaunchConfig::for_num_elems(amount_of_partial_results);
+        let kernel = DEVICE.get_func("fri", "pairwise_sum").unwrap();
+        kernel.launch(
+            pairwise_sum_launch_config,
+            (
+                &mut partial_results,
+                &mut temp,
+                &mut gpu_result,
+                amount_of_partial_results
+            )
+        ).unwrap();
+        DEVICE.synchronize().unwrap();
+
         DEVICE.dtoh_sync_copy(&gpu_result).unwrap()[0]
     }
 
@@ -109,6 +132,7 @@ pub fn load_fri(device: &Arc<CudaDevice>) {
             "fri",
             &[
                 "sum",
+                "pairwise_sum",
                 "compute_g_values"
             ],
         )
@@ -122,7 +146,7 @@ mod tests{
 
     #[test]
     fn test_decompose() {
-        let domain_log_size = 10;
+        let domain_log_size = 22;
         let size = 1 << domain_log_size;
         let coset = CanonicCoset::new(domain_log_size);
         let domain = coset.circle_domain();
