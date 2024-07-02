@@ -88,8 +88,9 @@ impl GpuBackend {
             return DEVICE.dtoh_sync_copy(&partial_results).unwrap()[0];
         }
 
-        // Ojo que esto puede tener más de 2 ^ 10 elementos. Testear ese caso con datos de, por ejemplo, log_size = 24.
-        let pairwise_sum_launch_config = LaunchConfig::for_num_elems(amount_of_partial_results);
+        // Ojo que esto puede tener más de 2 ^ 11 elementos. Testear ese caso con datos de, por ejemplo, log_size = 23.
+        // let pairwise_sum_launch_config = LaunchConfig::for_num_elems(amount_of_partial_results);
+        let pairwise_sum_launch_config = LaunchConfig::for_num_elems(1);
         let kernel = DEVICE.get_func("fri", "pairwise_sum").unwrap();
         kernel.launch(
             pairwise_sum_launch_config,
@@ -146,7 +147,7 @@ mod tests{
 
     #[test]
     fn test_decompose() {
-        let domain_log_size = 20;
+        let domain_log_size = 22;
         let size = 1 << domain_log_size;
         let coset = CanonicCoset::new(domain_log_size);
         let domain = coset.circle_domain();
