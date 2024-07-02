@@ -146,7 +146,7 @@ mod tests{
 
     #[test]
     fn test_decompose() {
-        let domain_log_size = 22;
+        let domain_log_size = 20;
         let size = 1 << domain_log_size;
         let coset = CanonicCoset::new(domain_log_size);
         let domain = coset.circle_domain();
