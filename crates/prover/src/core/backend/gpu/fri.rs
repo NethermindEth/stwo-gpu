@@ -70,7 +70,7 @@ impl GpuBackend {
         let mut temp: CudaSlice<M31> = DEVICE.alloc(column_size >> 1).unwrap();
 
         let mut partial_results: CudaSlice<M31> = DEVICE.alloc(0).unwrap();
-        let mut amount_of_results: u32 = 0;
+        let mut amount_of_results: usize = 0;
 
         launch_kernel("sum", column.as_slice(), column_size, &mut temp, &mut partial_results, &mut amount_of_results);
         
@@ -78,18 +78,31 @@ impl GpuBackend {
             return DEVICE.dtoh_sync_copy(&partial_results).unwrap()[0];
         }
 
-        let partial_sum_list = partial_results;
-        let partial_sum_size = amount_of_results as usize;
-        let mut gpu_result: CudaSlice<M31> = DEVICE.alloc(0).unwrap();
+        let mut partial_sum_list = partial_results;
+        let mut partial_sum_size = amount_of_results as usize;
+        let mut results: CudaSlice<M31> = DEVICE.alloc(0).unwrap();
+        let mut iteration_number_is_even = true;
 
-        launch_kernel("pairwise_sum", &partial_sum_list, partial_sum_size, &mut temp, &mut gpu_result, &mut amount_of_results);
-
-        let mut result: M31 = DEVICE.dtoh_sync_copy(&gpu_result).unwrap()[0];
-        for i in 1..amount_of_results {
-            result = result + DEVICE.dtoh_sync_copy(&gpu_result).unwrap()[i as usize];
+        while partial_sum_size > 1 && amount_of_results > 1 {
+            if iteration_number_is_even {
+                launch_kernel("pairwise_sum", &partial_sum_list, partial_sum_size, &mut temp, &mut results, &mut amount_of_results);
+            } else {
+                launch_kernel("pairwise_sum", &results, amount_of_results, &mut temp, &mut partial_sum_list, &mut partial_sum_size);
+            }
+            iteration_number_is_even = !iteration_number_is_even;
         }
 
+        if iteration_number_is_even {
+            return DEVICE.dtoh_sync_copy(&partial_sum_list).unwrap()[0];
+        } else {
+            return DEVICE.dtoh_sync_copy(&results).unwrap()[0];
+        }
+        /*let mut result: M31 = DEVICE.dtoh_sync_copy(&results).unwrap()[0];
+        for i in 1..amount_of_results {
+            result = result + DEVICE.dtoh_sync_copy(&results).unwrap()[i as usize];
+        }
         result
+        */
     }
 
     unsafe fn compute_g_values(f_values: &BaseFieldCudaColumn, lambda: M31) -> BaseFieldCudaColumn {
@@ -110,10 +123,10 @@ impl GpuBackend {
     }
 }
 
-pub unsafe fn launch_kernel(function_name: &str, list: &CudaSlice<M31>, list_size: usize, temp: &mut CudaSlice<M31>, partial_results: &mut CudaSlice<M31>, amount_of_results: &mut u32) {
+pub unsafe fn launch_kernel(function_name: &str, list: &CudaSlice<M31>, list_size: usize, temp: &mut CudaSlice<M31>, partial_results: &mut CudaSlice<M31>, amount_of_results: &mut usize) {
     let launch_config = LaunchConfig::for_num_elems(list_size as u32 >> 1);
-    *amount_of_results = launch_config.grid_dim.0;
-    *partial_results = DEVICE.alloc(*amount_of_results as usize).unwrap();
+    *amount_of_results = launch_config.grid_dim.0 as usize;
+    *partial_results = DEVICE.alloc(*amount_of_results).unwrap();
     let kernel = DEVICE.get_func("fri", function_name).unwrap();
     kernel.launch(
         launch_config, 
@@ -192,7 +205,7 @@ mod tests{
 
     #[test]
     fn test_decompose_using_more_than_entire_block() {
-        test_decompose_with_domain_log_size(15);
+        test_decompose_with_domain_log_size(11 + 4);
     }
 
     #[test]
@@ -200,9 +213,8 @@ mod tests{
         test_decompose_with_domain_log_size(22);
     }
 
-    #[ignore]
     #[test]
     fn test_decompose_using_more_than_an_entire_block_for_results() {
-        test_decompose_with_domain_log_size(23);
+        test_decompose_with_domain_log_size(27);
     }
 }
