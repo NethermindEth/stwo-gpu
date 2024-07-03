@@ -64,12 +64,12 @@ impl FriOps for GpuBackend {
 
 impl GpuBackend {
     unsafe fn sum(column: &BaseFieldCudaColumn) -> M31 {
-        let size = column.len();
-        let sum_launch_config = LaunchConfig::for_num_elems(size as u32 >> 1);
-        let amount_of_partial_results = sum_launch_config.grid_dim.0;
+        let column_size = column.len();
+        let sum_launch_config = LaunchConfig::for_num_elems(column_size as u32 >> 1);
+        let mut amount_of_partial_results = sum_launch_config.grid_dim.0;
 
         let mut partial_results: CudaSlice<M31> = DEVICE.alloc(amount_of_partial_results as usize).unwrap();
-        let mut temp: CudaSlice<M31> = DEVICE.alloc(size >> 1).unwrap();
+        let mut temp: CudaSlice<M31> = DEVICE.alloc(column_size >> 1).unwrap();
 
         let kernel = DEVICE.get_func("fri", "sum").unwrap();
         kernel.launch(
@@ -78,32 +78,40 @@ impl GpuBackend {
                 column.as_slice(),
                 &mut temp,
                 &mut partial_results,
-                size
+                column_size
             )
         ).unwrap();
         DEVICE.synchronize().unwrap();
         
-        let mut gpu_result: CudaSlice<M31> = DEVICE.alloc(1).unwrap();
         if amount_of_partial_results == 1 {
             return DEVICE.dtoh_sync_copy(&partial_results).unwrap()[0];
         }
 
+        let partial_sum_list = partial_results;
+        let partial_sum_size = amount_of_partial_results;
         // Ojo que esto puede tener más de 2 ^ 11 elementos. Testear ese caso con datos de, por ejemplo, log_size = 23.
         // let pairwise_sum_launch_config = LaunchConfig::for_num_elems(amount_of_partial_results);
-        let pairwise_sum_launch_config = LaunchConfig::for_num_elems(1);
+        let pairwise_sum_launch_config = LaunchConfig::for_num_elems(partial_sum_size as u32 >> 1);
+        amount_of_partial_results = pairwise_sum_launch_config.grid_dim.0;
+        let mut gpu_result: CudaSlice<M31> = DEVICE.alloc(amount_of_partial_results as usize).unwrap();
         let kernel = DEVICE.get_func("fri", "pairwise_sum").unwrap();
         kernel.launch(
             pairwise_sum_launch_config,
             (
-                &mut partial_results,
+                &partial_sum_list,
                 &mut temp,
                 &mut gpu_result,
-                amount_of_partial_results
+                partial_sum_size
             )
         ).unwrap();
         DEVICE.synchronize().unwrap();
 
-        DEVICE.dtoh_sync_copy(&gpu_result).unwrap()[0]
+        let mut result: M31 = DEVICE.dtoh_sync_copy(&gpu_result).unwrap()[0];
+        for i in 1..amount_of_partial_results {
+            result = result + DEVICE.dtoh_sync_copy(&gpu_result).unwrap()[i as usize];
+        }
+
+        result
     }
 
     unsafe fn compute_g_values(f_values: &BaseFieldCudaColumn, lambda: M31) -> BaseFieldCudaColumn {
@@ -145,9 +153,7 @@ mod tests{
     use itertools::Itertools;
     use crate::core::{backend::{gpu::GpuBackend, Column, CpuBackend}, fields::qm31::QM31, fri::FriOps, poly::circle::{CanonicCoset, SecureEvaluation}};
 
-    #[test]
-    fn test_decompose() {
-        let domain_log_size = 22;
+    fn test_decompose_with_domain_log_size(domain_log_size: u32) {
         let size = 1 << domain_log_size;
         let coset = CanonicCoset::new(domain_log_size);
         let domain = coset.circle_domain();
@@ -177,5 +183,30 @@ mod tests{
         assert_eq!(g_values.values.columns[1].to_cpu(), expected_g_values.values.columns[1]);
         assert_eq!(g_values.values.columns[2].to_cpu(), expected_g_values.values.columns[2]);
         assert_eq!(g_values.values.columns[3].to_cpu(), expected_g_values.values.columns[3]);
+    }
+
+    #[test]
+    fn test_decompose_using_less_than_an_entire_block() {
+        test_decompose_with_domain_log_size(5);
+    }
+
+    #[test]
+    fn test_decompose_using_an_entire_block() {
+        test_decompose_with_domain_log_size(11);
+    }
+
+    #[test]
+    fn test_decompose_using_more_than_entire_block() {
+        test_decompose_with_domain_log_size(15);
+    }
+
+    #[test]
+    fn test_decompose_using_an_entire_block_for_results() {
+        test_decompose_with_domain_log_size(22);
+    }
+
+    #[test]
+    fn test_decompose_using_more_than_an_entire_block_for_results() {
+        test_decompose_with_domain_log_size(23);
     }
 }

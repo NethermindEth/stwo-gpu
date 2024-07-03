@@ -70,60 +70,48 @@ __device__ qm31 qm31_add(qm31 x, qm31 y) {
 
 ////////////
 
-
 extern "C"
-__global__ void sum(uint32_t *from, uint32_t* temp, uint32_t *results, int size) {
-    int idx = threadIdx.x;
-    from = &from[blockIdx.x * blockDim.x];
-    temp = &temp[blockIdx.x * blockDim.x];
-    int data_size = size;
-    size = min(size, 2048);
-    
-    temp[idx] = m31_sub(from[idx], from[idx + (data_size >> 1)]);
-    size >>= 1;
+__device__ void sum_reduce(uint32_t *list, uint32_t* temp_list, uint32_t *results, const uint32_t list_size, uint32_t (*first_reduce_operation)(uint32_t a, uint32_t b)) {
+    const uint32_t block_thread_index = threadIdx.x;
+    const uint32_t first_thread_in_block_index = blockIdx.x * blockDim.x;
+    const uint32_t grid_thread_index = first_thread_in_block_index + block_thread_index;
+    const uint32_t half_list_size = list_size >> 1;
 
-    __syncthreads();
+    if (grid_thread_index < half_list_size) {
+        uint32_t *list_to_sum_in_block = &temp_list[first_thread_in_block_index];
+        uint32_t &thread_result = list_to_sum_in_block[block_thread_index];
 
-    while(size > 1) {
-        if (idx < size) {
-            temp[idx] = m31_add(temp[idx], temp[idx + (size >> 1)]);
-        }
-        
+        thread_result = first_reduce_operation(
+            list[grid_thread_index],
+            list[grid_thread_index + half_list_size]);
+
         __syncthreads();
-    
-        size >>= 1;
-    }
 
-    if(threadIdx.x == 0) {
-        results[blockIdx.x] = temp[0];
+        uint32_t list_to_sum_in_block_half_size = min(half_list_size, blockDim.x) >> 1;
+        while(block_thread_index < list_to_sum_in_block_half_size) {
+            thread_result = m31_add(
+                thread_result, list_to_sum_in_block[block_thread_index + list_to_sum_in_block_half_size]);
+
+            __syncthreads();
+
+            list_to_sum_in_block_half_size >>= 1;
+        }
+
+        const bool is_first_thread_in_block = block_thread_index == 0;
+        if (is_first_thread_in_block) {
+            results[blockIdx.x] = thread_result;
+        }
     }
 }
 
 extern "C"
-__global__ void pairwise_sum(uint32_t *from, uint32_t* temp, uint32_t *result, int size) {
-    int idx = threadIdx.x;
-    from = &from[blockIdx.x * blockDim.x];
-    temp = &temp[blockIdx.x * blockDim.x];
-    size = min(size, 2048);
+__global__ void sum(uint32_t *list, uint32_t* temp_list, uint32_t *results, const uint32_t list_size) {
+    sum_reduce(list, temp_list, results, list_size, m31_sub);
+}
 
-    temp[idx] = m31_add(from[idx], from[idx + (size >> 1)]);
-    size >>= 1;
-
-    __syncthreads();
-
-    while(size > 1) {
-        if (idx < size) {
-            temp[idx] = m31_add(temp[idx], temp[idx + (size >> 1)]);
-        }
-        
-        __syncthreads();
-    
-        size >>= 1;
-    }
-
-    if(blockIdx.x == 0 && threadIdx.x == 0) {
-        result[0] = temp[0];
-    }
+extern "C"
+__global__ void pairwise_sum(uint32_t *list, uint32_t* temp_list, uint32_t *results, const uint32_t list_size) {
+    sum_reduce(list, temp_list, results, list_size, m31_add);
 }
 
 extern "C"
