@@ -166,7 +166,8 @@ pub fn fold_line(eval: &LineEvaluation<GpuBackend>, _alpha: SecureField) -> Line
 #[cfg(test)]
 mod tests{
     use itertools::Itertools;
-    use crate::core::{backend::{gpu::{fri::fold_line, GpuBackend}, Column, ColumnOps, CpuBackend}, circle::Coset, fields::{m31::BaseField, qm31::{SecureField, QM31}}, fri::FriOps, poly::{circle::{CanonicCoset, SecureEvaluation}, line::{LineDomain, LineEvaluation, LinePoly}}};
+    use std::iter::zip;
+    use crate::core::{backend::{gpu::{fri::fold_line, GpuBackend}, Column, ColumnOps, CpuBackend}, circle::Coset, fields::{m31::BaseField, qm31::{SecureField, QM31}, Field}, fri::FriOps, poly::{circle::{CanonicCoset, SecureEvaluation}, line::{LineDomain, LineEvaluation, LinePoly}}};
 
     fn test_decompose_with_domain_log_size(domain_log_size: u32) {
         let size = 1 << domain_log_size;
@@ -236,30 +237,27 @@ mod tests{
             .map(BaseField::from_u32_unchecked)
             .map(SecureField::from);
         let poly = LinePoly::new([even_coeffs, odd_coeffs].concat());
-        let _even_poly = LinePoly::new(even_coeffs.to_vec());
-        let _odd_poly = LinePoly::new(odd_coeffs.to_vec());
+        let even_poly = LinePoly::new(even_coeffs.to_vec());
+        let odd_poly = LinePoly::new(odd_coeffs.to_vec());
         let alpha = BaseField::from_u32_unchecked(19283).into();
         let domain = LineDomain::new(Coset::half_odds(DEGREE.ilog2()));
-        let _drp_domain = domain.double();
+        let drp_domain = domain.double();
         let mut values: Vec<SecureField>= domain
             .iter()
             .map(|p| poly.eval_at_point(p.into()))
             .collect();
-        // let mut values_in_gpu = SecureFieldCudaColumn::from_vec(values);
-        // GpuBackend::bit_reverse_column(&mut values_in_gpu);
         CpuBackend::bit_reverse_column(&mut values);
         let evals: LineEvaluation<GpuBackend> = LineEvaluation::new(domain, values.iter().copied().collect());
 
-        let _drp_evals = fold_line(&evals, alpha);
-        assert_eq!(1, 1);
-        // let mut drp_evals = drp_evals.values.into_iter().collect_vec();
-        // CpuBackend::bit_reverse_column(&mut drp_evals);
+        let drp_evals = fold_line(&evals, alpha);
+        let mut drp_evals = drp_evals.values.to_cpu().into_iter().collect_vec();
+        CpuBackend::bit_reverse_column(&mut drp_evals);
 
-        // assert_eq!(drp_evals.len(), DEGREE / 2);
-        // for (i, (&drp_eval, x)) in zip(&drp_evals, drp_domain).enumerate() {
-        //     let f_e: SecureField = even_poly.eval_at_point(x.into());
-        //     let f_o: SecureField = odd_poly.eval_at_point(x.into());
-        //     assert_eq!(drp_eval, (f_e + alpha * f_o).double(), "mismatch at {i}");
-        // }
+        assert_eq!(drp_evals.len(), DEGREE / 2);
+        for (i, (&drp_eval, x)) in zip(&drp_evals, drp_domain).enumerate() {
+            let f_e: SecureField = even_poly.eval_at_point(x.into());
+            let f_o: SecureField = odd_poly.eval_at_point(x.into());
+            assert_eq!(drp_eval, (f_e + alpha * f_o).double(), "mismatch at {i}");
+        }
     }
 }
