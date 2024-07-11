@@ -5,8 +5,8 @@ use cudarc::nvrtc::compile_ptx;
 
 use super::column::{BaseFieldCudaColumn};
 use super::{GpuBackend, DEVICE};
-use crate::core::backend::Column;
-use crate::core::fields::m31::M31;
+use crate::core::backend::{Column, ColumnOps};
+use crate::core::fields::m31::{BaseField, M31};
 use crate::core::fields::qm31::SecureField;
 use crate::core::fields::secure_column::SecureColumn;
 use crate::core::fri::FriOps;
@@ -165,7 +165,8 @@ pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, _alpha: SecureField) 
 
     let domain = eval.domain();
     let domain_as_vec: Vec<M31> = domain.into_iter().map(|x| x).collect();
-    let domain_as_column: BaseFieldCudaColumn = BaseFieldCudaColumn::from_vec(domain_as_vec);
+    let mut domain_as_column: <GpuBackend as ColumnOps<BaseField>>::Column = BaseFieldCudaColumn::from_vec(domain_as_vec);
+    <GpuBackend as ColumnOps<BaseField>>::bit_reverse_column(&mut domain_as_column);
 
     let launch_config = LaunchConfig::for_num_elems(domain.size() as u32 >> 1);
     let kernel = DEVICE.get_func("fri", "fold_line").unwrap();
@@ -184,6 +185,7 @@ pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, _alpha: SecureField) 
     kernel.launch(
         launch_config,
         (gpu_domain,
+            n,
             eval_values_0,
             eval_values_1,
             eval_values_2,

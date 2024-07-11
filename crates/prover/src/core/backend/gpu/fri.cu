@@ -131,6 +131,7 @@ __global__ void compute_g_values(uint32_t *f_values, uint32_t *results, uint32_t
 
 extern "C"
 __global__ void fold_line(uint32_t *domain,
+                uint32_t domain_length,
                 uint32_t *eval_values_0,
                 uint32_t *eval_values_1,
                 uint32_t *eval_values_2,
