@@ -75,7 +75,7 @@ impl GpuBackend {
         let mut partial_results: CudaSlice<M31> = DEVICE.alloc(0).unwrap();
         let mut amount_of_results: usize = 0;
 
-        launch_kernel("sum", column.as_slice(), column_size, &mut temp, &mut partial_results, &mut amount_of_results);
+        launch_kernel_for_sum("sum", column.as_slice(), column_size, &mut temp, &mut partial_results, &mut amount_of_results);
         
         if amount_of_results == 1 {
             return DEVICE.dtoh_sync_copy(&partial_results).unwrap()[0];
@@ -88,9 +88,9 @@ impl GpuBackend {
 
         while partial_sum_size > 1 && amount_of_results > 1 {
             if iteration_number_is_even {
-                launch_kernel("pairwise_sum", &partial_sum_list, partial_sum_size, &mut temp, &mut results, &mut amount_of_results);
+                launch_kernel_for_sum("pairwise_sum", &partial_sum_list, partial_sum_size, &mut temp, &mut results, &mut amount_of_results);
             } else {
-                launch_kernel("pairwise_sum", &results, amount_of_results, &mut temp, &mut partial_sum_list, &mut partial_sum_size);
+                launch_kernel_for_sum("pairwise_sum", &results, amount_of_results, &mut temp, &mut partial_sum_list, &mut partial_sum_size);
             }
             iteration_number_is_even = !iteration_number_is_even;
         }
@@ -126,7 +126,7 @@ impl GpuBackend {
     }
 }
 
-pub unsafe fn launch_kernel(function_name: &str, list: &CudaSlice<M31>, list_size: usize, temp: &mut CudaSlice<M31>, partial_results: &mut CudaSlice<M31>, amount_of_results: &mut usize) {
+pub unsafe fn launch_kernel_for_sum(function_name: &str, list: &CudaSlice<M31>, list_size: usize, temp: &mut CudaSlice<M31>, partial_results: &mut CudaSlice<M31>, amount_of_results: &mut usize) {
     let launch_config = LaunchConfig::for_num_elems(list_size as u32 >> 1);
     *amount_of_results = launch_config.grid_dim.0 as usize;
     *partial_results = DEVICE.alloc(*amount_of_results).unwrap();
