@@ -161,22 +161,40 @@ pub fn fold_line(eval: &LineEvaluation<GpuBackend>, _alpha: SecureField) -> Line
     // TODO: Copied from CPU. Optimize with GPU.
     let n = eval.len();
     assert!(n >= 2, "Evaluation too small");
+    let eval_values: &SecureColumn<GpuBackend> = &eval.values;
 
     let domain = eval.domain();
-    let domain_as_column: BaseFieldCudaColumn = BaseFieldCudaColumn::from_vec(domain.into_iter().map(|x| x).collect());
+    let domain_as_vec: Vec<M31> = domain.into_iter().map(|x| x).collect();
+    let domain_as_column: BaseFieldCudaColumn = BaseFieldCudaColumn::from_vec(domain_as_vec);
 
     let columns: [BaseFieldCudaColumn; 4] = [BaseFieldCudaColumn::from_vec(vec![M31::from_u32_unchecked(5)]), BaseFieldCudaColumn::from_vec(Vec::new()), BaseFieldCudaColumn::from_vec(Vec::new()), BaseFieldCudaColumn::from_vec(Vec::new())];
-    let folded_values: SecureColumn<GpuBackend> = SecureColumn { columns: columns };
-    
+    let folded_values: SecureColumn<GpuBackend> = SecureColumn { columns };
     unsafe {
         let launch_config = LaunchConfig::for_num_elems(domain.size() as u32 >> 1);
         let kernel = DEVICE.get_func("fri", "fold_line").unwrap();
 
-        let values: &CudaSlice<M31> = folded_values.columns[0].as_slice();
-        let domain_as_gpu_slice: &CudaSlice<M31> = domain_as_column.as_slice();
+        let eval_values_0 = eval_values.columns[0].as_slice();
+        let eval_values_1 = eval_values.columns[1].as_slice();
+        let eval_values_2 = eval_values.columns[2].as_slice();
+        let eval_values_3 = eval_values.columns[3].as_slice();
+
+        let gpu_folded_values_0: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
+        let gpu_folded_values_1: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
+        let gpu_folded_values_2: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
+        let gpu_folded_values_3: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
+
+        let gpu_domain: &CudaSlice<M31> = domain_as_column.as_slice();
         kernel.launch(
             launch_config,
-            (values, domain_as_gpu_slice)
+            (gpu_domain,
+                eval_values_0,
+                eval_values_1,
+                eval_values_2,
+                eval_values_3,
+                &gpu_folded_values_0,
+                &gpu_folded_values_1,
+                &gpu_folded_values_2,
+                &gpu_folded_values_3)
         ).unwrap();
         DEVICE.synchronize().unwrap();
     }
