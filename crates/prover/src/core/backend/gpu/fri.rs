@@ -9,6 +9,7 @@ use crate::core::backend::{Column, ColumnOps};
 use crate::core::fields::m31::{BaseField, M31};
 use crate::core::fields::qm31::SecureField;
 use crate::core::fields::secure_column::SecureColumn;
+use crate::core::fields::FieldExpOps;
 use crate::core::fri::FriOps;
 use crate::core::poly::circle::SecureEvaluation;
 use crate::core::poly::line::LineEvaluation;
@@ -157,14 +158,15 @@ pub fn load_fri(device: &Arc<CudaDevice>) {
         .unwrap();
 }
 
-pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, _alpha: SecureField) -> LineEvaluation<GpuBackend> {
+pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, alpha: SecureField) -> LineEvaluation<GpuBackend> {
     // TODO: Copied from CPU. Optimize with GPU.
     let n = eval.len();
     assert!(n >= 2, "Evaluation too small");
     let eval_values: &SecureColumn<GpuBackend> = &eval.values;
 
     let domain = eval.domain();
-    let domain_as_vec: Vec<M31> = domain.into_iter().map(|x| x).collect();
+    // ojo que domain tiene los x invertidos
+    let domain_as_vec: Vec<M31> = domain.into_iter().map(|x| x.inverse()).collect();
     let mut domain_as_column: <GpuBackend as ColumnOps<BaseField>>::Column = BaseFieldCudaColumn::from_vec(domain_as_vec);
     <GpuBackend as ColumnOps<BaseField>>::bit_reverse_column(&mut domain_as_column);
 
@@ -181,6 +183,8 @@ pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, _alpha: SecureField) 
     let folded_values_2: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
     let folded_values_3: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
 
+    let gpu_alpha: BaseFieldCudaColumn = BaseFieldCudaColumn::from_vec(vec![alpha.0.0, alpha.0.1, alpha.1.0, alpha.1.1]);
+
     let gpu_domain: &CudaSlice<M31> = domain_as_column.as_slice();
     kernel.launch(
         launch_config,
@@ -190,6 +194,7 @@ pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, _alpha: SecureField) 
             eval_values_1,
             eval_values_2,
             eval_values_3,
+            gpu_alpha.as_slice(),
             &folded_values_0,
             &folded_values_1,
             &folded_values_2,

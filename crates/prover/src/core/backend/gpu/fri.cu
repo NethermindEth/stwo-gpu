@@ -49,6 +49,10 @@ __device__ cm31 cm31_add(cm31 x, cm31 y) {
     return {m31_add(x.a, y.a), m31_add(x.b, y.b)};
 }
 
+__device__ cm31 cm31_sub(cm31 x, cm31 y) {
+    return {m31_sub(x.a, y.a), m31_sub(x.b, y.b)};
+}
+
 /*##### Q31 ##### */
 
 __device__ qm31 qm31_mul(qm31 x, qm31 y) {
@@ -66,6 +70,10 @@ __device__ qm31 qm31_mul(qm31 x, qm31 y) {
 
 __device__ qm31 qm31_add(qm31 x, qm31 y) {
     return {cm31_add(x.a, y.a), cm31_add(x.b, y.b)};
+}
+
+__device__ qm31 qm31_sub(qm31 x, qm31 y) {
+    return {cm31_sub(x.a, y.a), cm31_sub(x.b, y.b)};
 }
 
 ////////////
@@ -131,18 +139,40 @@ __global__ void compute_g_values(uint32_t *f_values, uint32_t *results, uint32_t
 
 extern "C"
 __global__ void fold_line(uint32_t *domain,
-                uint32_t domain_length,
-                uint32_t *eval_values_0,
-                uint32_t *eval_values_1,
-                uint32_t *eval_values_2,
-                uint32_t *eval_values_3,
-                uint32_t *folded_values_0,
-                uint32_t *folded_values_1,
-                uint32_t *folded_values_2,
-                uint32_t *folded_values_3) {
-    if (threadIdx.x == 0) {
-        printf("Hola %d\n", eval_values_0[0]);
-        for (int i = 0; i < 8; i++)
-            printf("GPU %d\n", domain[i]);
+                        uint32_t domain_length,
+                        uint32_t *eval_values_0,
+                        uint32_t *eval_values_1,
+                        uint32_t *eval_values_2,
+                        uint32_t *eval_values_3,
+                        uint32_t *alpha,
+                        uint32_t *folded_values_0,
+                        uint32_t *folded_values_1,
+                        uint32_t *folded_values_2,
+                        uint32_t *folded_values_3) {
+    if (blockIdx.x == 0) {
+        // TODO: must support list with length bigger than 2^10
+        uint32_t i = threadIdx.x * 2;
+        if (i < domain_length / 2) {
+            qm31 f_x = {{eval_values_0[i], eval_values_1[i]}, {eval_values_2[i], eval_values_3[i]}};
+            qm31 f_x_minus = {{eval_values_0[i+1], eval_values_1[i+1]}, {eval_values_2[i+1], eval_values_3[i+1]}};
+            uint32_t x_inverse = domain[i];
+
+            qm31 f_0 = qm31_add(f_x, f_x_minus);
+            qm31 f_1_dot_x = qm31_sub(f_x, f_x_minus);
+            qm31 f_1 = {
+                f_1_dot_x.a.a * x_inverse,
+                f_1_dot_x.a.b * x_inverse,
+                f_1_dot_x.b.a * x_inverse,
+                f_1_dot_x.b.b * x_inverse,
+            };
+
+            qm31 alpha_qm31 = {{alpha[0], alpha[1]}, {alpha[2], alpha[3]}};
+            qm31 f_prime = qm31_add(f_0, qm31_mul(alpha_qm31, f_1));
+            
+            folded_values_0[i] = f_prime.a.a;
+            folded_values_1[i] = f_prime.a.b;
+            folded_values_2[i] = f_prime.b.a;
+            folded_values_3[i] = f_prime.b.b;
+        }
     }
 }
