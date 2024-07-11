@@ -167,8 +167,6 @@ pub fn fold_line(eval: &LineEvaluation<GpuBackend>, _alpha: SecureField) -> Line
     let domain_as_vec: Vec<M31> = domain.into_iter().map(|x| x).collect();
     let domain_as_column: BaseFieldCudaColumn = BaseFieldCudaColumn::from_vec(domain_as_vec);
 
-    let columns: [BaseFieldCudaColumn; 4] = [BaseFieldCudaColumn::from_vec(vec![M31::from_u32_unchecked(5)]), BaseFieldCudaColumn::from_vec(Vec::new()), BaseFieldCudaColumn::from_vec(Vec::new()), BaseFieldCudaColumn::from_vec(Vec::new())];
-    let folded_values: SecureColumn<GpuBackend> = SecureColumn { columns };
     unsafe {
         let launch_config = LaunchConfig::for_num_elems(domain.size() as u32 >> 1);
         let kernel = DEVICE.get_func("fri", "fold_line").unwrap();
@@ -199,6 +197,8 @@ pub fn fold_line(eval: &LineEvaluation<GpuBackend>, _alpha: SecureField) -> Line
         DEVICE.synchronize().unwrap();
     }
 
+    let columns: [BaseFieldCudaColumn; 4] = [BaseFieldCudaColumn::from_vec(vec![M31::from_u32_unchecked(5)]), BaseFieldCudaColumn::from_vec(Vec::new()), BaseFieldCudaColumn::from_vec(Vec::new()), BaseFieldCudaColumn::from_vec(Vec::new())];
+    let folded_values: SecureColumn<GpuBackend> = SecureColumn { columns };
     LineEvaluation::new(domain.double(), folded_values)
 }
 
