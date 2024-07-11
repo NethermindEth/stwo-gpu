@@ -140,7 +140,7 @@ __global__ void fold_line(uint32_t *domain,
                 uint32_t *folded_values_2,
                 uint32_t *folded_values_3) {
     if (threadIdx.x == 0) {
-        printf("Hola %d\n", folded_values[0]);
+        printf("Hola %d\n", eval_values_0[0]);
         for (int i = 0; i < 8; i++)
             printf("GPU %d\n", domain[i]);
     }

@@ -36,7 +36,7 @@ impl FriOps for GpuBackend {
         let columns = &eval.columns;
 
         let lambda = unsafe {
-           let a = Self::sum(&columns[0]);
+           let a: M31 = Self::sum(&columns[0]);
            let b = Self::sum(&columns[1]);
            let c = Self::sum(&columns[2]);
            let d = Self::sum(&columns[3]);
@@ -157,7 +157,7 @@ pub fn load_fri(device: &Arc<CudaDevice>) {
         .unwrap();
 }
 
-pub fn fold_line(eval: &LineEvaluation<GpuBackend>, _alpha: SecureField) -> LineEvaluation<GpuBackend> {
+pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, _alpha: SecureField) -> LineEvaluation<GpuBackend> {
     // TODO: Copied from CPU. Optimize with GPU.
     let n = eval.len();
     assert!(n >= 2, "Evaluation too small");
@@ -167,37 +167,38 @@ pub fn fold_line(eval: &LineEvaluation<GpuBackend>, _alpha: SecureField) -> Line
     let domain_as_vec: Vec<M31> = domain.into_iter().map(|x| x).collect();
     let domain_as_column: BaseFieldCudaColumn = BaseFieldCudaColumn::from_vec(domain_as_vec);
 
-    unsafe {
-        let launch_config = LaunchConfig::for_num_elems(domain.size() as u32 >> 1);
-        let kernel = DEVICE.get_func("fri", "fold_line").unwrap();
+    let launch_config = LaunchConfig::for_num_elems(domain.size() as u32 >> 1);
+    let kernel = DEVICE.get_func("fri", "fold_line").unwrap();
 
-        let eval_values_0 = eval_values.columns[0].as_slice();
-        let eval_values_1 = eval_values.columns[1].as_slice();
-        let eval_values_2 = eval_values.columns[2].as_slice();
-        let eval_values_3 = eval_values.columns[3].as_slice();
+    let eval_values_0 = eval_values.columns[0].as_slice();
+    let eval_values_1 = eval_values.columns[1].as_slice();
+    let eval_values_2 = eval_values.columns[2].as_slice();
+    let eval_values_3 = eval_values.columns[3].as_slice();
 
-        let gpu_folded_values_0: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
-        let gpu_folded_values_1: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
-        let gpu_folded_values_2: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
-        let gpu_folded_values_3: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
+    let folded_values_0: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
+    let folded_values_1: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
+    let folded_values_2: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
+    let folded_values_3: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
 
-        let gpu_domain: &CudaSlice<M31> = domain_as_column.as_slice();
-        kernel.launch(
-            launch_config,
-            (gpu_domain,
-                eval_values_0,
-                eval_values_1,
-                eval_values_2,
-                eval_values_3,
-                &gpu_folded_values_0,
-                &gpu_folded_values_1,
-                &gpu_folded_values_2,
-                &gpu_folded_values_3)
-        ).unwrap();
-        DEVICE.synchronize().unwrap();
-    }
+    let gpu_domain: &CudaSlice<M31> = domain_as_column.as_slice();
+    kernel.launch(
+        launch_config,
+        (gpu_domain,
+            eval_values_0,
+            eval_values_1,
+            eval_values_2,
+            eval_values_3,
+            &folded_values_0,
+            &folded_values_1,
+            &folded_values_2,
+            &folded_values_3)
+    ).unwrap();
+    DEVICE.synchronize().unwrap();
 
-    let columns: [BaseFieldCudaColumn; 4] = [BaseFieldCudaColumn::from_vec(vec![M31::from_u32_unchecked(5)]), BaseFieldCudaColumn::from_vec(Vec::new()), BaseFieldCudaColumn::from_vec(Vec::new()), BaseFieldCudaColumn::from_vec(Vec::new())];
+    let columns: [BaseFieldCudaColumn; 4] = [BaseFieldCudaColumn::new(folded_values_0),
+                                            BaseFieldCudaColumn::new(folded_values_1),
+                                            BaseFieldCudaColumn::new(folded_values_2),
+                                            BaseFieldCudaColumn::new(folded_values_3)];
     let folded_values: SecureColumn<GpuBackend> = SecureColumn { columns };
     LineEvaluation::new(domain.double(), folded_values)
 }
@@ -289,7 +290,7 @@ mod tests{
         CpuBackend::bit_reverse_column(&mut values);
         let evals: LineEvaluation<GpuBackend> = LineEvaluation::new(domain, values.iter().copied().collect());
 
-        let drp_evals = fold_line(&evals, alpha);
+        let drp_evals = unsafe { fold_line(&evals, alpha) };
         let mut drp_evals = drp_evals.values.to_cpu().into_iter().collect_vec();
         CpuBackend::bit_reverse_column(&mut drp_evals);
 
