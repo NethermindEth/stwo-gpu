@@ -6,16 +6,13 @@ use cudarc::nvrtc::compile_ptx;
 use super::column::{BaseFieldCudaColumn};
 use super::{GpuBackend, DEVICE};
 use crate::core::backend::Column;
-use crate::core::fft::ibutterfly;
 use crate::core::fields::m31::M31;
 use crate::core::fields::qm31::SecureField;
 use crate::core::fields::secure_column::SecureColumn;
-use crate::core::fields::FieldExpOps;
-use crate::core::fri::{FriOps, FOLD_STEP};
+use crate::core::fri::FriOps;
 use crate::core::poly::circle::SecureEvaluation;
 use crate::core::poly::line::LineEvaluation;
 use crate::core::poly::twiddles::TwiddleTree;
-use crate::core::utils::bit_reverse_index;
 
 impl FriOps for GpuBackend {
     fn fold_line(
@@ -159,28 +156,27 @@ pub fn load_fri(device: &Arc<CudaDevice>) {
         .unwrap();
 }
 
-pub fn fold_line(eval: &LineEvaluation<GpuBackend>, alpha: SecureField) -> LineEvaluation<GpuBackend> {
+pub fn fold_line(eval: &LineEvaluation<GpuBackend>, _alpha: SecureField) -> LineEvaluation<GpuBackend> {
     // TODO: Copied from CPU. Optimize with GPU.
     let n = eval.len();
     assert!(n >= 2, "Evaluation too small");
 
     let domain = eval.domain();
 
-    let folded_values = eval
-        .values
-        .to_cpu()
-        .into_iter()
-        .array_chunks()
-        .enumerate()
-        .map(|(i, [f_x, f_neg_x])| {
-            // TODO(andrew): Inefficient. Update when domain twiddles get stored in a buffer.
-            let x = domain.at(bit_reverse_index(i << FOLD_STEP, domain.log_size()));
+    let columns: [BaseFieldCudaColumn; 4] = [BaseFieldCudaColumn::from_vec(Vec::new()), BaseFieldCudaColumn::from_vec(Vec::new()), BaseFieldCudaColumn::from_vec(Vec::new()), BaseFieldCudaColumn::from_vec(Vec::new())];
+    let folded_values: SecureColumn<GpuBackend> = SecureColumn { columns: columns };
+    
+    unsafe {
+        let launch_config = LaunchConfig::for_num_elems(domain.size() as u32 >> 1);
+        let kernel = DEVICE.get_func("fri", "fold_line").unwrap();
 
-            let (mut f0, mut f1) = (f_x, f_neg_x);
-            ibutterfly(&mut f0, &mut f1, x.inverse());
-            f0 + alpha * f1
-        })
-        .collect();
+        let values: &CudaSlice<M31> = folded_values.columns[0].as_slice();
+        kernel.launch(
+            launch_config, 
+            (values, )
+        ).unwrap();
+        DEVICE.synchronize().unwrap();
+    }
 
     LineEvaluation::new(domain.double(), folded_values)
 }
