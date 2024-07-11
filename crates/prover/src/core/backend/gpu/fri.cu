@@ -128,3 +128,10 @@ __global__ void compute_g_values(uint32_t *f_values, uint32_t *results, uint32_t
         }
     }
 }
+
+extern "C"
+__global__ void fold_line(uint32_t *folded_values, uint32_t *domain) {
+    if (threadIdx.x == 0) {
+        printf("Hola %d\n", folded_values[0]);
+    }
+}

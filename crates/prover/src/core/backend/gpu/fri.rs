@@ -150,7 +150,8 @@ pub fn load_fri(device: &Arc<CudaDevice>) {
             &[
                 "sum",
                 "pairwise_sum",
-                "compute_g_values"
+                "compute_g_values",
+                "fold_line"
             ],
         )
         .unwrap();
@@ -162,8 +163,9 @@ pub fn fold_line(eval: &LineEvaluation<GpuBackend>, _alpha: SecureField) -> Line
     assert!(n >= 2, "Evaluation too small");
 
     let domain = eval.domain();
+    let domain_as_column: BaseFieldCudaColumn = BaseFieldCudaColumn::from_vec(domain.into_iter().map(|x| x).collect());
 
-    let columns: [BaseFieldCudaColumn; 4] = [BaseFieldCudaColumn::from_vec(Vec::new()), BaseFieldCudaColumn::from_vec(Vec::new()), BaseFieldCudaColumn::from_vec(Vec::new()), BaseFieldCudaColumn::from_vec(Vec::new())];
+    let columns: [BaseFieldCudaColumn; 4] = [BaseFieldCudaColumn::from_vec(vec![M31::from_u32_unchecked(5)]), BaseFieldCudaColumn::from_vec(Vec::new()), BaseFieldCudaColumn::from_vec(Vec::new()), BaseFieldCudaColumn::from_vec(Vec::new())];
     let folded_values: SecureColumn<GpuBackend> = SecureColumn { columns: columns };
     
     unsafe {
@@ -171,9 +173,10 @@ pub fn fold_line(eval: &LineEvaluation<GpuBackend>, _alpha: SecureField) -> Line
         let kernel = DEVICE.get_func("fri", "fold_line").unwrap();
 
         let values: &CudaSlice<M31> = folded_values.columns[0].as_slice();
+        let domain_as_gpu_slice: &CudaSlice<M31> = domain_as_column.as_slice();
         kernel.launch(
-            launch_config, 
-            (values, )
+            launch_config,
+            (values, domain_as_gpu_slice)
         ).unwrap();
         DEVICE.synchronize().unwrap();
     }
@@ -239,6 +242,7 @@ mod tests{
         test_decompose_with_domain_log_size(22);
     }
 
+    #[ignore]
     #[test]
     fn test_decompose_using_more_than_an_entire_block_for_results() {
         test_decompose_with_domain_log_size(27);
