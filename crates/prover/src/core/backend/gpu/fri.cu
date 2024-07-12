@@ -153,8 +153,6 @@ __global__ void fold_line(uint32_t *domain,
         // TODO: must support list with length bigger than 2^10
         uint32_t i = threadIdx.x;
         if (i < n / 2) {
-            // #eval_values_k = n
-            // #domain = n
             uint32_t index_left = 2*i;
             uint32_t index_right = index_left+1;
             
@@ -171,16 +169,14 @@ __global__ void fold_line(uint32_t *domain,
             qm31 f_0 = qm31_add(f_x, f_x_minus);
             qm31 f_1_dot_x = qm31_sub(f_x, f_x_minus);
             qm31 f_1 = {
-                f_1_dot_x.a.a * x_inverse,
-                f_1_dot_x.a.b * x_inverse,
-                f_1_dot_x.b.a * x_inverse,
-                f_1_dot_x.b.b * x_inverse,
+                m31_mul(f_1_dot_x.a.a, x_inverse),
+                m31_mul(f_1_dot_x.a.b, x_inverse),
+                m31_mul(f_1_dot_x.b.a, x_inverse),
+                m31_mul(f_1_dot_x.b.b, x_inverse),
             };
 
             qm31 f_prime = qm31_add(f_0, qm31_mul(alpha, f_1));
-            
-            printf("thread: %d\tf_x: %d %d %d %d\tf -x: %d %d %d %d\n",
-                threadIdx.x, f_x.a.a, f_x.a.b, f_x.b.a, f_x.b.b, f_x_minus.a.a, f_x_minus.a.b, f_x_minus.b.a, f_x_minus.b.b);
+
             folded_values_0[i] = f_prime.a.a;
             folded_values_1[i] = f_prime.a.b;
             folded_values_2[i] = f_prime.b.a;
