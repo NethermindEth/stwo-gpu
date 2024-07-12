@@ -167,8 +167,7 @@ pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, alpha: SecureField) -
     let domain = eval.domain();
     // ojo que domain tiene los x invertidos
     let domain_as_vec: Vec<M31> = domain.into_iter().map(|x| x.inverse()).collect();
-    let mut domain_as_column: <GpuBackend as ColumnOps<BaseField>>::Column = BaseFieldCudaColumn::from_vec(domain_as_vec);
-    <GpuBackend as ColumnOps<BaseField>>::bit_reverse_column(&mut domain_as_column);
+    let domain_as_column: <GpuBackend as ColumnOps<BaseField>>::Column = BaseFieldCudaColumn::from_vec(domain_as_vec);
 
     let launch_config = LaunchConfig::for_num_elems(domain.size() as u32 >> 1);
     let kernel = DEVICE.get_func("fri", "fold_line").unwrap();
@@ -183,7 +182,6 @@ pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, alpha: SecureField) -
     let folded_values_2: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
     let folded_values_3: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
 
-    let gpu_alpha: BaseFieldCudaColumn = BaseFieldCudaColumn::from_vec(vec![alpha.0.0, alpha.0.1, alpha.1.0, alpha.1.1]);
 
     let gpu_domain: &CudaSlice<M31> = domain_as_column.as_slice();
     kernel.launch(
@@ -194,7 +192,7 @@ pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, alpha: SecureField) -
             eval_values_1,
             eval_values_2,
             eval_values_3,
-            gpu_alpha.as_slice(),
+            alpha,
             &folded_values_0,
             &folded_values_1,
             &folded_values_2,
@@ -214,7 +212,7 @@ pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, alpha: SecureField) -
 mod tests{
     use itertools::Itertools;
     use std::iter::zip;
-    use crate::core::{backend::{gpu::{fri::fold_line, GpuBackend}, Column, ColumnOps, CpuBackend}, circle::Coset, fields::{m31::BaseField, qm31::{SecureField, QM31}, Field}, fri::FriOps, poly::{circle::{CanonicCoset, SecureEvaluation}, line::{LineDomain, LineEvaluation, LinePoly}}};
+    use crate::core::{backend::{gpu::{fri::fold_line, GpuBackend, DEVICE}, Column, ColumnOps, CpuBackend}, circle::Coset, fields::{m31::BaseField, qm31::{SecureField, QM31}, Field}, fri::FriOps, poly::{circle::{CanonicCoset, SecureEvaluation}, line::{LineDomain, LineEvaluation, LinePoly}}};
 
     fn test_decompose_with_domain_log_size(domain_log_size: u32) {
         let size = 1 << domain_log_size;
@@ -305,6 +303,9 @@ mod tests{
         for (i, (&drp_eval, x)) in zip(&drp_evals, drp_domain).enumerate() {
             let f_e: SecureField = even_poly.eval_at_point(x.into());
             let f_o: SecureField = odd_poly.eval_at_point(x.into());
+
+            let f_x = DEVICE.dtoh(evals.values.columns[0]).;
+            println!("f_x: {:?}    f -x: {:?}", evals.values.columns[0], );
             assert_eq!(drp_eval, (f_e + alpha * f_o).double(), "mismatch at {i}");
         }
     }

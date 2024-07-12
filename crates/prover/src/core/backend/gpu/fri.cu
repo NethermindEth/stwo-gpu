@@ -139,22 +139,33 @@ __global__ void compute_g_values(uint32_t *f_values, uint32_t *results, uint32_t
 
 extern "C"
 __global__ void fold_line(uint32_t *domain,
-                        uint32_t domain_length,
+                        uint32_t n,
                         uint32_t *eval_values_0,
                         uint32_t *eval_values_1,
                         uint32_t *eval_values_2,
                         uint32_t *eval_values_3,
-                        uint32_t *alpha,
+                        qm31 alpha,
                         uint32_t *folded_values_0,
                         uint32_t *folded_values_1,
                         uint32_t *folded_values_2,
                         uint32_t *folded_values_3) {
     if (blockIdx.x == 0) {
         // TODO: must support list with length bigger than 2^10
-        uint32_t i = threadIdx.x * 2;
-        if (i < domain_length / 2) {
-            qm31 f_x = {{eval_values_0[i], eval_values_1[i]}, {eval_values_2[i], eval_values_3[i]}};
-            qm31 f_x_minus = {{eval_values_0[i+1], eval_values_1[i+1]}, {eval_values_2[i+1], eval_values_3[i+1]}};
+        uint32_t i = threadIdx.x;
+        if (i < n / 2) {
+            // #eval_values_k = n
+            // #domain = n
+            uint32_t index_left = 2*i;
+            uint32_t index_right = index_left+1;
+            
+            qm31 f_x = {{eval_values_0[index_left],
+                         eval_values_1[index_left]},
+                        {eval_values_2[index_left],
+                         eval_values_3[index_left]}};
+            qm31 f_x_minus = {{eval_values_0[index_right],
+                               eval_values_1[index_right]},
+                              {eval_values_2[index_right],
+                               eval_values_3[index_right]}};
             uint32_t x_inverse = domain[i];
 
             qm31 f_0 = qm31_add(f_x, f_x_minus);
@@ -166,9 +177,10 @@ __global__ void fold_line(uint32_t *domain,
                 f_1_dot_x.b.b * x_inverse,
             };
 
-            qm31 alpha_qm31 = {{alpha[0], alpha[1]}, {alpha[2], alpha[3]}};
-            qm31 f_prime = qm31_add(f_0, qm31_mul(alpha_qm31, f_1));
+            qm31 f_prime = qm31_add(f_0, qm31_mul(alpha, f_1));
             
+            printf("thread: %d\tf_x: %d %d %d %d\tf -x: %d %d %d %d\n",
+                threadIdx.x, f_x.a.a, f_x.a.b, f_x.b.a, f_x.b.b, f_x_minus.a.a, f_x_minus.a.b, f_x_minus.b.a, f_x_minus.b.b);
             folded_values_0[i] = f_prime.a.a;
             folded_values_1[i] = f_prime.a.b;
             folded_values_2[i] = f_prime.b.a;
