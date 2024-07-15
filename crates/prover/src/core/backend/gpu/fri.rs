@@ -177,7 +177,7 @@ pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, alpha: SecureField, t
     let twiddle_offset: usize = twiddles_size - (1 << remaining_folds);
     let gpu_domain: &CudaSlice<M31> = twiddles.itwiddles.as_slice();
 
-    let launch_config = LaunchConfig::for_num_elems(eval.len() as u32 >> 1);
+    let launch_config = LaunchConfig::for_num_elems(n as u32 >> 1);
     let kernel = DEVICE.get_func("fri", "fold_line").unwrap();
 
     kernel.launch(
@@ -206,6 +206,8 @@ pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, alpha: SecureField, t
     let folded_values: SecureColumn<GpuBackend> = SecureColumn { columns };
     LineEvaluation::new(eval.domain().double(), folded_values)
 }
+
+
 
 #[cfg(test)]
 mod tests{
@@ -310,7 +312,7 @@ mod tests{
 
     #[test]
     fn test_fold_line_compared_with_cpu() {
-        const LOG_SIZE: u32 = 11;
+        const LOG_SIZE: u32 = 13;
         let mut rng = SmallRng::seed_from_u64(0);
         let values = (0..1 << LOG_SIZE).map(|_| rng.gen()).collect_vec();
         let alpha = qm31!(1, 3, 5, 7);
@@ -332,7 +334,7 @@ mod tests{
 
     #[test]
     fn test_fold_line_more_than_once() {
-        const LOG_SIZE: u32 = 10;
+        const LOG_SIZE: u32 = 13;
         let mut rng = SmallRng::seed_from_u64(0);
         let values = (0..1 << LOG_SIZE).map(|_| rng.gen()).collect_vec();
         let alpha = qm31!(1, 3, 5, 7);
