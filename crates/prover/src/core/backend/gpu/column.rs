@@ -4,6 +4,7 @@ use cudarc::driver::{CudaDevice, CudaSlice, DeviceSlice, LaunchAsync};
 use cudarc::nvrtc::compile_ptx;
 use itertools::izip;
 use itertools::Itertools;
+use num_traits::Zero;
 
 use super::{GpuBackend, DEVICE};
 use crate::core::backend::{Column, CpuBackend};
@@ -89,8 +90,10 @@ impl FromIterator<BaseField> for BaseFieldCudaColumn {
 }
 
 impl Column<BaseField> for BaseFieldCudaColumn {
-    fn zeros(_len: usize) -> Self {
-        todo!()
+    fn zeros(len: usize) -> Self {
+        // TODO: optimize
+        let zeroes_vec = vec![BaseField::zero(); len];
+        Self::from_vec(zeroes_vec)
     }
 
     fn to_cpu(&self) -> Vec<BaseField> {

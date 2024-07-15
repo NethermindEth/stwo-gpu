@@ -6,13 +6,16 @@ use cudarc::nvrtc::compile_ptx;
 use super::column::BaseFieldCudaColumn;
 use super::{GpuBackend, DEVICE};
 use crate::core::backend::Column;
+use crate::core::fft::ibutterfly;
 use crate::core::fields::m31::M31;
 use crate::core::fields::qm31::SecureField;
 use crate::core::fields::secure_column::SecureColumn;
-use crate::core::fri::FriOps;
+use crate::core::fields::FieldExpOps;
+use crate::core::fri::{FriOps, CIRCLE_TO_LINE_FOLD_STEP};
 use crate::core::poly::circle::SecureEvaluation;
 use crate::core::poly::line::LineEvaluation;
 use crate::core::poly::twiddles::TwiddleTree;
+use crate::core::utils::bit_reverse_index;
 
 impl FriOps for GpuBackend {
     fn fold_line(
@@ -24,12 +27,12 @@ impl FriOps for GpuBackend {
     }
 
     fn fold_circle_into_line(
-        _dst: &mut LineEvaluation<GpuBackend>,
-        _src: &SecureEvaluation<Self>,
-        _alpha: SecureField,
-        _twiddles: &TwiddleTree<Self>,
+        dst: &mut LineEvaluation<GpuBackend>,
+        src: &SecureEvaluation<Self>,
+        alpha: SecureField,
+        twiddles: &TwiddleTree<Self>,
     ) {
-        todo!()
+        fold_circle_into_line(dst, src, alpha, twiddles)
     }
 
     fn decompose(eval: &SecureEvaluation<Self>) -> (SecureEvaluation<Self>, SecureField) {
@@ -207,6 +210,39 @@ pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, alpha: SecureField, t
     LineEvaluation::new(eval.domain().double(), folded_values)
 }
 
+pub fn fold_circle_into_line (dst: &mut LineEvaluation<GpuBackend>, src: &SecureEvaluation<GpuBackend>, alpha: SecureField, _twiddles: &TwiddleTree<GpuBackend>) {
+    assert_eq!(src.len() >> CIRCLE_TO_LINE_FOLD_STEP, dst.len());
+
+    let domain = src.domain;
+    let alpha_sq = alpha * alpha;
+
+    let mut cpu_dst = dst.to_cpu();
+
+    src.to_cpu().into_iter()
+        .array_chunks()
+        .enumerate()
+        .for_each(|(i, [f_p, f_neg_p])| {
+            let p = domain.at(bit_reverse_index(
+                i << CIRCLE_TO_LINE_FOLD_STEP,
+                domain.log_size(),
+            ));
+
+            let (mut f0_px, mut f1_px) = (f_p, f_neg_p);
+            ibutterfly(&mut f0_px, &mut f1_px, p.y.inverse());
+            let f_prime = alpha * f1_px + f0_px;
+
+            cpu_dst.values.set(i, cpu_dst.values.at(i) * alpha_sq + f_prime);
+        });
+    
+
+    let columns: [BaseFieldCudaColumn; 4] = [BaseFieldCudaColumn::from_vec(cpu_dst.values.columns[0].clone()),
+                                                BaseFieldCudaColumn::from_vec(cpu_dst.values.columns[1].clone()),
+                                                BaseFieldCudaColumn::from_vec(cpu_dst.values.columns[2].clone()),
+                                                BaseFieldCudaColumn::from_vec(cpu_dst.values.columns[3].clone())];
+    let gpu_dst_values: SecureColumn<GpuBackend> = SecureColumn { columns };
+    dst.values = gpu_dst_values;
+}
+
 
 
 #[cfg(test)]
@@ -215,7 +251,7 @@ mod tests{
 
     use itertools::Itertools;
     use rand::{rngs::SmallRng, Rng, SeedableRng};
-    use crate::{core::{backend::{gpu::{fri::fold_line, GpuBackend}, Column, ColumnOps, CpuBackend}, circle::Coset, fields::{m31::BaseField, qm31::{SecureField, QM31}, Field}, fri::FriOps, poly::{circle::{CanonicCoset, PolyOps, SecureEvaluation}, line::{LineDomain, LineEvaluation, LinePoly}}}, qm31};
+    use crate::{core::{backend::{gpu::{fri::fold_line, GpuBackend}, Column, ColumnOps, CpuBackend}, circle::Coset, fields::{m31::BaseField, qm31::{SecureField, QM31}, secure_column::SecureColumn, Field}, fri::FriOps, poly::{circle::{CanonicCoset, PolyOps, SecureEvaluation}, line::{LineDomain, LineEvaluation, LinePoly}}}, qm31};
 
     fn test_decompose_with_domain_log_size(domain_log_size: u32) {
         let size = 1 << domain_log_size;
@@ -372,5 +408,41 @@ mod tests{
         );
 
         assert_eq!(third_cpu_fold.values.to_vec(), third_gpu_fold.values.to_vec());
+    }
+
+    #[test]
+    fn test_fold_circle_into_line_compared_with_cpu() {
+        const LOG_SIZE: u32 = 7;
+        let values: Vec<SecureField> = (0..(1 << LOG_SIZE))
+            .map(|i| qm31!(4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3))
+            .collect();
+        let alpha = qm31!(1, 3, 5, 7);
+        let circle_domain = CanonicCoset::new(LOG_SIZE).circle_domain();
+        let line_domain = LineDomain::new(circle_domain.half_coset);
+        let mut cpu_fold =
+            LineEvaluation::new(line_domain, SecureColumn::zeros(1 << (LOG_SIZE - 1)));
+        CpuBackend::fold_circle_into_line(
+            &mut cpu_fold,
+            &SecureEvaluation {
+                domain: circle_domain,
+                values: values.iter().copied().collect(),
+            },
+            alpha,
+            &CpuBackend::precompute_twiddles(line_domain.coset()),
+        );
+
+        let mut simd_fold =
+            LineEvaluation::new(line_domain, SecureColumn::zeros(1 << (LOG_SIZE - 1)));
+        GpuBackend::fold_circle_into_line(
+            &mut simd_fold,
+            &SecureEvaluation {
+                domain: circle_domain,
+                values: values.iter().copied().collect(),
+            },
+            alpha,
+            &GpuBackend::precompute_twiddles(line_domain.coset()),
+        );
+
+        assert_eq!(cpu_fold.values.to_vec(), simd_fold.values.to_vec());
     }
 }
