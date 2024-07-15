@@ -348,8 +348,8 @@ mod tests{
     }
 
     #[test]
-    fn test_fold_line_twice() {
-        const LOG_SIZE: u32 = 4;
+    fn test_fold_line_more_than_once() {
+        const LOG_SIZE: u32 = 10;
         let mut rng = SmallRng::seed_from_u64(0);
         let values = (0..1 << LOG_SIZE).map(|_| rng.gen()).collect_vec();
         let alpha = qm31!(1, 3, 5, 7);
@@ -364,6 +364,11 @@ mod tests{
             alpha,
             &CpuBackend::precompute_twiddles(domain.coset()),
         );
+        let third_cpu_fold = CpuBackend::fold_line(
+            &second_cpu_fold,
+            alpha,
+            &CpuBackend::precompute_twiddles(domain.coset()),
+        );
 
         let first_gpu_fold = GpuBackend::fold_line(
             &LineEvaluation::new(domain, values.iter().copied().collect()),
@@ -375,7 +380,12 @@ mod tests{
             alpha,
             &GpuBackend::precompute_twiddles(domain.coset()),
         );
+        let third_gpu_fold = GpuBackend::fold_line(
+            &second_gpu_fold,
+            alpha,
+            &GpuBackend::precompute_twiddles(domain.coset()),
+        );
 
-        assert_eq!(second_cpu_fold.values.to_vec(), second_gpu_fold.values.to_vec());
+        assert_eq!(third_cpu_fold.values.to_vec(), third_gpu_fold.values.to_vec());
     }
 }
