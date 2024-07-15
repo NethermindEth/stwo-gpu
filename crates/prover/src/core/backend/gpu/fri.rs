@@ -9,7 +9,6 @@ use crate::core::backend::Column;
 use crate::core::fields::m31::M31;
 use crate::core::fields::qm31::SecureField;
 use crate::core::fields::secure_column::SecureColumn;
-use crate::core::fields::FieldExpOps;
 use crate::core::fri::FriOps;
 use crate::core::poly::circle::SecureEvaluation;
 use crate::core::poly::line::LineEvaluation;
@@ -189,13 +188,6 @@ pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, alpha: SecureField, t
     let twiddles_size = twiddles.itwiddles.len();
     let twiddle_offset: usize = twiddles_size - (1 << remaining_folds);
     let gpu_domain: &CudaSlice<M31> = twiddles.itwiddles.as_slice();
-
-    // TODO: DO NOT COMMIT
-    let domain = eval.domain();
-    let domain_as_vec: Vec<M31> = domain.into_iter().map(|x| x.inverse()).collect();
-    let gpu_domain_as_vec: Vec<M31> = (0..n).map(|i| DEVICE.dtoh_sync_copy(gpu_domain).unwrap()[i]).collect();
-    println!("TWIDDLES: {:?}", gpu_domain_as_vec);  // Bit-reversed.
-    println!("DOMAIN: {:?}", domain_as_vec);  // Not bit-reversed.
 
     kernel.launch(
         launch_config,
