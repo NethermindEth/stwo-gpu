@@ -162,9 +162,6 @@ pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, alpha: SecureField, t
     assert!(n >= 2, "Evaluation too small");
     let eval_values: &SecureColumn<GpuBackend> = &eval.values;
 
-    let launch_config = LaunchConfig::for_num_elems(eval.len() as u32 >> 1);
-    let kernel = DEVICE.get_func("fri", "fold_line").unwrap();
-
     let eval_values_0 = eval_values.columns[0].as_slice();
     let eval_values_1 = eval_values.columns[1].as_slice();
     let eval_values_2 = eval_values.columns[2].as_slice();
@@ -179,6 +176,9 @@ pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, alpha: SecureField, t
     let twiddles_size = twiddles.itwiddles.len();
     let twiddle_offset: usize = twiddles_size - (1 << remaining_folds);
     let gpu_domain: &CudaSlice<M31> = twiddles.itwiddles.as_slice();
+
+    let launch_config = LaunchConfig::for_num_elems(eval.len() as u32 >> 1);
+    let kernel = DEVICE.get_func("fri", "fold_line").unwrap();
 
     kernel.launch(
         launch_config,
