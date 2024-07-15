@@ -298,7 +298,6 @@ mod tests{
             let f_e: SecureField = even_poly.eval_at_point(x.into());
             let f_o: SecureField = odd_poly.eval_at_point(x.into());
 
-            println!("evals: {:?}", evals.values.columns[0]);
             assert_eq!(drp_eval, (f_e + alpha * f_o).double(), "mismatch at {i}");
         }
     }
