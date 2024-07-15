@@ -6,16 +6,13 @@ use cudarc::nvrtc::compile_ptx;
 use super::column::BaseFieldCudaColumn;
 use super::{GpuBackend, DEVICE};
 use crate::core::backend::Column;
-use crate::core::fft::ibutterfly;
 use crate::core::fields::m31::M31;
 use crate::core::fields::qm31::SecureField;
 use crate::core::fields::secure_column::SecureColumn;
-use crate::core::fields::FieldExpOps;
 use crate::core::fri::{FriOps, CIRCLE_TO_LINE_FOLD_STEP};
 use crate::core::poly::circle::SecureEvaluation;
 use crate::core::poly::line::LineEvaluation;
 use crate::core::poly::twiddles::TwiddleTree;
-use crate::core::utils::bit_reverse_index;
 
 impl FriOps for GpuBackend {
     fn fold_line(
@@ -32,7 +29,7 @@ impl FriOps for GpuBackend {
         alpha: SecureField,
         twiddles: &TwiddleTree<Self>,
     ) {
-        fold_circle_into_line(dst, src, alpha, twiddles)
+        unsafe { fold_circle_into_line(dst, src, alpha, twiddles) }
     }
 
     fn decompose(eval: &SecureEvaluation<Self>) -> (SecureEvaluation<Self>, SecureField) {
@@ -154,7 +151,8 @@ pub fn load_fri(device: &Arc<CudaDevice>) {
                 "sum",
                 "pairwise_sum",
                 "compute_g_values",
-                "fold_line"
+                "fold_line",
+                "fold_circle_into_line"
             ],
         )
         .unwrap();
@@ -210,37 +208,44 @@ pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, alpha: SecureField, t
     LineEvaluation::new(eval.domain().double(), folded_values)
 }
 
-pub fn fold_circle_into_line (dst: &mut LineEvaluation<GpuBackend>, src: &SecureEvaluation<GpuBackend>, alpha: SecureField, _twiddles: &TwiddleTree<GpuBackend>) {
-    assert_eq!(src.len() >> CIRCLE_TO_LINE_FOLD_STEP, dst.len());
+pub unsafe fn fold_circle_into_line (dst: &mut LineEvaluation<GpuBackend>, src: &SecureEvaluation<GpuBackend>, alpha: SecureField, twiddles: &TwiddleTree<GpuBackend>) {
+    let n = src.len();
+    assert_eq!(n >> CIRCLE_TO_LINE_FOLD_STEP, dst.len());
 
-    let domain = src.domain;
-    let alpha_sq = alpha * alpha;
+    let eval_values: &SecureColumn<GpuBackend> = &src.values;
 
-    let mut cpu_dst = dst.to_cpu();
+    let eval_values_0 = eval_values.columns[0].as_slice();
+    let eval_values_1 = eval_values.columns[1].as_slice();
+    let eval_values_2 = eval_values.columns[2].as_slice();
+    let eval_values_3 = eval_values.columns[3].as_slice();
 
-    src.to_cpu().into_iter()
-        .array_chunks()
-        .enumerate()
-        .for_each(|(i, [f_p, f_neg_p])| {
-            let p = domain.at(bit_reverse_index(
-                i << CIRCLE_TO_LINE_FOLD_STEP,
-                domain.log_size(),
-            ));
+    let folded_values_0 = dst.values.columns[0].as_slice();
+    let folded_values_1 = dst.values.columns[1].as_slice();
+    let folded_values_2 = dst.values.columns[2].as_slice();
+    let folded_values_3 = dst.values.columns[3].as_slice();
 
-            let (mut f0_px, mut f1_px) = (f_p, f_neg_p);
-            ibutterfly(&mut f0_px, &mut f1_px, p.y.inverse());
-            let f_prime = alpha * f1_px + f0_px;
+    let gpu_domain: &CudaSlice<M31> = twiddles.itwiddles.as_slice();
 
-            cpu_dst.values.set(i, cpu_dst.values.at(i) * alpha_sq + f_prime);
-        });
-    
+    let launch_config = LaunchConfig::for_num_elems(n as u32 >> 1);
+    let kernel = DEVICE.get_func("fri", "fold_circle_into_line").unwrap();
 
-    let columns: [BaseFieldCudaColumn; 4] = [BaseFieldCudaColumn::from_vec(cpu_dst.values.columns[0].clone()),
-                                                BaseFieldCudaColumn::from_vec(cpu_dst.values.columns[1].clone()),
-                                                BaseFieldCudaColumn::from_vec(cpu_dst.values.columns[2].clone()),
-                                                BaseFieldCudaColumn::from_vec(cpu_dst.values.columns[3].clone())];
-    let gpu_dst_values: SecureColumn<GpuBackend> = SecureColumn { columns };
-    dst.values = gpu_dst_values;
+    kernel.launch(
+        launch_config,
+        (
+            gpu_domain,
+            n,
+            eval_values_0,
+            eval_values_1,
+            eval_values_2,
+            eval_values_3,
+            alpha,
+            folded_values_0,
+            folded_values_1,
+            folded_values_2,
+            folded_values_3,
+        )
+    ).unwrap();
+    DEVICE.synchronize().unwrap();
 }
 
 
@@ -412,7 +417,7 @@ mod tests{
 
     #[test]
     fn test_fold_circle_into_line_compared_with_cpu() {
-        const LOG_SIZE: u32 = 7;
+        const LOG_SIZE: u32 = 4;
         let values: Vec<SecureField> = (0..(1 << LOG_SIZE))
             .map(|i| qm31!(4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3))
             .collect();

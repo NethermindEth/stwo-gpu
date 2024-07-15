@@ -76,6 +76,21 @@ __device__ qm31 qm31_sub(qm31 x, qm31 y) {
     return {cm31_sub(x.a, y.a), cm31_sub(x.b, y.b)};
 }
 
+/* ##### Repeated from circle.cu (to avoid including .cuh header files) ##### */
+
+__device__ int get_twiddle(uint32_t *twiddles, int index) {
+    int k = index >> 2;
+    if (index % 4 == 0) {
+        return twiddles[2 * k + 1];
+    } else if (index % 4 == 1) {
+        return m31_neg(twiddles[2 * k + 1]);
+    } else if (index % 4 == 2) {
+        return m31_neg(twiddles[2 * k]);
+    } else {
+        return twiddles[2 * k];
+    }
+}
+
 ////////////
 
 extern "C"
@@ -175,6 +190,54 @@ __global__ void fold_line(
             m31_mul(f_1_dot_x.a.b, x_inverse),
             m31_mul(f_1_dot_x.b.a, x_inverse),
             m31_mul(f_1_dot_x.b.b, x_inverse),
+        };
+
+        qm31 f_prime = qm31_add(f_0, qm31_mul(alpha, f_1));
+
+        folded_values_0[i] = f_prime.a.a;
+        folded_values_1[i] = f_prime.a.b;
+        folded_values_2[i] = f_prime.b.a;
+        folded_values_3[i] = f_prime.b.b;
+    }
+}
+
+extern "C"
+__global__ void fold_circle_into_line(
+    uint32_t *domain,
+    uint32_t n,
+    uint32_t *eval_values_0,
+    uint32_t *eval_values_1,
+    uint32_t *eval_values_2,
+    uint32_t *eval_values_3,
+    qm31 alpha,
+    uint32_t *folded_values_0,
+    uint32_t *folded_values_1,
+    uint32_t *folded_values_2,
+    uint32_t *folded_values_3
+) {
+    uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (i < n / 2) {
+        uint32_t index_left = 2*i;
+        uint32_t index_right = index_left+1;
+        
+        qm31 f_p = {{eval_values_0[index_left],
+                        eval_values_1[index_left]},
+                    {eval_values_2[index_left],
+                        eval_values_3[index_left]}};
+        qm31 f_p_minus = {{eval_values_0[index_right],
+                            eval_values_1[index_right]},
+                            {eval_values_2[index_right],
+                            eval_values_3[index_right]}};
+        uint32_t y_inverse = get_twiddle(domain, i);
+
+        qm31 f_0 = qm31_add(f_p, f_p_minus);
+        qm31 f_1_dot_x = qm31_sub(f_p, f_p_minus);
+        qm31 f_1 = {
+            m31_mul(f_1_dot_x.a.a, y_inverse),
+            m31_mul(f_1_dot_x.a.b, y_inverse),
+            m31_mul(f_1_dot_x.b.a, y_inverse),
+            m31_mul(f_1_dot_x.b.b, y_inverse),
         };
 
         qm31 f_prime = qm31_add(f_0, qm31_mul(alpha, f_1));
