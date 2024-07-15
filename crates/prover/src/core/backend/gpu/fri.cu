@@ -138,17 +138,20 @@ __global__ void compute_g_values(uint32_t *f_values, uint32_t *results, uint32_t
 }
 
 extern "C"
-__global__ void fold_line(uint32_t *domain,
-                        uint32_t n,
-                        uint32_t *eval_values_0,
-                        uint32_t *eval_values_1,
-                        uint32_t *eval_values_2,
-                        uint32_t *eval_values_3,
-                        qm31 alpha,
-                        uint32_t *folded_values_0,
-                        uint32_t *folded_values_1,
-                        uint32_t *folded_values_2,
-                        uint32_t *folded_values_3) {
+__global__ void fold_line(
+    uint32_t *domain,
+    uint32_t twiddle_offset,
+    uint32_t n,
+    uint32_t *eval_values_0,
+    uint32_t *eval_values_1,
+    uint32_t *eval_values_2,
+    uint32_t *eval_values_3,
+    qm31 alpha,
+    uint32_t *folded_values_0,
+    uint32_t *folded_values_1,
+    uint32_t *folded_values_2,
+    uint32_t *folded_values_3
+) {
     if (blockIdx.x == 0) {
         // TODO: must support list with length bigger than 2^10
         uint32_t i = threadIdx.x;
@@ -164,7 +167,7 @@ __global__ void fold_line(uint32_t *domain,
                                eval_values_1[index_right]},
                               {eval_values_2[index_right],
                                eval_values_3[index_right]}};
-            uint32_t x_inverse = domain[i];
+            uint32_t x_inverse = domain[i + twiddle_offset];
 
             qm31 f_0 = qm31_add(f_x, f_x_minus);
             qm31 f_1_dot_x = qm31_sub(f_x, f_x_minus);

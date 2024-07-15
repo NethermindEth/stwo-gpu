@@ -9,6 +9,7 @@ use crate::core::backend::Column;
 use crate::core::fields::m31::M31;
 use crate::core::fields::qm31::SecureField;
 use crate::core::fields::secure_column::SecureColumn;
+use crate::core::fields::FieldExpOps;
 use crate::core::fri::FriOps;
 use crate::core::poly::circle::SecureEvaluation;
 use crate::core::poly::line::LineEvaluation;
@@ -175,11 +176,32 @@ pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, alpha: SecureField, t
     let folded_values_1: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
     let folded_values_2: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
     let folded_values_3: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
+    
+    /*
+    tw 16
+    8 > 4 > 2 > 1
+    (dom: 16 > 8 > 4 > 2)
 
-    let gpu_domain: &CudaSlice<M31> = twiddles.itwiddles.as_slice();  // Works for first layer of twiddles only
+    dom 4
+    */
+
+    let remaining_folds = n.ilog2();
+    let twiddles_size = twiddles.itwiddles.len();
+    let twiddle_offset: usize = twiddles_size - (1 << remaining_folds);
+    let gpu_domain: &CudaSlice<M31> = twiddles.itwiddles.as_slice();
+
+    // TODO: DO NOT COMMIT
+    let domain = eval.domain();
+    let domain_as_vec: Vec<M31> = domain.into_iter().map(|x| x.inverse()).collect();
+    let gpu_domain_as_vec: Vec<M31> = (0..n).map(|i| DEVICE.dtoh_sync_copy(gpu_domain).unwrap()[i]).collect();
+    println!("TWIDDLES: {:?}", gpu_domain_as_vec);  // Bit-reversed.
+    println!("DOMAIN: {:?}", domain_as_vec);  // Not bit-reversed.
+
     kernel.launch(
         launch_config,
-        (gpu_domain,
+        (
+            gpu_domain,
+            twiddle_offset,
             n,
             eval_values_0,
             eval_values_1,
@@ -189,7 +211,8 @@ pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, alpha: SecureField, t
             &folded_values_0,
             &folded_values_1,
             &folded_values_2,
-            &folded_values_3)
+            &folded_values_3,
+        )
     ).unwrap();
     DEVICE.synchronize().unwrap();
 
@@ -322,5 +345,37 @@ mod tests{
         );
 
         assert_eq!(cpu_fold.values.to_vec(), gpu_fold.values.to_vec());
+    }
+
+    #[test]
+    fn test_fold_line_twice() {
+        const LOG_SIZE: u32 = 4;
+        let mut rng = SmallRng::seed_from_u64(0);
+        let values = (0..1 << LOG_SIZE).map(|_| rng.gen()).collect_vec();
+        let alpha = qm31!(1, 3, 5, 7);
+        let domain = LineDomain::new(CanonicCoset::new(LOG_SIZE + 1).half_coset());
+        let first_cpu_fold = CpuBackend::fold_line(
+            &LineEvaluation::new(domain, values.iter().copied().collect()),
+            alpha,
+            &CpuBackend::precompute_twiddles(domain.coset()),
+        );
+        let second_cpu_fold = CpuBackend::fold_line(
+            &first_cpu_fold,
+            alpha,
+            &CpuBackend::precompute_twiddles(domain.coset()),
+        );
+
+        let first_gpu_fold = GpuBackend::fold_line(
+            &LineEvaluation::new(domain, values.iter().copied().collect()),
+            alpha,
+            &GpuBackend::precompute_twiddles(domain.coset()),
+        );
+        let second_gpu_fold = GpuBackend::fold_line(
+            &first_gpu_fold,
+            alpha,
+            &GpuBackend::precompute_twiddles(domain.coset()),
+        );
+
+        assert_eq!(second_cpu_fold.values.to_vec(), second_gpu_fold.values.to_vec());
     }
 }
