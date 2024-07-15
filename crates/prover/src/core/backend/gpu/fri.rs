@@ -417,7 +417,7 @@ mod tests{
 
     #[test]
     fn test_fold_circle_into_line_compared_with_cpu() {
-        const LOG_SIZE: u32 = 4;
+        const LOG_SIZE: u32 = 13;
         let values: Vec<SecureField> = (0..(1 << LOG_SIZE))
             .map(|i| qm31!(4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3))
             .collect();
