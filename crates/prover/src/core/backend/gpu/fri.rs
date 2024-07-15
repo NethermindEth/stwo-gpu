@@ -158,7 +158,6 @@ pub fn load_fri(device: &Arc<CudaDevice>) {
 }
 
 pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, alpha: SecureField, twiddles: &TwiddleTree<GpuBackend>) -> LineEvaluation<GpuBackend> {
-    // TODO: Copied from CPU. Optimize with GPU.
     let n = eval.len();
     assert!(n >= 2, "Evaluation too small");
     let eval_values: &SecureColumn<GpuBackend> = &eval.values;
@@ -175,14 +174,6 @@ pub unsafe fn fold_line(eval: &LineEvaluation<GpuBackend>, alpha: SecureField, t
     let folded_values_1: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
     let folded_values_2: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
     let folded_values_3: CudaSlice<M31> = DEVICE.alloc(n >> 1).unwrap();
-    
-    /*
-    tw 16
-    8 > 4 > 2 > 1
-    (dom: 16 > 8 > 4 > 2)
-
-    dom 4
-    */
 
     let remaining_folds = n.ilog2();
     let twiddles_size = twiddles.itwiddles.len();
@@ -319,7 +310,7 @@ mod tests{
 
     #[test]
     fn test_fold_line_compared_with_cpu() {
-        const LOG_SIZE: u32 = 10;
+        const LOG_SIZE: u32 = 11;
         let mut rng = SmallRng::seed_from_u64(0);
         let values = (0..1 << LOG_SIZE).map(|_| rng.gen()).collect_vec();
         let alpha = qm31!(1, 3, 5, 7);
