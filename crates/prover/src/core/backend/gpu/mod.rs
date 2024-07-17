@@ -35,7 +35,7 @@ impl Load for Device {
         qm31::load_secure_field(&self);
         column::load_batch_inverse_ptx(&self);
         circle::load_circle(&self);
-
+        fri::load_fri(&self);
         self
     }
 }

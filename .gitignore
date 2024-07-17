@@ -7,3 +7,7 @@ dist
 target
 */.vscode/*
 .vs
+
+/.devcontainer/
+/cmake-build-debug/
+/.idea/
