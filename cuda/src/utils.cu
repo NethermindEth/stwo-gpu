@@ -1,4 +1,4 @@
-#include "../include/example.cuh"
+#include "../include/utils.cuh"
 
 __global__ void initialize_memory(int* device_array, int size) {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
