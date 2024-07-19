@@ -1,4 +1,4 @@
-const CUDA_LIB_DIR: &str = "/workspaces/cuda-rust-project/libexample";
+const CUDA_LIB_DIR: &str = "/workspaces/cuda-rust-example/libexample";
 
 fn main() {
     println!("cargo:rerun-if-changed={}/src/example.cu", CUDA_LIB_DIR);
