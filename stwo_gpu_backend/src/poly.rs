@@ -9,7 +9,7 @@ use stwo_prover::core::{
     },
 };
 
-use crate::{backend::CudaBackend, column::BaseFieldCudaColumn};
+use crate::{backend::CudaBackend, cuda::BaseFieldCudaColumn};
 
 impl PolyOps for CudaBackend {
     type Twiddles = BaseFieldCudaColumn;
