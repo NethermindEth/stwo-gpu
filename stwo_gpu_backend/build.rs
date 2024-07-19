@@ -2,6 +2,7 @@ const CUDA_LIB_DIR: &str = "/workspaces/cuda-rust-example/cuda";
 
 fn main() {
     println!("cargo:rerun-if-changed={}/src/utils.cu", CUDA_LIB_DIR);
+    println!("cargo:rustc-link-search={}", CUDA_LIB_DIR);
 
     let status = std::process::Command::new("nvcc")
         .args(&[
@@ -18,6 +19,4 @@ fn main() {
     if !status.success() {
         panic!("nvcc failed with status: {}", status);
     }
-
-    println!("cargo:rustc-link-search={}", CUDA_LIB_DIR);
 }

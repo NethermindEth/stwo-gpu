@@ -1,8 +1,10 @@
-use stwo_prover::core::{fields::qm31::SecureField, fri::FriOps, poly::{circle::SecureEvaluation, line::LineEvaluation, twiddles::TwiddleTree}};
+use stwo_prover::core::{
+    fields::qm31::SecureField,
+    fri::FriOps,
+    poly::{circle::SecureEvaluation, line::LineEvaluation, twiddles::TwiddleTree},
+};
 
 use crate::backend::CudaBackend;
-
-
 
 impl FriOps for CudaBackend {
     fn fold_line(

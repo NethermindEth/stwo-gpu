@@ -8,6 +8,11 @@ __global__ void initialize_memory(int* device_array, int size) {
 }
 
 extern "C"
+void m31_device_to_host(uint32_t *device_ptr, uint32_t *host_ptr, int size) {
+    cudaMemcpy(host_ptr, device_ptr, sizeof(int) * size, cudaMemcpyDeviceToHost);
+}
+
+extern "C"
 int* generate_array(int size) {
     int *device_array;
     cudaMalloc((void**)&device_array, size * sizeof(int));

@@ -1,11 +1,16 @@
-use stwo_prover::core::{backend::{Column, ColumnOps}, fields::{m31::BaseField, qm31::SecureField}};
+use stwo_prover::core::{
+    backend::{Column, ColumnOps},
+    fields::{m31::BaseField, qm31::SecureField},
+};
 
 use crate::backend::CudaBackend;
-
+use crate::cuda;
 
 #[derive(Clone, Debug)]
-pub struct BaseFieldCudaColumn(*const u32);
-
+pub struct BaseFieldCudaColumn {
+    pub(crate) device_ptr: *const u32,
+    pub(crate) size: usize,
+}
 
 impl ColumnOps<BaseField> for CudaBackend {
     type Column = BaseFieldCudaColumn;
@@ -29,7 +34,7 @@ impl Column<BaseField> for BaseFieldCudaColumn {
     }
 
     fn to_cpu(&self) -> Vec<BaseField> {
-        todo!()
+        cuda::base_field_cuda_column_to_vec(&self)
     }
 
     fn len(&self) -> usize {

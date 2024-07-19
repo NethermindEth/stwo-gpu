@@ -1,7 +1,15 @@
-use stwo_prover::core::{backend::Col, circle::{CirclePoint, Coset}, fields::{m31::BaseField, qm31::SecureField}, poly::{circle::{CanonicCoset, CircleDomain, CircleEvaluation, CirclePoly, PolyOps}, twiddles::TwiddleTree, BitReversedOrder}};
+use stwo_prover::core::{
+    backend::Col,
+    circle::{CirclePoint, Coset},
+    fields::{m31::BaseField, qm31::SecureField},
+    poly::{
+        circle::{CanonicCoset, CircleDomain, CircleEvaluation, CirclePoly, PolyOps},
+        twiddles::TwiddleTree,
+        BitReversedOrder,
+    },
+};
 
 use crate::{backend::CudaBackend, column::BaseFieldCudaColumn};
-
 
 impl PolyOps for CudaBackend {
     type Twiddles = BaseFieldCudaColumn;
