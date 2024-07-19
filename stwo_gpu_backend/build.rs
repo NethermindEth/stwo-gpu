@@ -1,4 +1,4 @@
-const CUDA_LIB_DIR: &str = "/workspaces/cuda-rust-example/libexample";
+const CUDA_LIB_DIR: &str = "/workspaces/cuda-rust-example/cuda";
 
 fn main() {
     println!("cargo:rerun-if-changed={}/src/example.cu", CUDA_LIB_DIR);
@@ -10,7 +10,7 @@ fn main() {
             "-fPIC",
             "-shared",
             "-o",
-            &format!("{}/libexample.so", CUDA_LIB_DIR),
+            &format!("{}/libgpubackend.so", CUDA_LIB_DIR),
             &format!("{}/src/example.cu", CUDA_LIB_DIR),
         ])
         .status()

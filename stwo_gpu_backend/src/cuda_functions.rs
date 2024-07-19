@@ -1,9 +1,9 @@
-#[link(name = "example")]
+#[link(name = "gpubackend")]
 extern "C" {
     pub fn generate_array(a: i32) -> *const i32;
 }
 
-#[link(name = "example")]
+#[link(name = "gpubackend")]
 extern "C" {
     pub fn sum(a: *const i32, size: i32) -> i32;
 }
