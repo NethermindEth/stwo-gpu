@@ -153,7 +153,6 @@ __global__ void batch_inverse_secure_field_kernel(qm31 *from, qm31 *dst, int siz
     batch_inverse(from, dst, size, log_size, s_from_qm31, s_inner_trees_qm31);
 }
 
-extern "C"
 void batch_inverse_base_field(m31 *from, m31 *dst, int size, int log_size) {
     int block_size = 256;
     int half_size = size >> 1;
@@ -164,7 +163,6 @@ void batch_inverse_base_field(m31 *from, m31 *dst, int size, int log_size) {
     cudaDeviceSynchronize();
 }
 
-extern "C"
 void batch_inverse_secure_field(qm31 *from, qm31 *dst, int size, int log_size) {
     int block_size = 512;
     int half_size = size >> 1;
