@@ -4,7 +4,7 @@
 #include "fields.cuh"
 
 extern "C"
-void bit_reverse_base_field(uint32_t *, int, int);
+void bit_reverse_base_field(m31 *, int, int);
 
 
 extern "C"

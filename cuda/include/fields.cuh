@@ -2,11 +2,12 @@
 #define FIELDS_H
 
 typedef unsigned int uint32_t;
+typedef uint32_t m31;
 typedef unsigned long long uint64_t;
 
 typedef struct {
-    uint32_t a;
-    uint32_t b;
+    m31 a;
+    m31 b;
 } cm31;
 
 typedef struct {
@@ -14,32 +15,32 @@ typedef struct {
     cm31 b;
 } qm31;
 
-const uint32_t P = 2147483647;
+const m31 P = 2147483647;
 const cm31 R = {2, 1};
 
 /*##### M31 ##### */
 
-__device__ __forceinline__ uint32_t mul(uint32_t a, uint32_t b) {
+__device__ __forceinline__ m31 mul(m31 a, m31 b) {
     uint64_t v = ((uint64_t) a * (uint64_t) b);
     uint64_t w = v + (v >> 31);
     uint64_t u = v + (w >> 31);
     return u & P;
 }
 
-__device__ __forceinline__ uint32_t add(uint32_t a, uint32_t b) {
+__device__ __forceinline__ m31 add(m31 a, m31 b) {
     uint64_t sum = ((uint64_t) a + (uint64_t) b);
     return min(sum, sum - P);
 }
 
-__device__ __forceinline__ uint32_t sub(uint32_t a, uint32_t b) {
+__device__ __forceinline__ m31 sub(m31 a, m31 b) {
     return add(a, P - b);
 }
 
-__device__ __forceinline__ uint32_t neg(uint32_t a) {
+__device__ __forceinline__ m31 neg(m31 a) {
     return P - a;
 }
 
-__device__ __forceinline__ uint64_t pow_to_power_of_two(int n, uint32_t t) {
+__device__ __forceinline__ uint64_t pow_to_power_of_two(int n, m31 t) {
     int i = 0;
     while(i < n) {
         t = mul(t, t);
@@ -48,7 +49,7 @@ __device__ __forceinline__ uint64_t pow_to_power_of_two(int n, uint32_t t) {
     return t;
 }
 
-__device__ __forceinline__ uint32_t inv(uint32_t t) {
+__device__ __forceinline__ m31 inv(m31 t) {
     uint64_t t0 = mul(pow_to_power_of_two(2, t), t);
     uint64_t t1 = mul(pow_to_power_of_two(1, t0), t0);
     uint64_t t2 = mul(pow_to_power_of_two(3, t1), t0);
@@ -77,7 +78,7 @@ __device__ __forceinline__ cm31 neg(cm31 x) {
 }
 
 __device__ __forceinline__ cm31 inv(cm31 t) {
-    uint32_t factor = inv(add(mul(t.a, t.a), mul(t.b, t.b)));
+    m31 factor = inv(add(mul(t.a, t.a), mul(t.b, t.b)));
     return {mul(t.a, factor), mul(neg(t.b) , factor)};
 }
 

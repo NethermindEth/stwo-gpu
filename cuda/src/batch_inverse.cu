@@ -23,12 +23,12 @@ __device__ void new_backward_children(T *from, T *dst, int index) {
 template<typename T>
 __device__ void batch_inverse(T *from, T *dst, int size, int log_size, T *s_from, T *s_inner_tree) {
     // Input:
-    // - from      : array of uint32_t representing field elements in M31.
-    // - inner_tree: array of uint32_t used as an auxiliary variable.
+    // - from      : array of T representing field elements.
+    // - inner_tree: array of T used as an auxiliary variable.
     // - size      : size of "from" and "inner_tree".
     // - log_size  : log(size).
     // Output:
-    // - dst       : array of uint32_t with the inverses of "from".
+    // - dst       : array of T with the inverses of "from".
     //
     // Variation of Montgomery's trick to leverage GPU parallelization.
     // Construct a binary tree:
@@ -123,7 +123,7 @@ __device__ void batch_inverse(T *from, T *dst, int size, int log_size, T *s_from
     }
 }
 
-__global__ void batch_inverse_base_field_kernel(uint32_t *from, uint32_t *dst, int size, int log_size) {
+__global__ void batch_inverse_base_field_kernel(m31 *from, m31 *dst, int size, int log_size) {
     // Thread syncing happens within a block. 
     // Split the problem to feed them to multiple blocks.
     if(size >= 512) {
@@ -131,9 +131,9 @@ __global__ void batch_inverse_base_field_kernel(uint32_t *from, uint32_t *dst, i
         log_size = 9;
     }
 
-    extern __shared__ uint32_t shared_basefield[];
-    uint32_t *s_from_basefield = shared_basefield;
-    uint32_t *s_inner_trees_basefield = &shared_basefield[size];
+    extern __shared__ m31 shared_basefield[];
+    m31 *s_from_basefield = shared_basefield;
+    m31 *s_inner_trees_basefield = &shared_basefield[size];
 
     batch_inverse(from, dst, size, log_size, s_from_basefield, s_inner_trees_basefield);
 }
@@ -154,7 +154,7 @@ __global__ void batch_inverse_secure_field_kernel(qm31 *from, qm31 *dst, int siz
 }
 
 extern "C"
-void batch_inverse_base_field(uint32_t *from, uint32_t *dst, int size, int log_size) {
+void batch_inverse_base_field(m31 *from, m31 *dst, int size, int log_size) {
     int block_size = 256;
     int half_size = size >> 1;
     int num_blocks = (half_size + block_size - 1) / block_size;
