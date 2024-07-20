@@ -1,8 +1,7 @@
 #include "../include/batch_inverse.cuh"
-#include "../include/fields.cuh"
 
 template<typename T>
-__device__ void new_forward_level(T *from, T *dst, int index) {
+__device__ void new_forward_parent(T *from, T *dst, int index) {
     // Computes the value of the parent from the multiplication of two children.
     // dst  : Pointer to the beginning of the parent's level.
     // from : Pointer to the beginning of the children level.
@@ -11,7 +10,7 @@ __device__ void new_forward_level(T *from, T *dst, int index) {
 }
 
 template<typename T>
-__device__ void new_backward_level(T *from, T *dst, int index) {
+__device__ void new_backward_children(T *from, T *dst, int index) {
     // Computes the inverse of the two children from the inverse of the parent.
     // dst  : Pointer to the beginning of the children's level.
     // from : Pointer to the beginning of the parent's level.
@@ -57,7 +56,7 @@ __device__ void batch_inverse(T *from, T *dst, int size, int log_size, T *s_from
     // The first level is a special case because inner_tree and leaves
     // are stored in separate variables.
     if(index < size) {
-        new_forward_level(s_from, s_inner_tree, index);
+        new_forward_parent(s_from, s_inner_tree, index);
         // from      : | a_0       | a_1       | ... | a_(n/2 - 1)       |      ...    | a_(n-1)
         // inner_tree: | a_0 * a_1 | a_2 * a_3 | ... | a_(n-2) * a_(n-1) | empty | ... | empty   
     }
@@ -78,7 +77,7 @@ __device__ void batch_inverse(T *from, T *dst, int size, int log_size, T *s_from
 
         if(index < size) {
             // Each thread computes one parent as the product of left and right children
-            new_forward_level(&s_inner_tree[from_offset], &s_inner_tree[dst_offset], index);
+            new_forward_parent(&s_inner_tree[from_offset], &s_inner_tree[dst_offset], index);
         }
 
         from_offset = dst_offset;       // Output of this level is input of next one.
@@ -103,7 +102,7 @@ __device__ void batch_inverse(T *from, T *dst, int size, int log_size, T *s_from
         __syncthreads();
         if(index < size) {
             // Compute children inverses from parent inverses.
-            new_backward_level(&s_inner_tree[from_offset], &s_inner_tree[dst_offset], index);
+            new_backward_children(&s_inner_tree[from_offset], &s_inner_tree[dst_offset], index);
         }
 
         size <<= 1; // Each level doubles up its size.

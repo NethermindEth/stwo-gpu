@@ -3,11 +3,10 @@
 
 #include "fields.cuh"
 
-extern "C"
-int* generate_array(int);
-
-extern "C"
-int last(int*, int);
+__device__ __forceinline__ unsigned int bit_reverse(unsigned int n, int bits) {
+    unsigned int reversed_n = __brev(n);
+    return reversed_n >> (32 - bits);
+}
 
 extern "C"
 void copy_uint32_t_vec_from_device_to_host(uint32_t *, uint32_t*, int);

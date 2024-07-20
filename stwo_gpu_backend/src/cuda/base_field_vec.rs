@@ -54,18 +54,4 @@ mod tests {
         assert_eq!(base_field_vec.to_vec(), host_data);
         assert_eq!(base_field_vec.size, host_data.len());
     }
-
-    #[test]
-    fn test_1() {
-        let size = 1 << 25;
-
-        let cuda_column = BaseFieldVec {
-            device_ptr: unsafe { bindings::generate_array(size) },
-            size: size as usize,
-        };
-
-        let value = unsafe { bindings::last(cuda_column.device_ptr, size) };
-        println!("value {:?}", value);
-        println!("host {:?}", cuda_column.to_cpu());
-    }
 }

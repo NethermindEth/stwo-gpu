@@ -1,10 +1,5 @@
 #include "../include/bit_reverse.cuh"
-
-
-__device__ unsigned int bit_reverse(unsigned int n, int bits) {
-    unsigned int reversed_n = __brev(n);
-    return reversed_n >> (32 - bits);
-}
+#include "../include/utils.cuh"
 
 template<typename T>
 __global__ void bit_reverse_generic(T *array, int size, int bits) {
