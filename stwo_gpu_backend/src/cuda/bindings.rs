@@ -46,3 +46,8 @@ extern "C" {
         log_size: usize,
     );
 }
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn sort_values(from: *const u32, size: usize) -> *const u32;
+}

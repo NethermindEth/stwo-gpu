@@ -6,7 +6,9 @@ fn main() {
         CUDA_LIB_DIR
     );
     println!("cargo:rerun-if-changed={}/src/bit_reverse.cu", CUDA_LIB_DIR);
+    println!("cargo:rerun-if-changed={}/src/circle.cu", CUDA_LIB_DIR);
     println!("cargo:rerun-if-changed={}/src/utils.cu", CUDA_LIB_DIR);
+
     println!(
         "cargo:rerun-if-changed={}/src/batch_inverse.cuh",
         CUDA_LIB_DIR
@@ -15,6 +17,7 @@ fn main() {
         "cargo:rerun-if-changed={}/src/bit_reverse.cuh",
         CUDA_LIB_DIR
     );
+    println!("cargo:rerun-if-changed={}/src/circle.cuh", CUDA_LIB_DIR);
     println!("cargo:rerun-if-changed={}/src/fields.cuh", CUDA_LIB_DIR);
     println!("cargo:rerun-if-changed={}/src/utils.cuh", CUDA_LIB_DIR);
 
@@ -30,6 +33,7 @@ fn main() {
             &format!("{}/libgpubackend.so", CUDA_LIB_DIR),
             &format!("{}/src/batch_inverse.cu", CUDA_LIB_DIR),
             &format!("{}/src/bit_reverse.cu", CUDA_LIB_DIR),
+            &format!("{}/src/circle.cu", CUDA_LIB_DIR),
             &format!("{}/src/utils.cu", CUDA_LIB_DIR),
         ])
         .status()
