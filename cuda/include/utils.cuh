@@ -14,6 +14,9 @@ extern "C"
 void copy_m31_vec_from_device_to_host(uint32_t *, uint32_t*, int);
 
 extern "C"
+uint32_t* copy_m31_vec_from_host_to_device(uint32_t*, int);
+
+extern "C"
 void free_uint32_t_vec(uint32_t*);
 
 #endif // EXAMPLE_H

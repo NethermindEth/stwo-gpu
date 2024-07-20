@@ -9,8 +9,16 @@ pub struct BaseFieldVec {
 }
 
 impl BaseFieldVec {
-    pub fn new(host_array: &[BaseField]) -> Self {
-        todo!()
+    pub fn new(mut host_array: Vec<BaseField>) -> Self {
+        Self {
+            device_ptr: unsafe {
+                bindings::copy_m31_vec_from_host_to_device(
+                    host_array.as_mut_ptr() as *const u32,
+                    host_array.len() as u32,
+                )
+            },
+            size: host_array.len(),
+        }
     }
 
     pub fn to_vec(&self) -> Vec<BaseField> {
@@ -36,6 +44,14 @@ impl Drop for BaseFieldVec {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use stwo_prover::core::{backend::Column, fields::m31::BaseField};
+
+    #[test]
+    fn test_constructor() {
+        let host_data = (0..16).map(BaseField::from).collect::<Vec<_>>();
+        let base_field_vec = BaseFieldVec::new(host_data.clone());
+        assert_eq!(base_field_vec.to_vec(), host_data);
+    }
 
     #[test]
     fn test_1() {
