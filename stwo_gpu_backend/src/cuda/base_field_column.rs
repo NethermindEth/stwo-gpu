@@ -51,6 +51,7 @@ mod tests {
         let host_data = (0..16).map(BaseField::from).collect::<Vec<_>>();
         let base_field_vec = BaseFieldVec::new(host_data.clone());
         assert_eq!(base_field_vec.to_vec(), host_data);
+        assert_eq!(base_field_vec.size, host_data.len());
     }
 
     #[test]

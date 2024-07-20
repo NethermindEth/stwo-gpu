@@ -13,6 +13,7 @@ fn main() {
             "-o",
             &format!("{}/libgpubackend.so", CUDA_LIB_DIR),
             &format!("{}/src/utils.cu", CUDA_LIB_DIR),
+            &format!("{}/src/bit_reverse.cu", CUDA_LIB_DIR),
         ])
         .status()
         .expect("Failed to execute nvcc");

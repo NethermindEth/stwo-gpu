@@ -1,5 +1,5 @@
-#ifndef EXAMPLE_H
-#define EXAMPLE_H
+#ifndef UTILS_H
+#define UTILS_H
 
 typedef unsigned int uint32_t;
 typedef unsigned long long uint64_t;
@@ -19,5 +19,5 @@ uint32_t* copy_m31_vec_from_host_to_device(uint32_t*, int);
 extern "C"
 void free_uint32_t_vec(uint32_t*);
 
-#endif // EXAMPLE_H
+#endif // UTILS_H
 

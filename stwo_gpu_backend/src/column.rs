@@ -9,7 +9,17 @@ impl ColumnOps<BaseField> for CudaBackend {
     type Column = cuda::BaseFieldVec;
 
     fn bit_reverse_column(column: &mut Self::Column) {
-        todo!()
+        let size = column.len();
+        assert!(size.is_power_of_two() && size < u32::MAX as usize);
+        let bits = u32::BITS - (size as u32).leading_zeros() - 1;
+
+        unsafe {
+            cuda::bindings::bit_reverse_basefield(
+                column.device_ptr as *const u32,
+                column.len(),
+                bits as usize,
+            );
+        }
     }
 }
 
@@ -74,5 +84,28 @@ impl Column<SecureField> for cuda::SecureFieldVec {
 impl FromIterator<SecureField> for cuda::SecureFieldVec {
     fn from_iter<T: IntoIterator<Item = SecureField>>(iter: T) -> Self {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use stwo_prover::core::{
+        backend::{Column, ColumnOps, CpuBackend},
+        fields::m31::BaseField,
+    };
+
+    use crate::{backend::CudaBackend, cuda::BaseFieldVec};
+
+    #[test]
+    fn test_bit_reverse_base_field() {
+        let size: usize = 1 << 12;
+        let column_data = (0..size as u32).map(BaseField::from).collect::<Vec<_>>();
+        let mut expected_result = column_data.clone();
+        CpuBackend::bit_reverse_column(&mut expected_result);
+
+        let mut column = BaseFieldVec::new(column_data);
+        <CudaBackend as ColumnOps<BaseField>>::bit_reverse_column(&mut column);
+
+        assert_eq!(column.to_cpu(), expected_result);
     }
 }

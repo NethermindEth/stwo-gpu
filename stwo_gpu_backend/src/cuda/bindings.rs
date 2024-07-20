@@ -26,3 +26,8 @@ extern "C" {
 extern "C" {
     pub fn free_uint32_t_vec(device_ptr: *const u32);
 }
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn bit_reverse_basefield(array: *const u32, size: usize, bits: usize);
+}
