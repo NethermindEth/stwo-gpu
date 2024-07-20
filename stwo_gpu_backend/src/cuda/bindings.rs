@@ -46,3 +46,13 @@ extern "C" {
         log_size: usize,
     );
 }
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn batch_inverse_secure_field(
+        from: *const u32,
+        dst: *const u32,
+        size: usize,
+        log_size: usize,
+    );
+}

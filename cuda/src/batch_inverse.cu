@@ -139,6 +139,21 @@ __global__ void batch_inverse_base_field_kernel(uint32_t *from, uint32_t *dst, i
     batch_inverse(from, dst, size, log_size, s_from_basefield, s_inner_trees_basefield);
 }
 
+__global__ void batch_inverse_secure_field_kernel(qm31 *from, qm31 *dst, int size, int log_size) {
+    // Thread syncing happens within a block. 
+    // Split the problem to feed them to multiple blocks.
+    if(size >= 1024) {
+        size = 1024;
+        log_size = 10;
+    }
+
+    extern __shared__ qm31 shared_qm31[];
+    qm31 *s_from_qm31 = shared_qm31;
+    qm31 *s_inner_trees_qm31 = &shared_qm31[size];
+
+    batch_inverse(from, dst, size, log_size, s_from_qm31, s_inner_trees_qm31);
+}
+
 extern "C"
 void batch_inverse_base_field(uint32_t *from, uint32_t *dst, int size, int log_size) {
     int block_size = 256;
@@ -147,5 +162,16 @@ void batch_inverse_base_field(uint32_t *from, uint32_t *dst, int size, int log_s
     int shared_memory_bytes = 512 * 4  + (512 - 32) * 4;
 
     batch_inverse_base_field_kernel<<<num_blocks, block_size, shared_memory_bytes>>>(from, dst, size, log_size);
+    cudaDeviceSynchronize();
+}
+
+extern "C"
+void batch_inverse_secure_field(qm31 *from, qm31 *dst, int size, int log_size) {
+    int block_size = 512;
+    int half_size = size >> 1;
+    int num_blocks = (half_size + block_size - 1) / block_size;
+    int shared_memory_bytes = 1024 * 4 * 4 + (1024 - 32) * 4 * 4;
+
+    batch_inverse_secure_field_kernel<<<num_blocks, block_size, shared_memory_bytes>>>(from, dst, size, log_size);
     cudaDeviceSynchronize();
 }
