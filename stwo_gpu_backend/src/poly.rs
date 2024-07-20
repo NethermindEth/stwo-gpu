@@ -9,10 +9,10 @@ use stwo_prover::core::{
     },
 };
 
-use crate::{backend::CudaBackend, cuda::BaseFieldCudaColumn};
+use crate::{backend::CudaBackend, cuda};
 
 impl PolyOps for CudaBackend {
-    type Twiddles = BaseFieldCudaColumn;
+    type Twiddles = cuda::BaseFieldVec;
 
     fn new_canonical_ordered(
         coset: CanonicCoset,
