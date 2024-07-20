@@ -8,8 +8,13 @@ __global__ void initialize_memory(int* device_array, int size) {
 }
 
 extern "C"
-void m31_device_to_host(uint32_t *device_ptr, uint32_t *host_ptr, int size) {
+void copy_m31_vec_from_device_to_host(uint32_t *device_ptr, uint32_t *host_ptr, int size) {
     cudaMemcpy(host_ptr, device_ptr, sizeof(int) * size, cudaMemcpyDeviceToHost);
+}
+
+extern "C"
+void free_uint32_t_vec(uint32_t *device_ptr) {
+    cudaFree(device_ptr);
 }
 
 extern "C"

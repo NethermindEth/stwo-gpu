@@ -1,12 +1,9 @@
 use stwo_prover::core::{
-    backend::{ColumnOps},
+    backend::{Column, ColumnOps},
     fields::{m31::BaseField, qm31::SecureField},
 };
 
-use crate::{
-    backend::CudaBackend,
-    cuda
-};
+use crate::{backend::CudaBackend, cuda};
 
 impl ColumnOps<BaseField> for CudaBackend {
     type Column = cuda::BaseFieldVec;
@@ -24,8 +21,7 @@ impl ColumnOps<SecureField> for CudaBackend {
     }
 }
 
-
-impl Column<BaseField> for BaseFieldVec {
+impl Column<BaseField> for cuda::BaseFieldVec {
     fn zeros(len: usize) -> Self {
         todo!()
     }
@@ -47,13 +43,13 @@ impl Column<BaseField> for BaseFieldVec {
     }
 }
 
-impl FromIterator<BaseField> for BaseFieldVec {
+impl FromIterator<BaseField> for cuda::BaseFieldVec {
     fn from_iter<T: IntoIterator<Item = BaseField>>(iter: T) -> Self {
         todo!()
     }
 }
 
-impl Column<SecureField> for SecureFieldVec {
+impl Column<SecureField> for cuda::SecureFieldVec {
     fn zeros(len: usize) -> Self {
         todo!()
     }
@@ -75,7 +71,7 @@ impl Column<SecureField> for SecureFieldVec {
     }
 }
 
-impl FromIterator<SecureField> for SecureFieldVec {
+impl FromIterator<SecureField> for cuda::SecureFieldVec {
     fn from_iter<T: IntoIterator<Item = SecureField>>(iter: T) -> Self {
         todo!()
     }

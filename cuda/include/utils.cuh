@@ -11,8 +11,10 @@ extern "C"
 int sum(int*, int);
 
 extern "C"
-void m31_device_to_host(uint32_t *, uint32_t*, int);
+void copy_m31_vec_from_device_to_host(uint32_t *, uint32_t*, int);
 
+extern "C"
+void free_uint32_t_vec(uint32_t*);
 
 #endif // EXAMPLE_H
 
