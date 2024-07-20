@@ -1,8 +1,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-typedef unsigned int uint32_t;
-typedef unsigned long long uint64_t;
+#include "fields.cuh"
 
 extern "C"
 int* generate_array(int);
