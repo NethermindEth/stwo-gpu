@@ -19,7 +19,16 @@ __global__ void bit_reverse_generic(T *array, int size, int bits) {
 }
 
 extern "C"
-void bit_reverse_basefield(uint32_t *array, int size, int bits) {
+void bit_reverse_base_field(uint32_t *array, int size, int bits) {
+    int block_size = 1024;
+    int num_blocks = (size + block_size - 1) / block_size;
+    bit_reverse_generic<<<num_blocks, block_size>>>(array, size, bits);
+    cudaDeviceSynchronize();
+}
+
+
+extern "C"
+void bit_reverse_secure_field(qm31 *array, int size, int bits) {
     int block_size = 1024;
     int num_blocks = (size + block_size - 1) / block_size;
     bit_reverse_generic<<<num_blocks, block_size>>>(array, size, bits);

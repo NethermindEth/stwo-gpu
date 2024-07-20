@@ -14,7 +14,7 @@ impl ColumnOps<BaseField> for CudaBackend {
         let bits = u32::BITS - (size as u32).leading_zeros() - 1;
 
         unsafe {
-            cuda::bindings::bit_reverse_basefield(
+            cuda::bindings::bit_reverse_base_field(
                 column.device_ptr as *const u32,
                 column.len(),
                 bits as usize,
@@ -27,8 +27,17 @@ impl ColumnOps<SecureField> for CudaBackend {
     type Column = cuda::SecureFieldVec;
 
     fn bit_reverse_column(column: &mut Self::Column) {
-        todo!()
-    }
+        let size = column.len();
+        assert!(size.is_power_of_two() && size < u32::MAX as usize);
+        let bits = u32::BITS - (size as u32).leading_zeros() - 1;
+
+        unsafe {
+            cuda::bindings::bit_reverse_secure_field(
+                column.device_ptr as *const u32,
+                column.len(),
+                bits as usize,
+            );
+        }    }
 }
 
 impl Column<BaseField> for cuda::BaseFieldVec {
@@ -65,11 +74,11 @@ impl Column<SecureField> for cuda::SecureFieldVec {
     }
 
     fn to_cpu(&self) -> Vec<SecureField> {
-        todo!()
+        self.to_vec()
     }
 
     fn len(&self) -> usize {
-        todo!()
+        self.size
     }
 
     fn at(&self, index: usize) -> SecureField {
@@ -91,10 +100,10 @@ impl FromIterator<SecureField> for cuda::SecureFieldVec {
 mod tests {
     use stwo_prover::core::{
         backend::{Column, ColumnOps, CpuBackend},
-        fields::m31::BaseField,
+        fields::{m31::BaseField, qm31::SecureField},
     };
 
-    use crate::{backend::CudaBackend, cuda::BaseFieldVec};
+    use crate::{backend::CudaBackend, cuda::{BaseFieldVec, SecureFieldVec}};
 
     #[test]
     fn test_bit_reverse_base_field() {
@@ -107,5 +116,25 @@ mod tests {
         <CudaBackend as ColumnOps<BaseField>>::bit_reverse_column(&mut column);
 
         assert_eq!(column.to_cpu(), expected_result);
+    }
+
+
+    #[test]
+    fn test_bit_reverse_secure_field() {
+        let size: usize = 1 << 12;
+
+        let from_raw = (1..(size + 1) as u32).collect::<Vec<u32>>();
+        let from_cpu = from_raw
+            .chunks(4)
+            .map(|a| SecureField::from_u32_unchecked(a[0], a[1], a[2], a[3]))
+            .collect::<Vec<_>>();
+        let mut array_expected = from_cpu.clone();
+
+        CpuBackend::bit_reverse_column(&mut array_expected);
+
+        let mut array = SecureFieldVec::new(from_cpu.clone());
+        <CudaBackend as ColumnOps<SecureField>>::bit_reverse_column(&mut array);
+
+        assert_eq!(array.to_cpu(), array_expected);
     }
 }

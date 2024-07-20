@@ -29,5 +29,10 @@ extern "C" {
 
 #[link(name = "gpubackend")]
 extern "C" {
-    pub fn bit_reverse_basefield(array: *const u32, size: usize, bits: usize);
+    pub fn bit_reverse_base_field(array: *const u32, size: usize, bits: usize);
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn bit_reverse_secure_field(array: *const u32, size: usize, bits: usize);
 }
