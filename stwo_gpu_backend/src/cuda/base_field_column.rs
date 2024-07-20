@@ -62,7 +62,7 @@ mod tests {
             size: size as usize,
         };
 
-        let value = unsafe { bindings::sum(cuda_column.device_ptr, size) };
+        let value = unsafe { bindings::last(cuda_column.device_ptr, size) };
         println!("value {:?}", value);
         println!("host {:?}", cuda_column.to_cpu());
     }

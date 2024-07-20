@@ -8,7 +8,7 @@ extern "C"
 int* generate_array(int);
 
 extern "C"
-int sum(int*, int);
+int last(int*, int);
 
 extern "C"
 void copy_m31_vec_from_device_to_host(uint32_t *, uint32_t*, int);

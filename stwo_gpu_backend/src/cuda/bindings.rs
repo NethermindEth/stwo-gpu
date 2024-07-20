@@ -5,7 +5,7 @@ extern "C" {
 
 #[link(name = "gpubackend")]
 extern "C" {
-    pub fn sum(a: *const u32, size: u32) -> u32;
+    pub fn last(a: *const u32, size: u32) -> u32;
 }
 
 #[link(name = "gpubackend")]

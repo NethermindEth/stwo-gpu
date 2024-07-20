@@ -20,7 +20,6 @@ uint32_t* copy_m31_vec_from_host_to_device(uint32_t *host_ptr, int size) {
     return device_ptr;
 }
 
-
 extern "C"
 void free_uint32_t_vec(uint32_t *device_ptr) {
     cudaFree(device_ptr);
@@ -36,7 +35,7 @@ int* generate_array(int size) {
 }
 
 extern "C"
-int sum(int *device_array, int size) {
+int last(int *device_array, int size) {
     int* host_array = (int*)malloc(size * sizeof(int));
     cudaMemcpy(host_array, device_array, sizeof(int) * size, cudaMemcpyDeviceToHost);
     return host_array[size - 1];
