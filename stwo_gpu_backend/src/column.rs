@@ -37,7 +37,8 @@ impl ColumnOps<SecureField> for CudaBackend {
                 column.len(),
                 bits as usize,
             );
-        }    }
+        }
+    }
 }
 
 impl Column<BaseField> for cuda::BaseFieldVec {
@@ -103,7 +104,10 @@ mod tests {
         fields::{m31::BaseField, qm31::SecureField},
     };
 
-    use crate::{backend::CudaBackend, cuda::{BaseFieldVec, SecureFieldVec}};
+    use crate::{
+        backend::CudaBackend,
+        cuda::{BaseFieldVec, SecureFieldVec},
+    };
 
     #[test]
     fn test_bit_reverse_base_field() {
@@ -117,7 +121,6 @@ mod tests {
 
         assert_eq!(column.to_cpu(), expected_result);
     }
-
 
     #[test]
     fn test_bit_reverse_secure_field() {

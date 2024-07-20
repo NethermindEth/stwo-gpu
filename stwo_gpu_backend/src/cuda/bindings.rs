@@ -36,3 +36,13 @@ extern "C" {
 extern "C" {
     pub fn bit_reverse_secure_field(array: *const u32, size: usize, bits: usize);
 }
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn batch_inverse_base_field(
+        from: *const u32,
+        dst: *const u32,
+        size: usize,
+        log_size: usize,
+    );
+}

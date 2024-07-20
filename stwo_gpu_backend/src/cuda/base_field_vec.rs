@@ -48,7 +48,8 @@ mod tests {
 
     #[test]
     fn test_constructor() {
-        let host_data = (0..16).map(BaseField::from).collect::<Vec<_>>();
+        let size = 1 << 25;
+        let host_data = (0..size).map(BaseField::from).collect::<Vec<_>>();
         let base_field_vec = BaseFieldVec::new(host_data.clone());
         assert_eq!(base_field_vec.to_vec(), host_data);
         assert_eq!(base_field_vec.size, host_data.len());
@@ -56,7 +57,7 @@ mod tests {
 
     #[test]
     fn test_1() {
-        let size = 1 << 3;
+        let size = 1 << 25;
 
         let cuda_column = BaseFieldVec {
             device_ptr: unsafe { bindings::generate_array(size) },

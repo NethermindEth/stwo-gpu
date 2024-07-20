@@ -8,7 +8,6 @@ pub struct SecureFieldVec {
     pub(crate) size: usize,
 }
 
-
 impl SecureFieldVec {
     pub fn new(mut host_array: Vec<SecureField>) -> Self {
         Self {
@@ -44,9 +43,9 @@ impl Drop for SecureFieldVec {
 
 #[cfg(test)]
 mod tests {
-    use stwo_prover::core::fields::qm31::SecureField;
     use super::*;
- 
+    use stwo_prover::core::fields::qm31::SecureField;
+
     #[test]
     fn test_constructor() {
         let size = 1 << 5;
