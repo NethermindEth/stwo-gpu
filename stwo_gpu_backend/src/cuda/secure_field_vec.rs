@@ -13,7 +13,7 @@ impl SecureFieldVec {
     pub fn new(mut host_array: Vec<SecureField>) -> Self {
         Self {
             device_ptr: unsafe {
-                bindings::copy_m31_vec_from_host_to_device(
+                bindings::copy_uint32_t_vec_from_host_to_device(
                     host_array.as_mut_ptr() as *const u32,
                     4 * host_array.len() as u32,
                 )
@@ -26,7 +26,7 @@ impl SecureFieldVec {
         let mut host_data: Vec<SecureField> = Vec::with_capacity(self.size);
         unsafe {
             host_data.set_len(self.size.try_into().unwrap());
-            bindings::copy_m31_vec_from_device_to_host(
+            bindings::copy_uint32_t_vec_from_device_to_host(
                 self.device_ptr,
                 host_data.as_mut_ptr() as *const u32,
                 4 * self.size as u32,

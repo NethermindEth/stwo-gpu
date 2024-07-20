@@ -10,7 +10,7 @@ extern "C" {
 
 #[link(name = "gpubackend")]
 extern "C" {
-    pub fn copy_m31_vec_from_device_to_host(
+    pub fn copy_uint32_t_vec_from_device_to_host(
         device_ptr: *const u32,
         host_ptr: *const u32,
         size: u32,
@@ -19,7 +19,7 @@ extern "C" {
 
 #[link(name = "gpubackend")]
 extern "C" {
-    pub fn copy_m31_vec_from_host_to_device(host_ptr: *const u32, size: u32) -> *const u32;
+    pub fn copy_uint32_t_vec_from_host_to_device(host_ptr: *const u32, size: u32) -> *const u32;
 }
 
 #[link(name = "gpubackend")]
