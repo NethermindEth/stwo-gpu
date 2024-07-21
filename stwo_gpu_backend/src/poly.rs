@@ -143,5 +143,6 @@ mod tests {
         let result = CudaBackend::extend(&cuda_poly, new_log_size);
         let expected_result = CpuBackend::extend(&cpu_poly, new_log_size);
         assert_eq!(result.coeffs.to_cpu(), expected_result.coeffs);
+        assert_eq!(result.log_size(), expected_result.log_size());
     }
 }

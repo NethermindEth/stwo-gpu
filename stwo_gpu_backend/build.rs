@@ -1,6 +1,7 @@
 const CUDA_LIB_DIR: &str = "/workspaces/cuda-rust-example/cuda";
 
 fn main() {
+    // Rerun conditions
     println!(
         "cargo:rerun-if-changed={}/src/batch_inverse.cu",
         CUDA_LIB_DIR
@@ -21,8 +22,8 @@ fn main() {
     println!("cargo:rerun-if-changed={}/src/fields.cuh", CUDA_LIB_DIR);
     println!("cargo:rerun-if-changed={}/src/utils.cuh", CUDA_LIB_DIR);
 
+    // Build cuda code
     println!("cargo:rustc-link-search={}", CUDA_LIB_DIR);
-
     let status = std::process::Command::new("nvcc")
         .args([
             "-arch=sm_50",
