@@ -25,7 +25,7 @@ impl PolyOps for CudaBackend {
         let device_ptr = unsafe {
             cuda::bindings::sort_values_and_permute_with_bit_reverse_order(values.device_ptr, size)
         };
-        let result = cuda::BaseFieldVec { device_ptr, size };
+        let result = cuda::BaseFieldVec::new(device_ptr, size);
         CircleEvaluation::new(coset.circle_domain(), result)
     }
 
@@ -59,10 +59,7 @@ impl PolyOps for CudaBackend {
                 coset.step.into(),
                 coset.size(),
             );
-            let twiddles = cuda::BaseFieldVec {
-                device_ptr: twiddles_device_ptr,
-                size: coset.size(),
-            };
+            let twiddles = cuda::BaseFieldVec::new(twiddles_device_ptr, coset.size());
             let itwiddles = cuda::BaseFieldVec::new_uninitialized(coset.size());
             cuda::bindings::batch_inverse_base_field(
                 twiddles.device_ptr,
@@ -98,7 +95,7 @@ mod tests {
         let cpu_values = column_data.clone();
         let expected_result = CpuBackend::new_canonical_ordered(coset.clone(), cpu_values);
 
-        let column = cuda::BaseFieldVec::new(column_data);
+        let column = cuda::BaseFieldVec::from_vec(column_data);
         let result = CudaBackend::new_canonical_ordered(coset, column);
 
         assert_eq!(result.values.to_cpu(), expected_result.values);

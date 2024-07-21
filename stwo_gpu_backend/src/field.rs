@@ -48,8 +48,8 @@ mod tests {
         let mut dst_expected = dst.clone();
         CpuBackend::batch_inverse(&from, &mut dst_expected);
 
-        let from_device = cuda::BaseFieldVec::new(from);
-        let mut dst_device = cuda::BaseFieldVec::new(dst);
+        let from_device = cuda::BaseFieldVec::from_vec(from);
+        let mut dst_device = cuda::BaseFieldVec::new_uninitialized(size);
         <CudaBackend as FieldOps<BaseField>>::batch_inverse(&from_device, &mut dst_device);
 
         assert_eq!(dst_device.to_cpu(), dst_expected.to_cpu());
@@ -69,8 +69,8 @@ mod tests {
 
         CpuBackend::batch_inverse(&from_cpu, &mut dst_expected_cpu);
 
-        let from_device = cuda::SecureFieldVec::new(from_cpu.clone());
-        let mut dst_device = cuda::SecureFieldVec::new(from_cpu.clone());
+        let from_device = cuda::SecureFieldVec::from_vec(from_cpu.clone());
+        let mut dst_device = cuda::SecureFieldVec::from_vec(from_cpu.clone());
 
         <CudaBackend as FieldOps<SecureField>>::batch_inverse(&from_device, &mut dst_device);
 

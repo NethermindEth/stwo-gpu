@@ -106,7 +106,7 @@ mod tests {
         let mut expected_result = column_data.clone();
         CpuBackend::bit_reverse_column(&mut expected_result);
 
-        let mut column = BaseFieldVec::new(column_data);
+        let mut column = BaseFieldVec::from_vec(column_data);
         <CudaBackend as ColumnOps<BaseField>>::bit_reverse_column(&mut column);
 
         assert_eq!(column.to_cpu(), expected_result);
@@ -125,7 +125,7 @@ mod tests {
 
         CpuBackend::bit_reverse_column(&mut array_expected);
 
-        let mut array = SecureFieldVec::new(from_cpu.clone());
+        let mut array = SecureFieldVec::from_vec(from_cpu.clone());
         <CudaBackend as ColumnOps<SecureField>>::bit_reverse_column(&mut array);
 
         assert_eq!(array.to_cpu(), array_expected);

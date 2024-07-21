@@ -9,16 +9,18 @@ pub struct SecureFieldVec {
 }
 
 impl SecureFieldVec {
-    pub fn new(mut host_array: Vec<SecureField>) -> Self {
-        Self {
-            device_ptr: unsafe {
-                bindings::copy_uint32_t_vec_from_host_to_device(
-                    host_array.as_mut_ptr() as *const u32,
-                    4 * host_array.len() as u32,
-                )
-            },
-            size: host_array.len(),
-        }
+    pub fn new(device_ptr: *const u32, size: usize) -> Self {
+        Self { device_ptr, size }
+    }
+    pub fn from_vec(host_array: Vec<SecureField>) -> Self {
+        let device_ptr = unsafe {
+            bindings::copy_uint32_t_vec_from_host_to_device(
+                host_array.as_ptr() as *const u32,
+                4 * host_array.len() as u32,
+            )
+        };
+        let size = host_array.len();
+        Self::new(device_ptr, size)
     }
 
     pub fn to_vec(&self) -> Vec<SecureField> {
@@ -54,7 +56,7 @@ mod tests {
             .chunks(4)
             .map(|a| SecureField::from_u32_unchecked(a[0], a[1], a[2], a[3]))
             .collect::<Vec<_>>();
-        let secure_field_vec = SecureFieldVec::new(host_data.clone());
+        let secure_field_vec = SecureFieldVec::from_vec(host_data.clone());
 
         assert_eq!(secure_field_vec.to_vec(), host_data);
         assert_eq!(secure_field_vec.size, host_data.len());
