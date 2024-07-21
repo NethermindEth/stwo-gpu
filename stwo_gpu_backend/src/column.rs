@@ -11,13 +11,11 @@ impl ColumnOps<BaseField> for CudaBackend {
     fn bit_reverse_column(column: &mut Self::Column) {
         let size = column.len();
         assert!(size.is_power_of_two() && size < u32::MAX as usize);
-        let bits = u32::BITS - (size as u32).leading_zeros() - 1;
 
         unsafe {
             cuda::bindings::bit_reverse_base_field(
                 column.device_ptr as *const u32,
-                column.len(),
-                bits as usize,
+                size,
             );
         }
     }
@@ -29,13 +27,11 @@ impl ColumnOps<SecureField> for CudaBackend {
     fn bit_reverse_column(column: &mut Self::Column) {
         let size = column.len();
         assert!(size.is_power_of_two() && size < u32::MAX as usize);
-        let bits = u32::BITS - (size as u32).leading_zeros() - 1;
 
         unsafe {
             cuda::bindings::bit_reverse_secure_field(
                 column.device_ptr as *const u32,
-                column.len(),
-                bits as usize,
+                size,
             );
         }
     }

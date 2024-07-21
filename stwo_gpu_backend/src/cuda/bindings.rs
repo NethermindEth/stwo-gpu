@@ -19,12 +19,12 @@ extern "C" {
 
 #[link(name = "gpubackend")]
 extern "C" {
-    pub fn bit_reverse_base_field(array: *const u32, size: usize, bits: usize);
+    pub fn bit_reverse_base_field(array: *const u32, size: usize);
 }
 
 #[link(name = "gpubackend")]
 extern "C" {
-    pub fn bit_reverse_secure_field(array: *const u32, size: usize, bits: usize);
+    pub fn bit_reverse_secure_field(array: *const u32, size: usize);
 }
 
 #[link(name = "gpubackend")]
@@ -33,7 +33,6 @@ extern "C" {
         from: *const u32,
         dst: *const u32,
         size: usize,
-        log_size: usize,
     );
 }
 
@@ -43,7 +42,6 @@ extern "C" {
         from: *const u32,
         dst: *const u32,
         size: usize,
-        log_size: usize,
     );
 }
 

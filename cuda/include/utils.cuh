@@ -3,9 +3,13 @@
 
 #include "fields.cuh"
 
-__device__ __forceinline__ unsigned int bit_reverse(unsigned int n, int bits) {
+__device__ __forceinline__ uint32_t bit_reverse(uint32_t n, int bits) {
     unsigned int reversed_n = __brev(n);
     return reversed_n >> (32 - bits);
+}
+
+__host__ __device__ __forceinline__ int log_2(int value) {
+    return __builtin_ctz(value);
 }
 
 extern "C"

@@ -7,14 +7,11 @@ use crate::{backend::CudaBackend, cuda};
 
 impl FieldOps<BaseField> for CudaBackend {
     fn batch_inverse(column: &Self::Column, dst: &mut Self::Column) {
-        let size = column.len();
-        let bits = u32::BITS - (size as u32).leading_zeros() - 1;
         unsafe {
             cuda::bindings::batch_inverse_base_field(
                 column.device_ptr,
                 dst.device_ptr,
-                size,
-                bits as usize,
+                column.len(),
             );
         }
     }
@@ -22,14 +19,11 @@ impl FieldOps<BaseField> for CudaBackend {
 
 impl FieldOps<SecureField> for CudaBackend {
     fn batch_inverse(column: &Self::Column, dst: &mut Self::Column) {
-        let size = column.len();
-        let bits = u32::BITS - (size as u32).leading_zeros() - 1;
         unsafe {
             cuda::bindings::batch_inverse_secure_field(
                 column.device_ptr,
                 dst.device_ptr,
-                size,
-                bits as usize,
+                column.len(),
             );
         }
     }

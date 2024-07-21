@@ -1,4 +1,5 @@
 #include "../include/batch_inverse.cuh"
+#include "../include/utils.cuh"
 
 template<typename T>
 __device__ void new_forward_parent(T *from, T *dst, int index) {
@@ -153,7 +154,8 @@ __global__ void batch_inverse_secure_field_kernel(qm31 *from, qm31 *dst, int siz
     batch_inverse(from, dst, size, log_size, s_from_qm31, s_inner_trees_qm31);
 }
 
-void batch_inverse_base_field(m31 *from, m31 *dst, int size, int log_size) {
+void batch_inverse_base_field(m31 *from, m31 *dst, int size) {
+    int log_size = log_2(size);
     int block_size = 256;
     int half_size = size >> 1;
     int num_blocks = (half_size + block_size - 1) / block_size;
@@ -163,7 +165,8 @@ void batch_inverse_base_field(m31 *from, m31 *dst, int size, int log_size) {
     cudaDeviceSynchronize();
 }
 
-void batch_inverse_secure_field(qm31 *from, qm31 *dst, int size, int log_size) {
+void batch_inverse_secure_field(qm31 *from, qm31 *dst, int size) {
+    int log_size = log_2(size);
     int block_size = 512;
     int half_size = size >> 1;
     int num_blocks = (half_size + block_size - 1) / block_size;
