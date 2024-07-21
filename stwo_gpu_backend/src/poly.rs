@@ -54,12 +54,14 @@ impl PolyOps for CudaBackend {
 
     fn precompute_twiddles(coset: Coset) -> TwiddleTree<Self> {
         unsafe {
-            let twiddles_device_ptr = cuda::bindings::precompute_twiddles(
-                coset.initial.into(),
-                coset.step.into(),
+            let twiddles = cuda::BaseFieldVec::new(
+                cuda::bindings::precompute_twiddles(
+                    coset.initial.into(),
+                    coset.step.into(),
+                    coset.size(),
+                ),
                 coset.size(),
             );
-            let twiddles = cuda::BaseFieldVec::new(twiddles_device_ptr, coset.size());
             let itwiddles = cuda::BaseFieldVec::new_uninitialized(coset.size());
             cuda::bindings::batch_inverse_base_field(
                 twiddles.device_ptr,
