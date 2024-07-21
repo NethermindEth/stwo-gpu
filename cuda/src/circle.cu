@@ -78,3 +78,83 @@ m31* precompute_twiddles(point initial, point step, int size) {
     return twiddles;
 }
 
+__device__ int get_twiddle(m31 *twiddles, int index) {
+    int k = index >> 2;
+    if (index % 4 == 0) {
+        return twiddles[2 * k + 1];
+    } else if (index % 4 == 1) {
+        return neg(twiddles[2 * k + 1]);
+    } else if (index % 4 == 2) {
+        return neg(twiddles[2 * k]);
+    } else {
+        return twiddles[2 * k];
+    }
+}
+
+__global__ void ifft_circle_part(m31 *values, m31 *inverse_twiddles_tree, int values_size) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (idx < (values_size >> 1)) {
+        m31 val0 = values[2 * idx];
+        m31 val1 = values[2 * idx + 1];
+        m31 twiddle = get_twiddle(inverse_twiddles_tree, idx);
+
+        values[2 * idx] = add(val0, val1);
+        values[2 * idx + 1] = mul(sub(val0, val1), twiddle);
+    }
+}
+
+
+__global__ void ifft_line_part(m31 *values, m31 *inverse_twiddles_tree, int values_size, int inverse_twiddles_size, int layer_domain_offset, int layer) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (idx < (values_size >> 1)) {
+        int number_polynomials = 1 << layer;
+        int h = idx >> layer;
+        int l = idx & (number_polynomials - 1);
+        int idx0 = (h << (layer + 1)) + l;
+        int idx1 = idx0 + number_polynomials;
+
+        m31 val0 = values[idx0];
+        m31 val1 = values[idx1];
+        m31 twiddle = inverse_twiddles_tree[layer_domain_offset + h];
+        
+        values[idx0] = add(val0, val1);
+        values[idx1] = mul(sub(val0, val1), twiddle);
+    }
+}
+
+__global__ void rescale(m31 *values, int size, m31 factor) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if(idx < size) {
+        values[idx] = mul(values[idx], factor);
+    }
+}
+
+void interpolate(uint32_t *values, uint32_t *inverse_twiddles_tree, int values_size) {
+    int block_dim = 256;
+    int num_blocks = ((values_size >> 1) + block_dim - 1) / block_dim;
+    ifft_circle_part<<<num_blocks, block_dim>>>(values, inverse_twiddles_tree, values_size);
+
+    int log_values_size = log_2(values_size);
+    int layer_domain_size = values_size >> 1;
+    int layer_domain_offset = 0;
+    int i = 1;
+    while (i < log_values_size) {
+        ifft_line_part<<<num_blocks, block_dim>>>(values, inverse_twiddles_tree, values_size, layer_domain_size, layer_domain_offset, i);
+
+        layer_domain_size >>= 1;
+        layer_domain_offset += layer_domain_size;
+        i += 1;
+    }
+    cudaDeviceSynchronize();
+        
+    block_dim = 1024;
+    num_blocks = (values_size + block_dim - 1) / block_dim;
+    m31 factor = inv(pow(m31{ 2 }, log_values_size));
+    rescale<<<num_blocks, block_dim>>>(values, values_size, factor);
+    cudaDeviceSynchronize();
+}
+
+

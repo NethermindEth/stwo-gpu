@@ -40,7 +40,7 @@ __host__ __device__ __forceinline__ m31 neg(m31 a) {
     return P - a;
 }
 
-__device__ __forceinline__ uint64_t pow_to_power_of_two(int n, m31 t) {
+__host__ __device__ __forceinline__ uint64_t pow_to_power_of_two(int n, m31 t) {
     int i = 0;
     while(i < n) {
         t = mul(t, t);
@@ -49,7 +49,7 @@ __device__ __forceinline__ uint64_t pow_to_power_of_two(int n, m31 t) {
     return t;
 }
 
-__device__ __forceinline__ m31 inv(m31 t) {
+__host__ __device__ __forceinline__ m31 inv(m31 t) {
     uint64_t t0 = mul(pow_to_power_of_two(2, t), t);
     uint64_t t1 = mul(pow_to_power_of_two(1, t0), t0);
     uint64_t t2 = mul(pow_to_power_of_two(3, t1), t0);
