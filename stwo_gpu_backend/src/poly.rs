@@ -1,5 +1,5 @@
 use stwo_prover::core::{
-    backend::{simd::bit_reverse, Col, Column, ColumnOps},
+    backend::{Col, Column},
     circle::{CirclePoint, Coset},
     fields::{m31::BaseField, qm31::SecureField},
     poly::{
@@ -9,7 +9,10 @@ use stwo_prover::core::{
     },
 };
 
-use crate::{backend::CudaBackend, cuda};
+use crate::{
+    backend::CudaBackend,
+    cuda::{self, bindings::batch_inverse_base_field},
+};
 
 impl PolyOps for CudaBackend {
     type Twiddles = cuda::BaseFieldVec;
@@ -50,19 +53,39 @@ impl PolyOps for CudaBackend {
     }
 
     fn precompute_twiddles(coset: Coset) -> TwiddleTree<Self> {
-        todo!()
+        unsafe {
+            let twiddles_device_ptr = cuda::bindings::precompute_twiddles(
+                coset.initial.into(),
+                coset.step.into(),
+                coset.size(),
+            );
+            let twiddles = cuda::BaseFieldVec {
+                device_ptr: twiddles_device_ptr,
+                size: coset.size(),
+            };
+            let itwiddles = cuda::BaseFieldVec::new_uninitialized(coset.size());
+            cuda::bindings::batch_inverse_base_field(
+                twiddles.device_ptr,
+                itwiddles.device_ptr,
+                coset.size(),
+            );
+            TwiddleTree {
+                root_coset: coset,
+                twiddles,
+                itwiddles,
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::{backend::CudaBackend, cuda};
     use stwo_prover::core::{
         backend::{Column, CpuBackend},
         fields::m31::BaseField,
         poly::circle::{CanonicCoset, PolyOps},
     };
-
-    use crate::{backend::CudaBackend, cuda};
 
     #[test]
     fn test_new_canonical_ordered() {
@@ -82,6 +105,22 @@ mod tests {
         assert_eq!(
             result.domain.iter().collect::<Vec<_>>(),
             expected_result.domain.iter().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_precompute_twiddles() {
+        let log_size = 20;
+
+        let half_coset = CanonicCoset::new(log_size).half_coset();
+        let expected_result = CpuBackend::precompute_twiddles(half_coset.clone());
+        let twiddles = CudaBackend::precompute_twiddles(half_coset);
+
+        assert_eq!(twiddles.twiddles.to_cpu(), expected_result.twiddles);
+        assert_eq!(twiddles.itwiddles.to_cpu(), expected_result.itwiddles);
+        assert_eq!(
+            twiddles.root_coset.iter().collect::<Vec<_>>(),
+            expected_result.root_coset.iter().collect::<Vec<_>>()
         );
     }
 }

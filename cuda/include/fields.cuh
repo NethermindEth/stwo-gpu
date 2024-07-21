@@ -20,23 +20,23 @@ const cm31 R = {2, 1};
 
 /*##### M31 ##### */
 
-__device__ __forceinline__ m31 mul(m31 a, m31 b) {
+__host__ __device__ __forceinline__ m31 mul(m31 a, m31 b) {
     uint64_t v = ((uint64_t) a * (uint64_t) b);
     uint64_t w = v + (v >> 31);
     uint64_t u = v + (w >> 31);
     return u & P;
 }
 
-__device__ __forceinline__ m31 add(m31 a, m31 b) {
+__host__ __device__ __forceinline__ m31 add(m31 a, m31 b) {
     uint64_t sum = ((uint64_t) a + (uint64_t) b);
     return min(sum, sum - P);
 }
 
-__device__ __forceinline__ m31 sub(m31 a, m31 b) {
+__host__ __device__ __forceinline__ m31 sub(m31 a, m31 b) {
     return add(a, P - b);
 }
 
-__device__ __forceinline__ m31 neg(m31 a) {
+__host__ __device__ __forceinline__ m31 neg(m31 a) {
     return P - a;
 }
 

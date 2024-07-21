@@ -1,4 +1,4 @@
-use stwo_prover::core::{backend::Column, fields::m31::BaseField};
+use stwo_prover::core::fields::m31::BaseField;
 
 use super::bindings;
 
@@ -18,6 +18,13 @@ impl BaseFieldVec {
                 )
             },
             size: host_array.len(),
+        }
+    }
+
+    pub fn new_uninitialized(size: usize) -> Self {
+        Self {
+            device_ptr: unsafe { bindings::cuda_malloc_uint32_t(size as u32) },
+            size,
         }
     }
 
