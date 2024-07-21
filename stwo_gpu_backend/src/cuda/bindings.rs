@@ -29,23 +29,18 @@ extern "C" {
 
 #[link(name = "gpubackend")]
 extern "C" {
-    pub fn batch_inverse_base_field(
-        from: *const u32,
-        dst: *const u32,
-        size: usize,
-    );
+    pub fn batch_inverse_base_field(from: *const u32, dst: *const u32, size: usize);
 }
 
 #[link(name = "gpubackend")]
 extern "C" {
-    pub fn batch_inverse_secure_field(
-        from: *const u32,
-        dst: *const u32,
-        size: usize,
-    );
+    pub fn batch_inverse_secure_field(from: *const u32, dst: *const u32, size: usize);
 }
 
 #[link(name = "gpubackend")]
 extern "C" {
-    pub fn sort_values(from: *const u32, size: usize) -> *const u32;
+    pub fn sort_values_and_permute_with_bit_reverse_order(
+        from: *const u32,
+        size: usize,
+    ) -> *const u32;
 }

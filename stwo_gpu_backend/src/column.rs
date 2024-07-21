@@ -13,10 +13,7 @@ impl ColumnOps<BaseField> for CudaBackend {
         assert!(size.is_power_of_two() && size < u32::MAX as usize);
 
         unsafe {
-            cuda::bindings::bit_reverse_base_field(
-                column.device_ptr as *const u32,
-                size,
-            );
+            cuda::bindings::bit_reverse_base_field(column.device_ptr as *const u32, size);
         }
     }
 }
@@ -29,10 +26,7 @@ impl ColumnOps<SecureField> for CudaBackend {
         assert!(size.is_power_of_two() && size < u32::MAX as usize);
 
         unsafe {
-            cuda::bindings::bit_reverse_secure_field(
-                column.device_ptr as *const u32,
-                size,
-            );
+            cuda::bindings::bit_reverse_secure_field(column.device_ptr as *const u32, size);
         }
     }
 }

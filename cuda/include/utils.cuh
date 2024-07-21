@@ -8,7 +8,7 @@ __device__ __forceinline__ uint32_t bit_reverse(uint32_t n, int bits) {
     return reversed_n >> (32 - bits);
 }
 
-__host__ __device__ __forceinline__ int log_2(int value) {
+__host__ __forceinline__ int log_2(int value) {
     return __builtin_ctz(value);
 }
 
