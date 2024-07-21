@@ -11,6 +11,9 @@ extern "C"
 m31* precompute_twiddles(point initial, point step, int total_size);
 
 extern "C"
-void interpolate(uint32_t *values, uint32_t *inverse_twiddles_tree, int values_size);
+void interpolate(m31 *values, m31 *inverse_twiddles_tree, int values_size);
+
+extern "C"
+void evaluate(m31 *values, m31 *inverse_twiddles_tree, int values_size);
 
 #endif // CIRCLE_H

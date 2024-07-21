@@ -65,11 +65,21 @@ impl PolyOps for CudaBackend {
     }
 
     fn evaluate(
-        _poly: &CirclePoly<Self>,
-        _domain: CircleDomain,
-        _twiddles: &TwiddleTree<Self>,
+        poly: &CirclePoly<Self>,
+        domain: CircleDomain,
+        twiddle_tree: &TwiddleTree<Self>,
     ) -> CircleEvaluation<Self, BaseField, BitReversedOrder> {
-        todo!()
+        let values = poly.extend(domain.log_size()).coeffs;
+        assert!(domain.half_coset.is_doubling_of(twiddle_tree.root_coset));
+        unsafe {
+            cuda::bindings::evaluate(
+                values.device_ptr,
+                twiddle_tree.twiddles.device_ptr,
+                values.len() as u32,
+            );
+        }
+
+        CircleEvaluation::new(domain, values)
     }
 
     fn precompute_twiddles(coset: Coset) -> TwiddleTree<Self> {
@@ -127,7 +137,7 @@ mod tests {
 
     #[test]
     fn test_precompute_twiddles() {
-        let log_size = 20;
+        let log_size = 3;
 
         let half_coset = CanonicCoset::new(log_size).half_coset();
         let expected_result = CpuBackend::precompute_twiddles(half_coset);
@@ -178,5 +188,32 @@ mod tests {
         let result = CudaBackend::interpolate(gpu_evaluations, &gpu_twiddles);
 
         assert_eq!(result.coeffs.to_cpu(), expected_result.coeffs);
+    }
+
+    #[test]
+    fn test_evaluate() {
+        let log_size = 20;
+
+        let size = 1 << log_size;
+
+        let cpu_values = (1..(size + 1) as u32)
+            .map(BaseField::from)
+            .collect::<Vec<_>>();
+        let gpu_values = cuda::BaseFieldVec::from_vec(cpu_values.clone());
+
+        let coset = CanonicCoset::new(log_size);
+        let cpu_evaluations = CpuBackend::new_canonical_ordered(coset, cpu_values);
+        let gpu_evaluations = CudaBackend::new_canonical_ordered(coset, gpu_values);
+
+        let cpu_twiddles = CpuBackend::precompute_twiddles(coset.half_coset());
+        let gpu_twiddles = CudaBackend::precompute_twiddles(coset.half_coset());
+
+        let cpu_poly = CpuBackend::interpolate(cpu_evaluations, &cpu_twiddles);
+        let gpu_poly = CudaBackend::interpolate(gpu_evaluations, &gpu_twiddles);
+
+        let expected_result = CpuBackend::evaluate(&cpu_poly, coset.circle_domain(), &cpu_twiddles);
+        let result = CudaBackend::evaluate(&gpu_poly, coset.circle_domain(), &gpu_twiddles);
+
+        assert_eq!(result.values.to_cpu(), expected_result.values);
     }
 }

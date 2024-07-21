@@ -95,3 +95,8 @@ extern "C" {
 extern "C" {
     pub fn interpolate(values: *const u32, inverse_twiddles_tree: *const u32, values_size: u32);
 }
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn evaluate(values: *const u32, inverse_twiddles_tree: *const u32, values_size: u32);
+}
