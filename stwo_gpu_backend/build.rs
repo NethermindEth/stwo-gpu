@@ -2,6 +2,7 @@ const CUDA_LIB_DIR: &str = "/workspaces/cuda-rust-example/cuda";
 
 fn main() {
     // Rerun conditions
+    // Source files
     println!(
         "cargo:rerun-if-changed={}/src/batch_inverse.cu",
         CUDA_LIB_DIR
@@ -10,6 +11,7 @@ fn main() {
     println!("cargo:rerun-if-changed={}/src/circle.cu", CUDA_LIB_DIR);
     println!("cargo:rerun-if-changed={}/src/utils.cu", CUDA_LIB_DIR);
 
+    // Header files
     println!(
         "cargo:rerun-if-changed={}/src/batch_inverse.cuh",
         CUDA_LIB_DIR
@@ -20,6 +22,7 @@ fn main() {
     );
     println!("cargo:rerun-if-changed={}/src/circle.cuh", CUDA_LIB_DIR);
     println!("cargo:rerun-if-changed={}/src/fields.cuh", CUDA_LIB_DIR);
+    println!("cargo:rerun-if-changed={}/src/point.cuh", CUDA_LIB_DIR);
     println!("cargo:rerun-if-changed={}/src/utils.cuh", CUDA_LIB_DIR);
 
     // Build cuda code
