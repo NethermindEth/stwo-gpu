@@ -1,4 +1,7 @@
-use stwo_prover::core::{circle::CirclePoint, fields::m31::BaseField};
+use stwo_prover::core::{
+    circle::CirclePoint,
+    fields::{m31::BaseField, qm31::SecureField},
+};
 
 #[link(name = "gpubackend")]
 extern "C" {
@@ -99,4 +102,14 @@ extern "C" {
 #[link(name = "gpubackend")]
 extern "C" {
     pub fn evaluate(values: *const u32, inverse_twiddles_tree: *const u32, values_size: u32);
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn eval_at_point(
+        coeffs: *const u32,
+        coeffs_size: u32,
+        point_x: SecureField,
+        point_y: SecureField,
+    ) -> SecureField;
 }

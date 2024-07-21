@@ -16,4 +16,7 @@ void interpolate(m31 *values, m31 *inverse_twiddles_tree, int values_size);
 extern "C"
 void evaluate(m31 *values, m31 *inverse_twiddles_tree, int values_size);
 
+extern "C"
+qm31 eval_at_point(m31 *coeffs, int coeffs_size, qm31 point_x, qm31 point_y);
+
 #endif // CIRCLE_H
