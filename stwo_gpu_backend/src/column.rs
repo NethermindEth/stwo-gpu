@@ -32,7 +32,7 @@ impl ColumnOps<SecureField> for CudaBackend {
 }
 
 impl Column<BaseField> for cuda::BaseFieldVec {
-    fn zeros(len: usize) -> Self {
+    fn zeros(_len: usize) -> Self {
         todo!()
     }
 
@@ -44,23 +44,23 @@ impl Column<BaseField> for cuda::BaseFieldVec {
         self.size
     }
 
-    fn at(&self, index: usize) -> BaseField {
+    fn at(&self, _index: usize) -> BaseField {
         todo!()
     }
 
-    fn set(&mut self, index: usize, value: BaseField) {
+    fn set(&mut self, _index: usize, _value: BaseField) {
         todo!()
     }
 }
 
 impl FromIterator<BaseField> for cuda::BaseFieldVec {
-    fn from_iter<T: IntoIterator<Item = BaseField>>(iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = BaseField>>(_iter: T) -> Self {
         todo!()
     }
 }
 
 impl Column<SecureField> for cuda::SecureFieldVec {
-    fn zeros(len: usize) -> Self {
+    fn zeros(_len: usize) -> Self {
         todo!()
     }
 
@@ -72,17 +72,17 @@ impl Column<SecureField> for cuda::SecureFieldVec {
         self.size
     }
 
-    fn at(&self, index: usize) -> SecureField {
+    fn at(&self, _index: usize) -> SecureField {
         todo!()
     }
 
-    fn set(&mut self, index: usize, value: SecureField) {
+    fn set(&mut self, _index: usize, _value: SecureField) {
         todo!()
     }
 }
 
 impl FromIterator<SecureField> for cuda::SecureFieldVec {
-    fn from_iter<T: IntoIterator<Item = SecureField>>(iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = SecureField>>(_iter: T) -> Self {
         todo!()
     }
 }

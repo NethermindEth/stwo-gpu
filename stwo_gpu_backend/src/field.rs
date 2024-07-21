@@ -42,7 +42,7 @@ mod tests {
     fn test_batch_inverse_basefield() {
         let size: usize = 1 << 25;
         let from = (1..(size + 1) as u32)
-            .map(|x| BaseField::from(x))
+            .map(BaseField::from)
             .collect::<Vec<_>>();
         let dst = from.clone();
         let mut dst_expected = dst.clone();

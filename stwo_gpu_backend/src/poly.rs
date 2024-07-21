@@ -11,7 +11,7 @@ use stwo_prover::core::{
 
 use crate::{
     backend::CudaBackend,
-    cuda::{self, bindings::batch_inverse_base_field},
+    cuda::{self},
 };
 
 impl PolyOps for CudaBackend {
@@ -30,13 +30,13 @@ impl PolyOps for CudaBackend {
     }
 
     fn interpolate(
-        eval: CircleEvaluation<Self, BaseField, BitReversedOrder>,
-        itwiddles: &TwiddleTree<Self>,
+        _eval: CircleEvaluation<Self, BaseField, BitReversedOrder>,
+        _itwiddles: &TwiddleTree<Self>,
     ) -> CirclePoly<Self> {
         todo!()
     }
 
-    fn eval_at_point(poly: &CirclePoly<Self>, point: CirclePoint<SecureField>) -> SecureField {
+    fn eval_at_point(_poly: &CirclePoly<Self>, _point: CirclePoint<SecureField>) -> SecureField {
         todo!()
     }
 
@@ -53,9 +53,9 @@ impl PolyOps for CudaBackend {
     }
 
     fn evaluate(
-        poly: &CirclePoly<Self>,
-        domain: CircleDomain,
-        twiddles: &TwiddleTree<Self>,
+        _poly: &CirclePoly<Self>,
+        _domain: CircleDomain,
+        _twiddles: &TwiddleTree<Self>,
     ) -> CircleEvaluation<Self, BaseField, BitReversedOrder> {
         todo!()
     }
@@ -100,10 +100,10 @@ mod tests {
         let coset = CanonicCoset::new(log_size);
         let size: usize = 1 << log_size;
         let column_data = (0..size as u32)
-            .map(|x| BaseField::from(x))
+            .map(BaseField::from)
             .collect::<Vec<_>>();
         let cpu_values = column_data.clone();
-        let expected_result = CpuBackend::new_canonical_ordered(coset.clone(), cpu_values);
+        let expected_result = CpuBackend::new_canonical_ordered(coset, cpu_values);
 
         let column = cuda::BaseFieldVec::from_vec(column_data);
         let result = CudaBackend::new_canonical_ordered(coset, column);
@@ -120,7 +120,7 @@ mod tests {
         let log_size = 20;
 
         let half_coset = CanonicCoset::new(log_size).half_coset();
-        let expected_result = CpuBackend::precompute_twiddles(half_coset.clone());
+        let expected_result = CpuBackend::precompute_twiddles(half_coset);
         let twiddles = CudaBackend::precompute_twiddles(half_coset);
 
         assert_eq!(twiddles.twiddles.to_cpu(), expected_result.twiddles);

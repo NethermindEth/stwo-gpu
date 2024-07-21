@@ -11,10 +11,10 @@ use crate::backend::CudaBackend;
 
 impl QuotientOps for CudaBackend {
     fn accumulate_quotients(
-        domain: CircleDomain,
-        columns: &[&CircleEvaluation<Self, BaseField, BitReversedOrder>],
-        random_coeff: SecureField,
-        sample_batches: &[ColumnSampleBatch],
+        _domain: CircleDomain,
+        _columns: &[&CircleEvaluation<Self, BaseField, BitReversedOrder>],
+        _random_coeff: SecureField,
+        _sample_batches: &[ColumnSampleBatch],
     ) -> SecureEvaluation<Self> {
         todo!()
     }

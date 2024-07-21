@@ -24,7 +24,7 @@ fn main() {
     println!("cargo:rustc-link-search={}", CUDA_LIB_DIR);
 
     let status = std::process::Command::new("nvcc")
-        .args(&[
+        .args([
             "-arch=sm_50",
             "-Xcompiler",
             "-fPIC",

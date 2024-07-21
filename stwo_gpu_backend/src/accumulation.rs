@@ -3,7 +3,7 @@ use stwo_prover::core::{air::accumulation::AccumulationOps, fields::secure_colum
 use crate::backend::CudaBackend;
 
 impl AccumulationOps for CudaBackend {
-    fn accumulate(column: &mut SecureColumn<Self>, other: &SecureColumn<Self>) {
+    fn accumulate(_column: &mut SecureColumn<Self>, _other: &SecureColumn<Self>) {
         todo!()
     }
 }
