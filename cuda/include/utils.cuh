@@ -19,7 +19,13 @@ extern "C"
 uint32_t* copy_uint32_t_vec_from_host_to_device(uint32_t*, int);
 
 extern "C"
+void copy_uint32_t_vec_from_device_to_device(uint32_t *, uint32_t*, int);
+
+extern "C"
 uint32_t* cuda_malloc_uint32_t(int);
+
+extern "C"
+uint32_t* cuda_alloc_zeroes_uint32_t(int);
 
 extern "C"
 void free_uint32_t_vec(uint32_t*);

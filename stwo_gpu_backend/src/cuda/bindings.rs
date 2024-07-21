@@ -16,7 +16,21 @@ extern "C" {
 
 #[link(name = "gpubackend")]
 extern "C" {
+    pub fn copy_uint32_t_vec_from_device_to_device(
+        from: *const u32,
+        dst: *const u32,
+        size: u32,
+    ) -> *const u32;
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
     pub fn cuda_malloc_uint32_t(size: u32) -> *const u32;
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn cuda_alloc_zeroes_uint32_t(size: u32) -> *const u32;
 }
 
 #[link(name = "gpubackend")]

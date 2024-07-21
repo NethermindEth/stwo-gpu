@@ -41,7 +41,15 @@ impl PolyOps for CudaBackend {
     }
 
     fn extend(poly: &CirclePoly<Self>, log_size: u32) -> CirclePoly<Self> {
-        todo!()
+        let new_size = 1 << log_size;
+        assert!(
+            new_size >= poly.coeffs.len(),
+            "New size must be larger than the old size"
+        );
+
+        let mut new_coeffs = cuda::BaseFieldVec::new_zeroes(new_size);
+        new_coeffs.copy_from(&poly.coeffs);
+        CirclePoly::new(new_coeffs)
     }
 
     fn evaluate(
@@ -83,7 +91,7 @@ mod tests {
     use stwo_prover::core::{
         backend::{Column, CpuBackend},
         fields::m31::BaseField,
-        poly::circle::{CanonicCoset, PolyOps},
+        poly::circle::{CanonicCoset, CirclePoly, PolyOps},
     };
 
     #[test]
@@ -121,5 +129,19 @@ mod tests {
             twiddles.root_coset.iter().collect::<Vec<_>>(),
             expected_result.root_coset.iter().collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn test_extend() {
+        let log_size = 20;
+        let size = 1 << log_size;
+        let new_log_size = log_size + 5;
+        let cpu_coeffs = (0..size).map(BaseField::from).collect::<Vec<_>>();
+        let cuda_coeffs = cuda::BaseFieldVec::from_vec(cpu_coeffs.clone());
+        let cpu_poly = CirclePoly::<CpuBackend>::new(cpu_coeffs);
+        let cuda_poly = CirclePoly::<CudaBackend>::new(cuda_coeffs);
+        let result = CudaBackend::extend(&cuda_poly, new_log_size);
+        let expected_result = CpuBackend::extend(&cpu_poly, new_log_size);
+        assert_eq!(result.coeffs.to_cpu(), expected_result.coeffs);
     }
 }

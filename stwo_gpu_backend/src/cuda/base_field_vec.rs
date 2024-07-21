@@ -28,6 +28,24 @@ impl BaseFieldVec {
         Self::new(unsafe { bindings::cuda_malloc_uint32_t(size as u32) }, size)
     }
 
+    pub fn new_zeroes(size: usize) -> Self {
+        Self::new(
+            unsafe { bindings::cuda_alloc_zeroes_uint32_t(size as u32) },
+            size,
+        )
+    }
+
+    pub fn copy_from(&mut self, other: &Self) {
+        assert!(self.size >= other.size);
+        unsafe {
+            bindings::copy_uint32_t_vec_from_device_to_device(
+                other.device_ptr,
+                self.device_ptr,
+                other.size as u32,
+            );
+        }
+    }
+
     pub fn to_vec(&self) -> Vec<BaseField> {
         let mut host_data: Vec<BaseField> = Vec::with_capacity(self.size);
         unsafe {
