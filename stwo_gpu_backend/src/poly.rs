@@ -18,15 +18,11 @@ impl PolyOps for CudaBackend {
         coset: CanonicCoset,
         values: Col<Self, BaseField>,
     ) -> CircleEvaluation<Self, BaseField, BitReversedOrder> {
-        let result = cuda::BaseFieldVec {
-            device_ptr: unsafe {
-                cuda::bindings::sort_values_and_permute_with_bit_reverse_order(
-                    values.device_ptr,
-                    values.len(),
-                )
-            },
-            size: values.len(),
+        let size = values.len();
+        let device_ptr = unsafe {
+            cuda::bindings::sort_values_and_permute_with_bit_reverse_order(values.device_ptr, size)
         };
+        let result = cuda::BaseFieldVec { device_ptr, size };
         CircleEvaluation::new(coset.circle_domain(), result)
     }
 
