@@ -1,6 +1,7 @@
 /.idea/
 /cmake-build-debug/
 
+/cuda/build/
 /cuda/libgpubackend.so
 stwo_gpu_backend/Cargo.lock
 stwo_gpu_backend/target/

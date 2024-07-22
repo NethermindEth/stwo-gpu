@@ -1,5 +1,26 @@
 #include "../include/fri.cuh"
 
+void sum_list(uint32_t *results, const uint32_t block_thread_index, const uint32_t half_list_size,
+              const uint32_t *list_to_sum_in_block, uint32_t &thread_result);
+
+__device__ void sum_list(uint32_t *results, const uint32_t block_thread_index, const uint32_t half_list_size,
+              const uint32_t *list_to_sum_in_block, uint32_t &thread_result) {
+    uint32_t list_to_sum_in_block_half_size = min(half_list_size, blockDim.x) >> 1;
+    while (block_thread_index < list_to_sum_in_block_half_size) {
+        thread_result = add(
+                thread_result, list_to_sum_in_block[block_thread_index + list_to_sum_in_block_half_size]);
+
+        __syncthreads();
+
+        list_to_sum_in_block_half_size >>= 1;
+    }
+
+    const bool is_first_thread_in_block = block_thread_index == 0;
+    if (is_first_thread_in_block) {
+        results[blockIdx.x] = thread_result;
+    }
+}
+
 __global__ void sum_reduce(uint32_t *list, uint32_t *temp_list, uint32_t *results, const uint32_t list_size) {
     const uint32_t block_thread_index = threadIdx.x;
     const uint32_t first_thread_in_block_index = blockIdx.x * blockDim.x;
@@ -16,24 +37,11 @@ __global__ void sum_reduce(uint32_t *list, uint32_t *temp_list, uint32_t *result
 
         __syncthreads();
 
-        uint32_t list_to_sum_in_block_half_size = min(half_list_size, blockDim.x) >> 1;
-        while (block_thread_index < list_to_sum_in_block_half_size) {
-            thread_result = add(
-                    thread_result, list_to_sum_in_block[block_thread_index + list_to_sum_in_block_half_size]);
-
-            __syncthreads();
-
-            list_to_sum_in_block_half_size >>= 1;
-        }
-
-        const bool is_first_thread_in_block = block_thread_index == 0;
-        if (is_first_thread_in_block) {
-            results[blockIdx.x] = thread_result;
-        }
+        sum_list(results, block_thread_index, half_list_size, list_to_sum_in_block, thread_result);
     }
 }
 
 extern "C"
 void sum(uint32_t *list, uint32_t *temp_list, uint32_t *results, const uint32_t list_size) {
-    sum_reduce<<<1, 512>>>(list, temp_list, results, list_size);
+    sum_reduce<<<1, min(list_size, 1024)>>>(list, temp_list, results, list_size);
 }
