@@ -330,6 +330,7 @@ qm31 eval_at_point(m31 *coeffs, int coeffs_size, qm31 point_x, qm31 point_y) {
     qm31* device_mappings;
     cudaMalloc((void**)&device_mappings, sizeof(qm31) * log_coeffs_size);
     cudaMemcpy(device_mappings, host_mappings, sizeof(qm31) * log_coeffs_size, cudaMemcpyHostToDevice);
+    free(host_mappings);
 
     // First pass
     int block_dim = 256;
@@ -354,6 +355,8 @@ qm31 eval_at_point(m31 *coeffs, int coeffs_size, qm31 point_x, qm31 point_y) {
 
     qm31 result = qm31{cm31{0,0}, cm31{0,1}};
     cudaMemcpy(&result, temp, sizeof(qm31), cudaMemcpyDeviceToHost);
+    cudaFree(temp);
+    cudaFree(device_mappings);
     return result;
 }
 
