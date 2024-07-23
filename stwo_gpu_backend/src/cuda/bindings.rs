@@ -128,6 +128,23 @@ extern "C" {
     pub fn compute_g_values(
         f_values: *const u32,
         size: usize,
-        lambda: M31
+        lambda: M31,
     ) -> *const u32;
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn fold_circle(
+        gpu_domain: *const u32,
+        twiddle_offset: usize,
+        n: usize,
+        eval_values_1: *const u32,
+        eval_values_2: *const u32,
+        eval_values_3: *const u32,
+        eval_values_4: *const u32,
+        alpha: SecureField,
+        folded_values_1: *const u32,
+        folded_values_2: *const u32,
+        folded_values_3: *const u32,
+        folded_values_4: *const u32);
 }

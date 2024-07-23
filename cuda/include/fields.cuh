@@ -44,6 +44,8 @@ __host__ __device__ cm31 neg(cm31 x);
 
 __host__ __device__ cm31 inv(cm31 t);
 
+__host__ __device__ cm31 mul_by_scalar(cm31 x, m31 scalar);
+
 /*##### QM31 ##### */
 
 __host__ __device__ qm31 mul(qm31 x, qm31 y);
@@ -53,5 +55,7 @@ __host__ __device__ qm31 add(qm31 x, qm31 y);
 __host__ __device__ qm31 sub(qm31 x, qm31 y);
 
 __host__ __device__ qm31 inv(qm31 t);
+
+__host__ __device__ qm31 mul_by_scalar(qm31 x, m31 scalar);
 
 #endif // FIELDS_H

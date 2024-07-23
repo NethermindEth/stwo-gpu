@@ -62,6 +62,10 @@ __host__ __device__ cm31 inv(cm31 t) {
     return {mul(t.a, factor), mul(neg(t.b), factor)};
 }
 
+__host__ __device__ cm31 mul_by_scalar(cm31 x, m31 scalar) {
+    return cm31 { mul(x.a, scalar), mul(x.b, scalar) };
+}
+
 /*##### QM31 ##### */
 
 __host__ __device__ qm31 mul(qm31 x, qm31 y) {
@@ -83,6 +87,10 @@ __host__ __device__ qm31 sub(qm31 x, qm31 y) {
     return {sub(x.a, y.a), sub(x.b, y.b)};
 }
 
+__host__ __device__ qm31 mul_by_scalar(qm31 x, m31 scalar) {
+    return qm31 { mul_by_scalar(x.a, scalar), mul_by_scalar(x.b, scalar) };
+}
+
 __host__ __device__ qm31 inv(qm31 t) {
     cm31 b2 = mul(t.b, t.b);
     cm31 ib2 = {neg(b2.b), b2.a};
@@ -90,4 +98,3 @@ __host__ __device__ qm31 inv(qm31 t) {
     cm31 denom_inverse = inv(denom);
     return {mul(t.a, denom_inverse), neg(mul(t.b, denom_inverse))};
 }
-

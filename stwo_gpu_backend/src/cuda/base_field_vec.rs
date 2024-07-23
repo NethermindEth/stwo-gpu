@@ -68,8 +68,9 @@ impl Drop for BaseFieldVec {
 
 #[cfg(test)]
 mod tests {
+    use stwo_prover::core::fields::m31::BaseField;
+
     use super::*;
-    use stwo_prover::core::{backend::Column, fields::m31::BaseField};
 
     #[test]
     fn test_constructor() {
