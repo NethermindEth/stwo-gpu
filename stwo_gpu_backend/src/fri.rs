@@ -3,7 +3,7 @@ use stwo_prover::core::{
     fri::FriOps,
     poly::{circle::SecureEvaluation, line::LineEvaluation, twiddles::TwiddleTree},
 };
-use stwo_prover::core::fields::m31::M31;
+use stwo_prover::core::fields::m31::{BaseField, M31};
 use stwo_prover::core::fields::secure_column::SecureColumn;
 
 use crate::backend::CudaBackend;
@@ -40,7 +40,12 @@ impl FriOps for CudaBackend {
 
         let g_values = unsafe {
             SecureColumn {
-                columns: eval.columns.clone()
+                columns: [
+                    Self::compute_g_values(&columns[0], lambda.0.0),
+                    Self::compute_g_values(&columns[1], lambda.0.1),
+                    Self::compute_g_values(&columns[2], lambda.1.0),
+                    Self::compute_g_values(&columns[3], lambda.1.1),
+                ]
             }
         };
 
@@ -53,20 +58,22 @@ impl FriOps for CudaBackend {
 }
 
 impl CudaBackend {
-    unsafe fn sum(column: &BaseFieldVec) -> M31 {
+    unsafe fn sum(column: &BaseFieldVec) -> BaseField {
         let column_size = column.size;
-        let mut temp = BaseFieldVec::new_uninitialized(column_size);
+        return bindings::sum(column.device_ptr,
+                             column_size as u32);
+    }
 
-        let mut partial_results = BaseFieldVec::new_uninitialized(1);
-        unsafe {
-            bindings::sum(column.device_ptr,
-                          temp.device_ptr,
-                          partial_results.device_ptr,
-                          column_size as u32);
-        }
+    unsafe fn compute_g_values(f_values: &BaseFieldVec, lambda: M31) -> BaseFieldVec {
+        let size = f_values.size;
 
-        let result = partial_results.to_vec()[0];
-
+        let result = BaseFieldVec {
+            device_ptr: bindings::compute_g_values(
+                f_values.device_ptr,
+                size,
+                lambda),
+            size: size,
+        };
         return result;
     }
 }
@@ -74,7 +81,7 @@ impl CudaBackend {
 #[cfg(test)]
 mod tests {
     use itertools::Itertools;
-    use stwo_prover::core::backend::CpuBackend;
+    use stwo_prover::core::backend::{Column, CpuBackend};
     use stwo_prover::core::fields::m31::M31;
     use stwo_prover::core::fields::secure_column::SecureColumn;
     use stwo_prover::core::fri::FriOps;
@@ -115,14 +122,39 @@ mod tests {
             values: SecureColumn { columns },
         };
 
-        let (_, expected_lambda) = CpuBackend::decompose(&cpu_secure_evaluation);
-        let (_, lambda) = CudaBackend::decompose(&gpu_secure_evaluation);
+        let (expected_g_values, expected_lambda) = CpuBackend::decompose(&cpu_secure_evaluation);
+        let (g_values, lambda) = CudaBackend::decompose(&gpu_secure_evaluation);
 
         assert_eq!(lambda, expected_lambda);
+        assert_eq!(g_values.values.columns[0].to_cpu(), expected_g_values.values.columns[0]);
+        assert_eq!(g_values.values.columns[1].to_cpu(), expected_g_values.values.columns[1]);
+        assert_eq!(g_values.values.columns[2].to_cpu(), expected_g_values.values.columns[2]);
+        assert_eq!(g_values.values.columns[3].to_cpu(), expected_g_values.values.columns[3]);
     }
 
     #[test]
     fn test_decompose_using_less_than_an_entire_block() {
         test_decompose_with_domain_log_size(5);
+    }
+
+    #[test]
+    fn test_decompose_using_an_entire_block() {
+        test_decompose_with_domain_log_size(11);
+    }
+
+    #[test]
+    fn test_decompose_using_more_than_entire_block() {
+        test_decompose_with_domain_log_size(11 + 4);
+    }
+
+    #[test]
+    fn test_decompose_using_an_entire_block_for_results() {
+        test_decompose_with_domain_log_size(22);
+    }
+
+    #[ignore]
+    #[test]
+    fn test_decompose_using_more_than_an_entire_block_for_results() {
+        test_decompose_with_domain_log_size(27);
     }
 }
