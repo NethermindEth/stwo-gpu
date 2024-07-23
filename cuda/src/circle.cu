@@ -53,8 +53,7 @@ __global__ void precompute_twiddles_kernel(m31 *dst, point initial, point step, 
 }
 
 m31* precompute_twiddles(point initial, point step, int size) {
-    m31* twiddles;
-    cudaMalloc((void**)&twiddles, sizeof(m31) * size);
+    m31* twiddles = cuda_malloc_uint32_t(size);
     m31 one = 1;
     cudaMemcpy(&twiddles[size - 1], &one, sizeof(m31), cudaMemcpyHostToDevice);
     int block_dim = 256;
