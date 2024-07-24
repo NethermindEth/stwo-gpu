@@ -5,15 +5,20 @@ typedef unsigned int uint32_t;
 typedef uint32_t m31;
 typedef unsigned long long uint64_t;
 
-typedef struct {
+struct cm31{
     m31 a;
     m31 b;
-} cm31;
+};
 
-typedef struct {
+struct qm31 {
     cm31 a;
     cm31 b;
-} qm31;
+
+    __host__ __device__ qm31 mul(const qm31 &b) const;
+    __host__ __device__ qm31 operator*(const qm31& rhs) const {
+        return this->mul(rhs);
+    }
+};
 
 const m31 P = 2147483647;
 const cm31 R = {2, 1};

@@ -104,7 +104,7 @@ __device__ const qm31 getEvaluation(const uint32_t *const *eval_values, const ui
 __global__ void fold_applying(const uint32_t *domain,
                               const uint32_t twiddle_offset,
                               const uint32_t n,
-                              const qm31 alpha,
+                              qm31 alpha,
                               uint32_t *eval_values_0,
                               uint32_t *eval_values_1,
                               uint32_t *eval_values_2,
@@ -132,7 +132,7 @@ __global__ void fold_applying(const uint32_t *domain,
         const qm31 f_0 = add(f_x, f_x_minus);
         const qm31 f_1 = mul_by_scalar(sub(f_x, f_x_minus), x_inverse);
 
-        const qm31 f_prime = add(f_0, mul(alpha, f_1));
+        const qm31 f_prime = add(f_0, alpha * f_1);
 
         folded_values_0[i] = f_prime.a.a;
         folded_values_1[i] = f_prime.a.b;

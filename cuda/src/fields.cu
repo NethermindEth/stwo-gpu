@@ -1,5 +1,9 @@
 #include "../include/fields.cuh"
 
+__host__ __device__ qm31 qm31::mul(const qm31 &b) const {
+    return ::mul(*this, b);
+}
+
 __host__ __device__ m31 mul(m31 a, m31 b) {
     uint64_t v = ((uint64_t) a * (uint64_t) b);
     uint64_t w = v + (v >> 31);
@@ -63,7 +67,7 @@ __host__ __device__ cm31 inv(cm31 t) {
 }
 
 __host__ __device__ cm31 mul_by_scalar(cm31 x, m31 scalar) {
-    return cm31 { mul(x.a, scalar), mul(x.b, scalar) };
+    return cm31{mul(x.a, scalar), mul(x.b, scalar)};
 }
 
 /*##### QM31 ##### */
@@ -88,7 +92,7 @@ __host__ __device__ qm31 sub(qm31 x, qm31 y) {
 }
 
 __host__ __device__ qm31 mul_by_scalar(qm31 x, m31 scalar) {
-    return qm31 { mul_by_scalar(x.a, scalar), mul_by_scalar(x.b, scalar) };
+    return qm31{mul_by_scalar(x.a, scalar), mul_by_scalar(x.b, scalar)};
 }
 
 __host__ __device__ qm31 inv(qm31 t) {
