@@ -66,13 +66,30 @@ __host__ __device__ cm31 mul_by_scalar(cm31 x, m31 scalar) {
     return cm31{mul(x.a, scalar), mul(x.b, scalar)};
 }
 
+__host__ __device__ cm31 cm31::operator*(const cm31 &multiplier) const {
+    return ::mul(*this, multiplier);
+}
+
+__host__ __device__ cm31 cm31::operator+(const cm31 &addend) const {
+    return ::add(*this, addend);
+}
+
+__host__ __device__ cm31 cm31::operator-(const cm31& subtrahend) const {
+    return ::sub(*this, subtrahend);
+}
+
+__host__ __device__ cm31 cm31::operator*(const m31& subtrahend) const {
+    return ::mul_by_scalar(*this, subtrahend);
+}
+
+
 /*##### QM31 ##### */
 
 __host__ __device__ qm31 mul(qm31 x, qm31 y) {
     // Karatsuba multiplication
-    cm31 v0 = mul(x.a, y.a);
+    cm31 v0 = x.a * y.a;
     cm31 v1 = mul(x.b, y.b);
-    cm31 v2 = mul(add(x.a, x.b), add(y.a, y.b));
+    cm31 v2 = mul(x.a + x.b, add(y.a, y.b));
     return {
             add(v0, mul(R, v1)),
             sub(v2, add(v0, v1))
@@ -84,11 +101,11 @@ __host__ __device__ qm31 add(qm31 x, qm31 y) {
 }
 
 __host__ __device__ qm31 sub(qm31 x, qm31 y) {
-    return {sub(x.a, y.a), sub(x.b, y.b)};
+    return {x.a - y.a, sub(x.b, y.b)};
 }
 
 __host__ __device__ qm31 mul_by_scalar(qm31 x, m31 scalar) {
-    return qm31{mul_by_scalar(x.a, scalar), mul_by_scalar(x.b, scalar)};
+    return qm31{x.a * scalar, mul_by_scalar(x.b, scalar)};
 }
 
 __host__ __device__ qm31 inv(qm31 t) {

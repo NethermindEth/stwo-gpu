@@ -8,6 +8,11 @@ typedef unsigned long long uint64_t;
 struct cm31{
     m31 a;
     m31 b;
+
+    __host__ __device__ cm31 operator*(const cm31& multiplier) const;
+    __host__ __device__ cm31 operator+(const cm31& addend) const;
+    __host__ __device__ cm31 operator-(const cm31& subtrahend) const;
+    __host__ __device__ cm31 operator*(const m31& subtrahend) const;
 };
 
 struct qm31 {
