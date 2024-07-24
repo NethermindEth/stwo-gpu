@@ -134,7 +134,7 @@ extern "C" {
 
 #[link(name = "gpubackend")]
 extern "C" {
-    pub fn fold_circle(
+    pub fn fold_line(
         gpu_domain: *const u32,
         twiddle_offset: usize,
         n: usize,

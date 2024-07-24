@@ -141,18 +141,18 @@ __global__ void fold_applying(const uint32_t *domain,
     }
 }
 
-void fold_circle(uint32_t *gpu_domain,
-                 uint32_t twiddle_offset,
-                 uint32_t n,
-                 uint32_t *eval_values_0,
-                 uint32_t *eval_values_1,
-                 uint32_t *eval_values_2,
-                 uint32_t *eval_values_3,
-                 qm31 alpha,
-                 uint32_t *folded_values_0,
-                 uint32_t *folded_values_1,
-                 uint32_t *folded_values_2,
-                 uint32_t *folded_values_3) {
+void fold_line(uint32_t *gpu_domain,
+               uint32_t twiddle_offset,
+               uint32_t n,
+               uint32_t *eval_values_1,
+               uint32_t *eval_values_2,
+               uint32_t *eval_values_3,
+               uint32_t *eval_values_4,
+               qm31 alpha,
+               uint32_t *folded_values_1,
+               uint32_t *folded_values_2,
+               uint32_t *folded_values_3,
+               uint32_t *folded_values_4) {
     int block_dim = 1024;
     int num_blocks = (n / 2 + block_dim - 1) / block_dim;
     fold_applying<<<num_blocks, block_dim>>>(
@@ -160,14 +160,14 @@ void fold_circle(uint32_t *gpu_domain,
             twiddle_offset,
             n,
             alpha,
-            eval_values_0,
             eval_values_1,
             eval_values_2,
             eval_values_3,
-            folded_values_0,
+            eval_values_4,
             folded_values_1,
             folded_values_2,
-            folded_values_3);
+            folded_values_3,
+            folded_values_4);
     cudaDeviceSynchronize();
 }
 
