@@ -1,9 +1,5 @@
 #include "../include/fields.cuh"
 
-__host__ __device__ qm31 qm31::mul(const qm31 &b) const {
-    return ::mul(*this, b);
-}
-
 __host__ __device__ m31 mul(m31 a, m31 b) {
     uint64_t v = ((uint64_t) a * (uint64_t) b);
     uint64_t w = v + (v >> 31);
@@ -101,4 +97,12 @@ __host__ __device__ qm31 inv(qm31 t) {
     cm31 denom = sub(mul(t.a, t.a), add(add(b2, b2), ib2));
     cm31 denom_inverse = inv(denom);
     return {mul(t.a, denom_inverse), neg(mul(t.b, denom_inverse))};
+}
+
+__host__ __device__ qm31 qm31::operator*(const qm31 &multiplier) const {
+    return ::mul(*this, multiplier);
+}
+
+__host__ __device__ qm31 qm31::operator+(const qm31 &addend) const {
+    return ::add(*this, addend);
 }

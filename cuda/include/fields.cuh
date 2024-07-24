@@ -14,10 +14,8 @@ struct qm31 {
     cm31 a;
     cm31 b;
 
-    __host__ __device__ qm31 mul(const qm31 &b) const;
-    __host__ __device__ qm31 operator*(const qm31& rhs) const {
-        return this->mul(rhs);
-    }
+    __host__ __device__ qm31 operator*(const qm31& rhs) const;
+    __host__ __device__ qm31 operator+(const qm31& rhs) const;
 };
 
 const m31 P = 2147483647;
