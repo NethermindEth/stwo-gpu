@@ -129,8 +129,8 @@ __global__ void fold_applying(const uint32_t *domain,
         const qm31 f_x = getEvaluation(eval_values, index_left);
         const qm31 f_x_minus = getEvaluation(eval_values, index_right);
 
-        const qm31 f_0 = add(f_x, f_x_minus);
-        const qm31 f_1 = mul_by_scalar(sub(f_x, f_x_minus), x_inverse);
+        const qm31 f_0 = f_x + f_x_minus;
+        const qm31 f_1 = mul_by_scalar(f_x - f_x_minus, x_inverse);
 
         const qm31 f_prime = f_0 + alpha * f_1;
 

@@ -16,6 +16,7 @@ struct qm31 {
 
     __host__ __device__ qm31 operator*(const qm31& rhs) const;
     __host__ __device__ qm31 operator+(const qm31& rhs) const;
+    __host__ __device__ qm31 operator-(const qm31& rhs) const;
 };
 
 const m31 P = 2147483647;

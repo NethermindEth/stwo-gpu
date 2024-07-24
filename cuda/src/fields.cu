@@ -106,3 +106,7 @@ __host__ __device__ qm31 qm31::operator*(const qm31 &multiplier) const {
 __host__ __device__ qm31 qm31::operator+(const qm31 &addend) const {
     return ::add(*this, addend);
 }
+
+__host__ __device__ qm31 qm31::operator-(const qm31& subtrahend) const {
+    return ::sub(*this, subtrahend);
+}
