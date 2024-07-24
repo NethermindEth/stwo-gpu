@@ -5,6 +5,8 @@
 #include "../include/point.cuh"
 #include "../include/utils.cuh"
 
+#include <cmath>
+
 __global__ void sort_values_kernel(m31 *from, m31 *dst, int size) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -53,7 +55,7 @@ __global__ void precompute_twiddles_kernel(m31 *dst, point initial, point step, 
 }
 
 m31* precompute_twiddles(point initial, point step, int size) {
-    m31* twiddles = cuda_malloc_uint32_t(size);
+    m31* twiddles = (m31*) cuda_malloc_uint32_t(size);
     m31 one = 1;
     cudaMemcpy(&twiddles[size - 1], &one, sizeof(m31), cudaMemcpyHostToDevice);
     int block_dim = 256;
@@ -187,7 +189,7 @@ void interpolate(m31 *values, m31 *inverse_twiddles_tree, int values_size) {
         
     block_dim = 1024;
     num_blocks = (values_size + block_dim - 1) / block_dim;
-    m31 factor = inv(pow(m31{ 2 }, log_values_size));
+    m31 factor = inv(pow((uint32_t)m31{ 2 }, log_values_size));
     rescale<<<num_blocks, block_dim>>>(values, values_size, factor);
     cudaDeviceSynchronize();
 }

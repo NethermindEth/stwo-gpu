@@ -4,20 +4,20 @@ __host__ __device__ m31 mul(m31 a, m31 b) {
     uint64_t v = ((uint64_t) a * (uint64_t) b);
     uint64_t w = v + (v >> 31);
     uint64_t u = v + (w >> 31);
-    return u & P;
+    return {(uint32_t) u & m31::P()};
 }
 
 __host__ __device__ m31 add(m31 a, m31 b) {
     uint64_t sum = ((uint64_t) a + (uint64_t) b);
-    return min(sum, sum - P);
+    return min(sum, sum - m31::P());
 }
 
 __host__ __device__ m31 sub(m31 a, m31 b) {
-    return add(a, P - b);
+    return add(a, m31::P() - b);
 }
 
 __host__ __device__ m31 neg(m31 a) {
-    return P - a;
+    return m31::P() - a;
 }
 
 __host__ __device__ uint64_t pow_to_power_of_two(int n, m31 t) {
@@ -82,6 +82,10 @@ __host__ __device__ cm31 cm31::operator*(const m31& subtrahend) const {
     return ::mul_by_scalar(*this, subtrahend);
 }
 
+__host__ __device__ cm31 cm31::inverse() const {
+    return ::inv(*this);
+}
+
 
 /*##### QM31 ##### */
 
@@ -91,7 +95,7 @@ __host__ __device__ qm31 mul(qm31 x, qm31 y) {
     cm31 v1 = mul(x.b, y.b);
     cm31 v2 = mul(x.a + x.b, add(y.a, y.b));
     return {
-            add(v0, mul(R, v1)),
+            add(v0, mul(cm31::R(), v1)),
             sub(v2, add(v0, v1))
     };
 }

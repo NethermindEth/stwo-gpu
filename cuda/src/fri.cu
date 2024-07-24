@@ -171,7 +171,7 @@ void fold_line(uint32_t *gpu_domain,
     cudaDeviceSynchronize();
 }
 
-__device__ uint32_t g(uint32_t *domain,
+__device__ uint32_t g(m31 *domain,
                       uint32_t _twiddle_offset,
                       uint32_t i) {
     return get_twiddle(domain, i);
@@ -197,7 +197,7 @@ __global__ void fold_applying2(uint32_t *domain,
     const uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (i < n / 2) {
-        const uint32_t x_inverse = g(domain, twiddle_offset, i);
+        const uint32_t x_inverse = g((m31*) domain, twiddle_offset, i);
 
         const uint32_t index_left = 2 * i;
         const uint32_t index_right = index_left + 1;

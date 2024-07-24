@@ -2,8 +2,21 @@
 #define FIELDS_H
 
 typedef unsigned int uint32_t;
-typedef uint32_t m31;
 typedef unsigned long long uint64_t;
+
+struct m31 {
+    uint32_t value;
+
+    __host__ __device__ operator unsigned int() const {
+        return (unsigned int) value;
+    }
+    __host__ __device__ m31(const uint32_t value) {
+        this->value = value;
+    }
+    __host__ __device__ __forceinline__ static m31 P() {
+        return 2147483647;
+    }
+};
 
 struct cm31{
     m31 a;
@@ -13,6 +26,11 @@ struct cm31{
     __host__ __device__ cm31 operator+(const cm31& addend) const;
     __host__ __device__ cm31 operator-(const cm31& subtrahend) const;
     __host__ __device__ cm31 operator*(const m31& subtrahend) const;
+    __host__ __device__ cm31 inverse() const;
+
+    __host__ __device__ __forceinline__ static cm31 R() {
+        return {2, 1};
+    }
 };
 
 struct qm31 {
@@ -26,8 +44,8 @@ struct qm31 {
     __host__ __device__ qm31 inverse() const;
 };
 
-const m31 P = 2147483647;
-const cm31 R = {2, 1};
+//const uint32_t P = 2147483647;
+//const cm31 R = {2, 1};
 
 /*##### M31 ##### */
 
