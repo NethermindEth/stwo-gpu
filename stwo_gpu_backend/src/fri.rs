@@ -19,35 +19,27 @@ impl FriOps for CudaBackend {
             let n = eval.len();
             assert!(n >= 2, "Evaluation too small");
 
-            let remaining_folds = n.ilog2();
             let twiddles_size = twiddles.itwiddles.size;
+            let remaining_folds = n.ilog2();
             let twiddle_offset: usize = twiddles_size - (1 << remaining_folds);
 
+            let gpu_domain = twiddles.itwiddles.device_ptr;
+            let eval_values = &eval.values.columns;
             let folded_values = alloc_secure_column_on_gpu_as_array(n >> 1);
 
-            let eval_values = &eval.values;
-            let folded_values1 = [
-                &folded_values[0],
-                &folded_values[1],
-                &folded_values[2],
-                &folded_values[3]
-            ];
-            let gpu_domain = twiddles.itwiddles.device_ptr;
-
-            bindings::fold_circle(gpu_domain, twiddle_offset, n,
-                                  eval_values.columns[0].device_ptr,
-                                  eval_values.columns[1].device_ptr,
-                                  eval_values.columns[2].device_ptr,
-                                  eval_values.columns[3].device_ptr,
-                                  alpha,
-                                  folded_values1[0].device_ptr,
-                                  folded_values1[1].device_ptr,
-                                  folded_values1[2].device_ptr,
-                                  folded_values1[3].device_ptr,
+            bindings::fold_line(gpu_domain, twiddle_offset, n,
+                                eval_values[0].device_ptr,
+                                eval_values[1].device_ptr,
+                                eval_values[2].device_ptr,
+                                eval_values[3].device_ptr,
+                                alpha,
+                                folded_values[0].device_ptr,
+                                folded_values[1].device_ptr,
+                                folded_values[2].device_ptr,
+                                folded_values[3].device_ptr,
             );
 
-            let folded_values = SecureColumn { columns: folded_values };
-            LineEvaluation::new(eval.domain().double(), folded_values)
+            LineEvaluation::new(eval.domain().double(), SecureColumn { columns: folded_values })
         }
     }
 
@@ -63,12 +55,6 @@ impl FriOps for CudaBackend {
 
             let folded_values = &dst.values.columns;
             let eval_values = &src.values;
-            let folded_values1 = [
-                &folded_values[0],
-                &folded_values[1],
-                &folded_values[2],
-                &folded_values[3]
-            ];
             let gpu_domain = twiddles.itwiddles.device_ptr;
 
             bindings::fold_circle_into_line(gpu_domain, 0, n,
@@ -77,10 +63,10 @@ impl FriOps for CudaBackend {
                                             eval_values.columns[2].device_ptr,
                                             eval_values.columns[3].device_ptr,
                                             alpha,
-                                            folded_values1[0].device_ptr,
-                                            folded_values1[1].device_ptr,
-                                            folded_values1[2].device_ptr,
-                                            folded_values1[3].device_ptr,
+                                            folded_values[0].device_ptr,
+                                            folded_values[1].device_ptr,
+                                            folded_values[2].device_ptr,
+                                            folded_values[3].device_ptr,
             );
         }
     }
@@ -124,24 +110,24 @@ unsafe fn launch_kernel_for_fold(
     n: usize) {
     let gpu_domain = twiddles.itwiddles.device_ptr;
 
-    bindings::fold_circle(gpu_domain, twiddle_offset, n,
-                          eval_values.columns[0].device_ptr,
-                          eval_values.columns[1].device_ptr,
-                          eval_values.columns[2].device_ptr,
-                          eval_values.columns[3].device_ptr,
-                          alpha,
-                          folded_values[0].device_ptr,
-                          folded_values[1].device_ptr,
-                          folded_values[2].device_ptr,
-                          folded_values[3].device_ptr,
+    bindings::fold_line(gpu_domain, twiddle_offset, n,
+                        eval_values.columns[0].device_ptr,
+                        eval_values.columns[1].device_ptr,
+                        eval_values.columns[2].device_ptr,
+                        eval_values.columns[3].device_ptr,
+                        alpha,
+                        folded_values[0].device_ptr,
+                        folded_values[1].device_ptr,
+                        folded_values[2].device_ptr,
+                        folded_values[3].device_ptr,
     );
 }
 
 unsafe fn alloc_secure_column_on_gpu_as_array(n: usize) -> [BaseFieldVec; 4] {
-    let folded_values_0 = BaseFieldVec::new_zeroes(n);
-    let folded_values_1 = BaseFieldVec::new_zeroes(n);
-    let folded_values_2 = BaseFieldVec::new_zeroes(n);
-    let folded_values_3 = BaseFieldVec::new_zeroes(n);
+    let folded_values_0 = BaseFieldVec::new_uninitialized(n);
+    let folded_values_1 = BaseFieldVec::new_uninitialized(n);
+    let folded_values_2 = BaseFieldVec::new_uninitialized(n);
+    let folded_values_3 = BaseFieldVec::new_uninitialized(n);
 
     [folded_values_0, folded_values_1, folded_values_2, folded_values_3]
 }
