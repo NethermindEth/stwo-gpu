@@ -5,7 +5,7 @@ use stwo_prover::core::{
 };
 use stwo_prover::core::fields::m31::{BaseField, M31};
 use stwo_prover::core::fields::secure_column::SecureColumn;
-
+use stwo_prover::core::fri::CIRCLE_TO_LINE_FOLD_STEP;
 use crate::backend::CudaBackend;
 use crate::cuda::{BaseFieldVec, bindings};
 
@@ -25,17 +25,26 @@ impl FriOps for CudaBackend {
 
             let folded_values = alloc_secure_column_on_gpu_as_array(n >> 1);
 
-            launch_kernel_for_fold(
-                &eval.values,
-                twiddles, twiddle_offset,
-                [
-                    &folded_values[0],
-                    &folded_values[1],
-                    &folded_values[2],
-                    &folded_values[3]
-                ],
-                alpha,
-                n);
+            let eval_values = &eval.values;
+            let folded_values1 = [
+                &folded_values[0],
+                &folded_values[1],
+                &folded_values[2],
+                &folded_values[3]
+            ];
+            let gpu_domain = twiddles.itwiddles.device_ptr;
+
+            bindings::fold_circle(gpu_domain, twiddle_offset, n,
+                                  eval_values.columns[0].device_ptr,
+                                  eval_values.columns[1].device_ptr,
+                                  eval_values.columns[2].device_ptr,
+                                  eval_values.columns[3].device_ptr,
+                                  alpha,
+                                  folded_values1[0].device_ptr,
+                                  folded_values1[1].device_ptr,
+                                  folded_values1[2].device_ptr,
+                                  folded_values1[3].device_ptr,
+            );
 
             let folded_values = SecureColumn { columns: folded_values };
             LineEvaluation::new(eval.domain().double(), folded_values)
@@ -43,12 +52,37 @@ impl FriOps for CudaBackend {
     }
 
     fn fold_circle_into_line(
-        _dst: &mut LineEvaluation<Self>,
-        _src: &SecureEvaluation<Self>,
-        _alpha: SecureField,
-        _twiddles: &TwiddleTree<Self>,
+        dst: &mut LineEvaluation<Self>,
+        src: &SecureEvaluation<Self>,
+        alpha: SecureField,
+        twiddles: &TwiddleTree<Self>,
     ) {
-        todo!()
+        unsafe {
+            let n = src.len();
+            assert_eq!(n >> CIRCLE_TO_LINE_FOLD_STEP, dst.len());
+
+            let folded_values = &dst.values.columns;
+            let eval_values = &src.values;
+            let folded_values1 = [
+                &folded_values[0],
+                &folded_values[1],
+                &folded_values[2],
+                &folded_values[3]
+            ];
+            let gpu_domain = twiddles.itwiddles.device_ptr;
+
+            bindings::fold_circle_into_line(gpu_domain, 0, n,
+                                            eval_values.columns[0].device_ptr,
+                                            eval_values.columns[1].device_ptr,
+                                            eval_values.columns[2].device_ptr,
+                                            eval_values.columns[3].device_ptr,
+                                            alpha,
+                                            folded_values1[0].device_ptr,
+                                            folded_values1[1].device_ptr,
+                                            folded_values1[2].device_ptr,
+                                            folded_values1[3].device_ptr,
+            );
+        }
     }
 
     fn decompose(eval: &SecureEvaluation<Self>) -> (SecureEvaluation<Self>, SecureField) {
@@ -238,7 +272,7 @@ mod tests {
             });
 
         let cpu_fold = CpuBackend::fold_line(
-            &LineEvaluation::new(domain, SecureColumn {columns: vec.clone()}),
+            &LineEvaluation::new(domain, SecureColumn { columns: vec.clone() }),
             alpha,
             &CpuBackend::precompute_twiddles(domain.coset()),
         );
@@ -290,7 +324,7 @@ mod tests {
             BaseFieldVec::from_vec(vec[1].clone()),
             BaseFieldVec::from_vec(vec[2].clone()),
             BaseFieldVec::from_vec(vec[3].clone())];
-        let evals: LineEvaluation<CudaBackend> = LineEvaluation::new(domain, SecureColumn {columns: vecs });
+        let evals: LineEvaluation<CudaBackend> = LineEvaluation::new(domain, SecureColumn { columns: vecs });
 
         let drp_evals = CudaBackend::fold_line(&evals, alpha, &CudaBackend::precompute_twiddles(domain.coset()));
         let mut drp_evals = drp_evals.values.to_cpu().into_iter().collect_vec();
@@ -360,5 +394,56 @@ mod tests {
         );
 
         assert_eq!(third_cpu_fold.values.to_vec(), third_gpu_fold.values.to_cpu().to_vec());
+    }
+
+
+    #[test]
+    fn test_fold_circle_into_line_compared_with_cpu() {
+        const LOG_SIZE: u32 = 13;
+        let values: Vec<SecureField> = (0..(1 << LOG_SIZE))
+            .map(|i| SecureField::from_u32_unchecked(4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3))
+            .collect();
+        let alpha = SecureField::from_u32_unchecked(1, 3, 5, 7);
+        let circle_domain = CanonicCoset::new(LOG_SIZE).circle_domain();
+        let line_domain = LineDomain::new(circle_domain.half_coset);
+        let mut cpu_fold =
+            LineEvaluation::new(line_domain, SecureColumn::zeros(1 << (LOG_SIZE - 1)));
+
+        let mut vec: [Vec<BaseField>; 4] = [vec!(), vec!(), vec!(), vec!()];
+        values.iter()
+            .for_each(|a| {
+                vec[0].push(BaseField::from_u32_unchecked(a.0.0.0));
+                vec[1].push(BaseField::from_u32_unchecked(a.0.1.0));
+                vec[2].push(BaseField::from_u32_unchecked(a.1.0.0));
+                vec[3].push(BaseField::from_u32_unchecked(a.1.1.0));
+            });
+        let vecs = [
+            BaseFieldVec::from_vec(vec[0].clone()),
+            BaseFieldVec::from_vec(vec[1].clone()),
+            BaseFieldVec::from_vec(vec[2].clone()),
+            BaseFieldVec::from_vec(vec[3].clone())];
+        CpuBackend::fold_circle_into_line(
+            &mut cpu_fold,
+            &SecureEvaluation {
+                domain: circle_domain,
+                values: SecureColumn { columns: vec.clone() },
+            },
+            alpha,
+            &CpuBackend::precompute_twiddles(line_domain.coset()),
+        );
+
+        let mut cuda_fold =
+            LineEvaluation::new(line_domain, SecureColumn::zeros(1 << (LOG_SIZE - 1)));
+        CudaBackend::fold_circle_into_line(
+            &mut cuda_fold,
+            &SecureEvaluation {
+                domain: circle_domain,
+                values: SecureColumn { columns: vecs },
+            },
+            alpha,
+            &CudaBackend::precompute_twiddles(line_domain.coset()),
+        );
+
+        assert_eq!(cpu_fold.values.to_vec(), cuda_fold.values.to_cpu().to_vec());
     }
 }

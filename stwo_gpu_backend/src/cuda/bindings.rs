@@ -148,3 +148,20 @@ extern "C" {
         folded_values_3: *const u32,
         folded_values_4: *const u32);
 }
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn fold_circle_into_line(
+        gpu_domain: *const u32,
+        twiddle_offset: usize,
+        n: usize,
+        eval_values_0: *const u32,
+        eval_values_1: *const u32,
+        eval_values_2: *const u32,
+        eval_values_3: *const u32,
+        alpha: SecureField,
+        folded_values_0: *const u32,
+        folded_values_1: *const u32,
+        folded_values_2: *const u32,
+        folded_values_3: *const u32);
+}
