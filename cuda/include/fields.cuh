@@ -23,6 +23,7 @@ struct qm31 {
     __host__ __device__ qm31 operator+(const qm31& addend) const;
     __host__ __device__ qm31 operator-(const qm31& subtrahend) const;
     __host__ __device__ qm31 operator*(const m31& subtrahend) const;
+    __host__ __device__ qm31 inverse() const;
 };
 
 const m31 P = 2147483647;

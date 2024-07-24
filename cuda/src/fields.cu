@@ -109,7 +109,7 @@ __host__ __device__ qm31 mul_by_scalar(qm31 x, m31 scalar) {
 }
 
 __host__ __device__ qm31 inv(qm31 t) {
-    cm31 b2 = mul(t.b, t.b);
+    cm31 b2 = t.b * t.b;
     cm31 ib2 = {neg(b2.b), b2.a};
     cm31 denom = sub(mul(t.a, t.a), add(add(b2, b2), ib2));
     cm31 denom_inverse = inv(denom);
@@ -130,4 +130,8 @@ __host__ __device__ qm31 qm31::operator-(const qm31& subtrahend) const {
 
 __host__ __device__ qm31 qm31::operator*(const m31& subtrahend) const {
     return ::mul_by_scalar(*this, subtrahend);
+}
+
+__host__ __device__ qm31 qm31::inverse() const {
+    return ::inv(*this);
 }
