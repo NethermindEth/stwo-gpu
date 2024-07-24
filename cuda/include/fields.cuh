@@ -10,9 +10,11 @@ struct m31 {
     __host__ __device__ operator unsigned int() const {
         return (unsigned int) value;
     }
+
     __host__ __device__ m31(const uint32_t value) {
         this->value = value;
     }
+
     __host__ __device__ __forceinline__ static m31 P() {
         return 2147483647;
     }
