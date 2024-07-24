@@ -32,8 +32,8 @@ impl ColumnOps<SecureField> for CudaBackend {
 }
 
 impl Column<BaseField> for cuda::BaseFieldVec {
-    fn zeros(_len: usize) -> Self {
-        todo!()
+    fn zeros(len: usize) -> Self {
+        Self::new_zeroes(len)
     }
 
     fn to_cpu(&self) -> Vec<BaseField> {
