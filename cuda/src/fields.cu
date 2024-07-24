@@ -110,3 +110,7 @@ __host__ __device__ qm31 qm31::operator+(const qm31 &addend) const {
 __host__ __device__ qm31 qm31::operator-(const qm31& subtrahend) const {
     return ::sub(*this, subtrahend);
 }
+
+__host__ __device__ qm31 qm31::operator*(const m31& subtrahend) const {
+    return ::mul_by_scalar(*this, subtrahend);
+}

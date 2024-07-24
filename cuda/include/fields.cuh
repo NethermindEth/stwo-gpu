@@ -14,9 +14,10 @@ struct qm31 {
     cm31 a;
     cm31 b;
 
-    __host__ __device__ qm31 operator*(const qm31& rhs) const;
-    __host__ __device__ qm31 operator+(const qm31& rhs) const;
-    __host__ __device__ qm31 operator-(const qm31& rhs) const;
+    __host__ __device__ qm31 operator*(const qm31& multiplier) const;
+    __host__ __device__ qm31 operator+(const qm31& addend) const;
+    __host__ __device__ qm31 operator-(const qm31& subtrahend) const;
+    __host__ __device__ qm31 operator*(const m31& subtrahend) const;
 };
 
 const m31 P = 2147483647;

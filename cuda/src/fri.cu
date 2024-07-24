@@ -121,7 +121,7 @@ __global__ void fold_applying(const uint32_t *domain,
     const uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (i < n / 2) {
-        const uint32_t x_inverse = f(domain, twiddle_offset, i);
+        const m31 x_inverse = f(domain, twiddle_offset, i);
 
         const uint32_t index_left = 2 * i;
         const uint32_t index_right = index_left + 1;
@@ -130,7 +130,7 @@ __global__ void fold_applying(const uint32_t *domain,
         const qm31 f_x_minus = getEvaluation(eval_values, index_right);
 
         const qm31 f_0 = f_x + f_x_minus;
-        const qm31 f_1 = mul_by_scalar(f_x - f_x_minus, x_inverse);
+        const qm31 f_1 = (f_x - f_x_minus) * x_inverse;
 
         const qm31 f_prime = f_0 + alpha * f_1;
 
