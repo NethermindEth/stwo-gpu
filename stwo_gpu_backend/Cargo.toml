@@ -5,6 +5,6 @@ edition = "2021"
 
 [dependencies]
 cc = "1.0"
-stwo-prover = { git = "https://github.com/starkware-libs/stwo", branch = "dev" }
+stwo-prover = { git = "https://github.com/starkware-libs/stwo", rev = "eacd4f0" }
 itertools = "0.10.5"
 rand = "0.8.5"
