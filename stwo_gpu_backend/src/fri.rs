@@ -4,8 +4,9 @@ use stwo_prover::core::{
     poly::{circle::SecureEvaluation, line::LineEvaluation, twiddles::TwiddleTree},
 };
 use stwo_prover::core::fields::m31::{BaseField, M31};
-use stwo_prover::core::fields::secure_column::SecureColumn;
+use stwo_prover::core::fields::secure_column::SecureColumnByCoords;
 use stwo_prover::core::fri::CIRCLE_TO_LINE_FOLD_STEP;
+
 use crate::backend::CudaBackend;
 use crate::cuda::{BaseFieldVec, bindings};
 
@@ -39,7 +40,7 @@ impl FriOps for CudaBackend {
                                 folded_values[3].device_ptr,
             );
 
-            LineEvaluation::new(eval.domain().double(), SecureColumn { columns: folded_values })
+            LineEvaluation::new(eval.domain().double(), SecureColumnByCoords { columns: folded_values })
         }
     }
 
@@ -83,7 +84,7 @@ impl FriOps for CudaBackend {
         };
 
         let g_values = unsafe {
-            SecureColumn {
+            SecureColumnByCoords {
                 columns: [
                     Self::compute_g_values(&columns[0], lambda.0.0),
                     Self::compute_g_values(&columns[1], lambda.0.1),
@@ -102,7 +103,7 @@ impl FriOps for CudaBackend {
 }
 
 unsafe fn launch_kernel_for_fold(
-    eval_values: &SecureColumn<CudaBackend>,
+    eval_values: &SecureColumnByCoords<CudaBackend>,
     twiddles: &TwiddleTree<CudaBackend>,
     twiddle_offset: usize,
     folded_values: [&BaseFieldVec; 4],
@@ -156,6 +157,7 @@ impl CudaBackend {
 #[cfg(test)]
 mod tests {
     use std::iter::zip;
+
     use itertools::Itertools;
     use rand::{Rng, SeedableRng};
     use rand::rngs::SmallRng;
@@ -164,7 +166,7 @@ mod tests {
     use stwo_prover::core::fields::Field;
     use stwo_prover::core::fields::m31::{BaseField, M31};
     use stwo_prover::core::fields::qm31::SecureField;
-    use stwo_prover::core::fields::secure_column::SecureColumn;
+    use stwo_prover::core::fields::secure_column::SecureColumnByCoords;
     use stwo_prover::core::fri::FriOps;
     use stwo_prover::core::poly::circle::{CanonicCoset, PolyOps, SecureEvaluation};
     use stwo_prover::core::poly::line::{LineDomain, LineEvaluation, LinePoly};
@@ -191,7 +193,7 @@ mod tests {
 
         let cpu_secure_evaluation = SecureEvaluation {
             domain: domain,
-            values: SecureColumn { columns: vec.clone() },
+            values: SecureColumnByCoords { columns: vec.clone() },
         };
 
         let columns = [
@@ -201,7 +203,7 @@ mod tests {
             BaseFieldVec::from_vec(vec[3].clone())];
         let gpu_secure_evaluation = SecureEvaluation {
             domain: domain,
-            values: SecureColumn { columns },
+            values: SecureColumnByCoords { columns },
         };
 
         let (expected_g_values, expected_lambda) = CpuBackend::decompose(&cpu_secure_evaluation);
@@ -258,7 +260,7 @@ mod tests {
             });
 
         let cpu_fold = CpuBackend::fold_line(
-            &LineEvaluation::new(domain, SecureColumn { columns: vec.clone() }),
+            &LineEvaluation::new(domain, SecureColumnByCoords { columns: vec.clone() }),
             alpha,
             &CpuBackend::precompute_twiddles(domain.coset()),
         );
@@ -269,7 +271,7 @@ mod tests {
             BaseFieldVec::from_vec(vec[3].clone())];
 
         let gpu_fold = CudaBackend::fold_line(
-            &LineEvaluation::new(domain, SecureColumn { columns: vecs }),
+            &LineEvaluation::new(domain, SecureColumnByCoords { columns: vecs }),
             alpha,
             &CudaBackend::precompute_twiddles(domain.coset()),
         );
@@ -310,7 +312,7 @@ mod tests {
             BaseFieldVec::from_vec(vec[1].clone()),
             BaseFieldVec::from_vec(vec[2].clone()),
             BaseFieldVec::from_vec(vec[3].clone())];
-        let evals: LineEvaluation<CudaBackend> = LineEvaluation::new(domain, SecureColumn { columns: vecs });
+        let evals: LineEvaluation<CudaBackend> = LineEvaluation::new(domain, SecureColumnByCoords { columns: vecs });
 
         let drp_evals = CudaBackend::fold_line(&evals, alpha, &CudaBackend::precompute_twiddles(domain.coset()));
         let mut drp_evals = drp_evals.values.to_cpu().into_iter().collect_vec();
@@ -348,7 +350,7 @@ mod tests {
             BaseFieldVec::from_vec(vec[3].clone())];
 
         let first_cpu_fold = CpuBackend::fold_line(
-            &LineEvaluation::new(domain, SecureColumn { columns: vec.clone() }),
+            &LineEvaluation::new(domain, SecureColumnByCoords { columns: vec.clone() }),
             alpha,
             &CpuBackend::precompute_twiddles(domain.coset()),
         );
@@ -364,7 +366,7 @@ mod tests {
         );
 
         let first_gpu_fold = CudaBackend::fold_line(
-            &LineEvaluation::new(domain, SecureColumn { columns: vecs }),
+            &LineEvaluation::new(domain, SecureColumnByCoords { columns: vecs }),
             alpha,
             &CudaBackend::precompute_twiddles(domain.coset()),
         );
@@ -393,7 +395,7 @@ mod tests {
         let circle_domain = CanonicCoset::new(LOG_SIZE).circle_domain();
         let line_domain = LineDomain::new(circle_domain.half_coset);
         let mut cpu_fold =
-            LineEvaluation::new(line_domain, SecureColumn::zeros(1 << (LOG_SIZE - 1)));
+            LineEvaluation::new(line_domain, SecureColumnByCoords::zeros(1 << (LOG_SIZE - 1)));
 
         let mut vec: [Vec<BaseField>; 4] = [vec!(), vec!(), vec!(), vec!()];
         values.iter()
@@ -412,19 +414,19 @@ mod tests {
             &mut cpu_fold,
             &SecureEvaluation {
                 domain: circle_domain,
-                values: SecureColumn { columns: vec.clone() },
+                values: SecureColumnByCoords { columns: vec.clone() },
             },
             alpha,
             &CpuBackend::precompute_twiddles(line_domain.coset()),
         );
 
         let mut cuda_fold =
-            LineEvaluation::new(line_domain, SecureColumn::zeros(1 << (LOG_SIZE - 1)));
+            LineEvaluation::new(line_domain, SecureColumnByCoords::zeros(1 << (LOG_SIZE - 1)));
         CudaBackend::fold_circle_into_line(
             &mut cuda_fold,
             &SecureEvaluation {
                 domain: circle_domain,
-                values: SecureColumn { columns: vecs },
+                values: SecureColumnByCoords { columns: vecs },
             },
             alpha,
             &CudaBackend::precompute_twiddles(line_domain.coset()),
