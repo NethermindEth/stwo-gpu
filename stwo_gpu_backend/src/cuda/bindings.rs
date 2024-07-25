@@ -3,6 +3,7 @@ use stwo_prover::core::{
     fields::{m31::BaseField, qm31::SecureField},
 };
 use stwo_prover::core::fields::m31::M31;
+use stwo_prover::core::fields::qm31::QM31;
 
 #[link(name = "gpubackend")]
 extern "C" {
@@ -119,7 +120,7 @@ extern "C" {
 extern "C" {
     pub fn sum(
         list: *const u32,
-        list_size: u32,
+        list_size: u32
     ) -> BaseField;
 }
 
@@ -164,4 +165,45 @@ extern "C" {
         folded_values_1: *const u32,
         folded_values_2: *const u32,
         folded_values_3: *const u32);
+}
+
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn sum_secure_field(
+        column_0: *const u32,
+        column_1: *const u32,
+        column_2: *const u32,
+        column_3: *const u32,
+        n: u32,
+    ) -> SecureField;
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn decompose(
+        column_0: *const u32,
+        column_1: *const u32,
+        column_2: *const u32,
+        column_3: *const u32,
+        size: u32,
+        lambda: &QM31,
+        g_value_0: *const u32,
+        g_value_1: *const u32,
+        g_value_2: *const u32,
+        g_value_3: *const u32);
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn accumulate(
+        size: u32,
+        left_column_0: *const u32,
+        left_column_1: *const u32,
+        left_column_2: *const u32,
+        left_column_3: *const u32,
+        right_column_0: *const u32,
+        right_column_1: *const u32,
+        right_column_2: *const u32,
+        right_column_3: *const u32);
 }
