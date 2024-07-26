@@ -1,6 +1,8 @@
 #include "../include/bit_reverse.cuh"
 #include "../include/utils.cuh"
 
+#include <cstdio>
+
 template<typename T>
 __global__ void bit_reverse_generic(T *array, int size, int bits) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
