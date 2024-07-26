@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use itertools::Itertools;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
@@ -14,11 +14,12 @@ pub fn gpu_batch_inverse(c: &mut Criterion) {
 
     let data = BaseFieldVec::from_vec((0..SIZE).map(BaseField::from).collect_vec());
     let mut res = data.clone();
-    c.bench_function(&format!("gpu batch_inverse base field {} bits", BITS), |b| {
-        b.iter(
-            || <CudaBackend as FieldOps<BaseField>>::batch_inverse(&data, &mut res)
-        );
-    });
+    c.bench_function(
+        &format!("gpu batch_inverse base field {} bits", BITS),
+        |b| {
+            b.iter(|| <CudaBackend as FieldOps<BaseField>>::batch_inverse(&data, &mut res));
+        },
+    );
 }
 
 pub fn gpu_batch_inverse_secure_field(c: &mut Criterion) {
@@ -29,11 +30,12 @@ pub fn gpu_batch_inverse_secure_field(c: &mut Criterion) {
     let data = SecureFieldVec::from_vec((0..size).map(|_| rng.gen()).collect());
 
     let mut res = data.clone();
-    c.bench_function(&format!("gpu batch_inverse secure field {} bits", BITS), |b| {
-        b.iter(
-            || <CudaBackend as FieldOps<SecureField>>::batch_inverse(&data, &mut res)
-        );
-    });
+    c.bench_function(
+        &format!("gpu batch_inverse secure field {} bits", BITS),
+        |b| {
+            b.iter(|| <CudaBackend as FieldOps<SecureField>>::batch_inverse(&data, &mut res));
+        },
+    );
 }
 
 criterion_group!(

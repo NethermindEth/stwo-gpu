@@ -7,6 +7,6 @@ mod fri;
 mod poly;
 mod quotient;
 
+pub use backend::CudaBackend;
 use cuda::BaseFieldVec;
 use cuda::SecureFieldVec;
-pub use backend::CudaBackend;
