@@ -1,10 +1,10 @@
-use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use itertools::Itertools;
-use stwo_prover::core::backend::{Column, ColumnOps};
-use stwo_prover::core::fields::{m31::{BaseField}, qm31::SecureField};
-use stwo_gpu_backend::{CudaBackend, cuda::BaseFieldVec, cuda::SecureFieldVec};
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
+use stwo_gpu_backend::{cuda::BaseFieldVec, cuda::SecureFieldVec, CudaBackend};
+use stwo_prover::core::backend::{Column, ColumnOps};
+use stwo_prover::core::fields::{m31::BaseField, qm31::SecureField};
 
 pub fn gpu_bit_reverse_base_field(c: &mut Criterion) {
     const BITS: usize = 28;
@@ -17,7 +17,6 @@ pub fn gpu_bit_reverse_base_field(c: &mut Criterion) {
         })
     });
 }
-
 
 pub fn gpu_bit_reverse_secure_field(c: &mut Criterion) {
     const BITS: usize = 28;
@@ -33,7 +32,6 @@ pub fn gpu_bit_reverse_secure_field(c: &mut Criterion) {
         })
     });
 }
-
 
 criterion_group!(
     name = bit_reverse;
