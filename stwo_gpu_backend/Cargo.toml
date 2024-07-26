@@ -16,3 +16,7 @@ cmake = "0.1.50"
 [[bench]]
 name = "bit_reverse"
 harness = false
+
+[[bench]]
+name = "batch_inverse"
+harness = false
