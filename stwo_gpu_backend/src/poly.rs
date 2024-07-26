@@ -9,7 +9,6 @@ use stwo_prover::core::{
     },
 };
 
-
 use crate::{
     backend::CudaBackend,
     cuda::{self},
@@ -117,8 +116,8 @@ impl PolyOps for CudaBackend {
 
 #[cfg(test)]
 mod tests {
-    use tracing::{span, Level};
     use test_log::test;
+    use tracing::{span, Level};
 
     use crate::{backend::CudaBackend, cuda};
     use stwo_prover::core::{

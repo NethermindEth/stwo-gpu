@@ -9,14 +9,21 @@ mod quotient;
 
 pub use backend::CudaBackend;
 
-
 #[cfg(test)]
 mod tests {
     use itertools::Itertools;
-    use stwo_prover::core::{backend::ColumnOps, circle::SECURE_FIELD_CIRCLE_GEN, fields::{m31::BaseField, FieldOps}, poly::circle::{CanonicCoset, PolyOps}};
+    use stwo_prover::core::{
+        backend::ColumnOps,
+        circle::SECURE_FIELD_CIRCLE_GEN,
+        fields::{m31::BaseField, FieldOps},
+        poly::circle::{CanonicCoset, PolyOps},
+    };
     use tracing::{span, Level};
 
-    use crate::{cuda::{self}, CudaBackend};
+    use crate::{
+        cuda::{self},
+        CudaBackend,
+    };
     use rand::rngs::SmallRng;
     use rand::{Rng, SeedableRng};
 
