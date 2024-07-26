@@ -13,3 +13,7 @@ criterion = "0.4"
 [[bench]]
 name = "bit_reverse"
 harness = false
+
+[[bench]]
+name = "batch_inverse"
+harness = false
