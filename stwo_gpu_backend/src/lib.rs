@@ -1,8 +1,12 @@
 mod accumulation;
-mod backend;
+pub mod backend;
 mod column;
-mod cuda;
+pub mod cuda;
 mod field;
 mod fri;
 mod poly;
 mod quotient;
+
+use cuda::BaseFieldVec;
+use cuda::SecureFieldVec;
+pub use backend::CudaBackend;
