@@ -1,8 +1,12 @@
-const CUDA_LIB_DIR: &str = "/IdeaProjects/cuda-rust-example/cuda";
+use cmake;
 
 fn main() {
-    // TODO: running CMake
+    println!("cargo:rerun-if-changed=../cuda/CMakeLists.txt");
+    println!("cargo:rerun-if-changed=../cuda/src");
+    println!("cargo:rerun-if-changed=../cuda/include");
+
+    let destination = cmake::build("../cuda/");
 
     // Build cuda code
-    println!("cargo:rustc-link-search={}", CUDA_LIB_DIR);
+    println!("cargo:rustc-link-search={}/lib/", destination.display());
 }
