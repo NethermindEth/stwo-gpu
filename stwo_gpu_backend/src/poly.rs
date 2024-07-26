@@ -116,6 +116,9 @@ impl PolyOps for CudaBackend {
 
 #[cfg(test)]
 mod tests {
+    use test_log::test;
+    use tracing::{span, Level};
+
     use crate::{backend::CudaBackend, cuda};
     use stwo_prover::core::{
         backend::{Column, CpuBackend},
@@ -176,7 +179,7 @@ mod tests {
 
     #[test]
     fn test_interpolate() {
-        let log_size = 20;
+        let log_size = 28;
 
         let size = 1 << log_size;
 

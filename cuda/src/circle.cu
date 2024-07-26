@@ -236,7 +236,7 @@ __global__ void eval_at_point_first_pass(m31* g_coeffs, qm31 *temp, qm31 *factor
         m31 alpha = s_coeffs[2 * idx];
         m31 beta = s_coeffs[2 * idx + 1];
         qm31 factor = factors[factor_idx];
-        __syncthreads();
+
         qm31 result = { 
             {add(mul(beta, factor.a.a), alpha), mul(factor.a.b, beta)}, 
             {mul(beta,  factor.b.a), mul(beta, factor.b.b)} 
@@ -258,7 +258,6 @@ __global__ void eval_at_point_first_pass(m31* g_coeffs, qm31 *temp, qm31 *factor
         level_size >>= 1;
         
     }
-    __syncthreads();
 
     if(idx == 0) {
         output[blockIdx.x] = s_level[0];
@@ -297,7 +296,6 @@ __global__ void eval_at_point_second_pass(qm31* temp, qm31 *factors, int level_s
         factor_idx -= 1;
         level_size >>= 1;
     }
-    __syncthreads();
 
     if(idx == 0) {
         output[blockIdx.x] = s_level[0];
@@ -353,6 +351,7 @@ qm31 eval_at_point(m31 *coeffs, int coeffs_size, qm31 point_x, qm31 point_y) {
     }
 
     qm31 result = qm31{cm31{0,0}, cm31{0,1}};
+    cudaDeviceSynchronize();
     cudaMemcpy(&result, temp, sizeof(qm31), cudaMemcpyDeviceToHost);
     cudaFree(temp);
     cudaFree(device_mappings);

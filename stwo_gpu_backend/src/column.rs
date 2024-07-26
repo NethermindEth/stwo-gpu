@@ -13,7 +13,7 @@ impl ColumnOps<BaseField> for CudaBackend {
         assert!(size.is_power_of_two() && size < u32::MAX as usize);
 
         unsafe {
-            cuda::bindings::bit_reverse_base_field(column.device_ptr as *const u32, size);
+            cuda::bindings::bit_reverse_base_field(column.device_ptr, size);
         }
     }
 }
@@ -26,7 +26,7 @@ impl ColumnOps<SecureField> for CudaBackend {
         assert!(size.is_power_of_two() && size < u32::MAX as usize);
 
         unsafe {
-            cuda::bindings::bit_reverse_secure_field(column.device_ptr as *const u32, size);
+            cuda::bindings::bit_reverse_secure_field(column.device_ptr, size);
         }
     }
 }
@@ -101,7 +101,7 @@ mod tests {
 
     #[test]
     fn test_bit_reverse_base_field() {
-        let size: usize = 1 << 12;
+        let size: usize = 1 << 10;
         let column_data = (0..size as u32).map(BaseField::from).collect::<Vec<_>>();
         let mut expected_result = column_data.clone();
         CpuBackend::bit_reverse_column(&mut expected_result);
@@ -114,7 +114,7 @@ mod tests {
 
     #[test]
     fn test_bit_reverse_secure_field() {
-        let size: usize = 1 << 12;
+        let size: usize = 1 << 16;
 
         let from_raw = (1..(size + 1) as u32).collect::<Vec<u32>>();
         let from_cpu = from_raw
