@@ -14,14 +14,13 @@ tracing = "0.1.40"
 [dev-dependencies]
 test-log = { version = "0.2.15", features = ["trace"] }
 
+[build-dependencies]
+cmake = "0.1.50"
+
 [[bench]]
 name = "bit_reverse"
 harness = false
 
 [[bench]]
 name = "batch_inverse"
-harness = false
-
-[[bench]]
-name = "interpolate"
 harness = false
