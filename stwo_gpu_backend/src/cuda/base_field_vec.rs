@@ -2,7 +2,7 @@ use stwo_prover::core::fields::m31::BaseField;
 
 use super::bindings;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct BaseFieldVec {
     pub(crate) device_ptr: *const u32,
     pub(crate) size: usize,
@@ -60,6 +60,15 @@ impl BaseFieldVec {
     }
 }
 
+
+impl Clone for BaseFieldVec {
+    fn clone(&self) -> Self {
+        let mut cloned = Self::new_uninitialized(self.size);
+        cloned.copy_from(self);
+        cloned
+    }
+}
+
 impl Drop for BaseFieldVec {
     fn drop(&mut self) {
         unsafe { bindings::free_uint32_t_vec(self.device_ptr) };
@@ -81,3 +90,4 @@ mod tests {
         assert_eq!(base_field_vec.size, host_data.len());
     }
 }
+
