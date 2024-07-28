@@ -2,7 +2,7 @@ use stwo_prover::core::fields::qm31::SecureField;
 
 use super::bindings;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct SecureFieldVec {
     pub(crate) device_ptr: *const u32,
     pub(crate) size: usize,
@@ -23,6 +23,21 @@ impl SecureFieldVec {
         Self::new(device_ptr, size)
     }
 
+    pub fn new_uninitialized(size: usize) -> Self {
+        Self::new(unsafe { bindings::cuda_malloc_uint32_t(4 * size as u32) }, size)
+    }
+
+    pub fn copy_from(&mut self, other: &Self) {
+        assert!(self.size >= other.size);
+        unsafe {
+            bindings::copy_uint32_t_vec_from_device_to_device(
+                other.device_ptr,
+                self.device_ptr,
+                4 * other.size as u32,
+            );
+        }
+    }
+
     pub fn to_vec(&self) -> Vec<SecureField> {
         let mut host_data: Vec<SecureField> = Vec::with_capacity(self.size);
         unsafe {
@@ -37,11 +52,21 @@ impl SecureFieldVec {
     }
 }
 
+
+impl Clone for SecureFieldVec {
+    fn clone(&self) -> Self {
+        let mut cloned = Self::new_uninitialized(self.size);
+        cloned.copy_from(self);
+        cloned
+    }
+}
+
 impl Drop for SecureFieldVec {
     fn drop(&mut self) {
         unsafe { bindings::free_uint32_t_vec(self.device_ptr) };
     }
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -62,3 +87,4 @@ mod tests {
         assert_eq!(secure_field_vec.size, host_data.len());
     }
 }
+
