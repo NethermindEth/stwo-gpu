@@ -8,6 +8,7 @@ mod poly;
 mod quotient;
 mod secure_column;
 mod blake2s;
+pub mod examples;
 
 pub use backend::CudaBackend;
 

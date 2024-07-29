@@ -126,17 +126,17 @@ mod tests {
         backend::{Column, CpuBackend},
         circle::{CirclePoint, CirclePointIndex, Coset, SECURE_FIELD_CIRCLE_GEN},
         fields::m31::BaseField,
-        poly::{
-            BitReversedOrder,
-            circle::{CanonicCoset, CircleDomain, CircleEvaluation, CirclePoly, PolyOps},
-            twiddles::TwiddleTree,
-        },
     };
+    use stwo_prover::core::poly::circle::{CanonicCoset, CircleDomain, CircleEvaluation, CirclePoly, PolyOps};
+    use stwo_prover::core::poly::twiddles::TwiddleTree;
     use test_log::test;
 
     use crate::{
         backend::CudaBackend,
         cuda::{self, BaseFieldVec},
+        poly::{
+            BitReversedOrder,
+        },
     };
 
     #[test]
@@ -160,7 +160,7 @@ mod tests {
 
     #[test]
     fn test_precompute_twiddles() {
-        let log_size = 3;
+        let log_size = 5;
 
         let half_coset = CanonicCoset::new(log_size).half_coset();
         let expected_result = CpuBackend::precompute_twiddles(half_coset);
@@ -205,6 +205,60 @@ mod tests {
         let gpu_evaluations = CudaBackend::new_canonical_ordered(coset, gpu_values);
 
         let cpu_twiddles = CpuBackend::precompute_twiddles(coset.half_coset());
+        let gpu_twiddles = CudaBackend::precompute_twiddles(coset.half_coset());
+
+        let expected_result = CpuBackend::interpolate(cpu_evaluations, &cpu_twiddles);
+        let result = CudaBackend::interpolate(gpu_evaluations, &gpu_twiddles);
+
+        assert_eq!(result.coeffs.to_cpu(), expected_result.coeffs);
+    }
+
+    #[test]
+    fn test_interpolate_2() {
+        let log_size = 5;
+
+        let cpu_values = vec![
+            BaseField::from(1),
+            BaseField::from(443693538),
+            BaseField::from(793699796),
+            BaseField::from(1631104375),
+            BaseField::from(460025527),
+            BaseField::from(98131605),
+            BaseField::from(1292025643),
+            BaseField::from(1056169651),
+            BaseField::from(29),
+            BaseField::from(1645907698),
+            BaseField::from(300234932),
+            BaseField::from(2113642380),
+            BaseField::from(2031046861),
+            BaseField::from(541052612),
+            BaseField::from(1857203558),
+            BaseField::from(5),
+            BaseField::from(2),
+            BaseField::from(187770177),
+            BaseField::from(1190378570),
+            BaseField::from(1107054997),
+            BaseField::from(1436440899),
+            BaseField::from(1555024221),
+            BaseField::from(2002021885),
+            BaseField::from(866),
+            BaseField::from(750797),
+            BaseField::from(1704111751),
+            BaseField::from(1874758341),
+            BaseField::from(960394553),
+            BaseField::from(1365348280),
+            BaseField::from(376645196),
+            BaseField::from(2119137245),
+            BaseField::from(1),
+        ];
+        let gpu_values = cuda::BaseFieldVec::from_vec(cpu_values.clone());
+
+        let coset = CanonicCoset::new(log_size);
+        let cpu_evaluations = CpuBackend::new_canonical_ordered(coset, cpu_values);
+        let gpu_evaluations = CudaBackend::new_canonical_ordered(coset, gpu_values);
+
+        let cpu_twiddles = CpuBackend::precompute_twiddles(coset.half_coset());
+        // println!("{:?}", cpu_twiddles.twiddles);
         let gpu_twiddles = CudaBackend::precompute_twiddles(coset.half_coset());
 
         let expected_result = CpuBackend::interpolate(cpu_evaluations, &cpu_twiddles);
