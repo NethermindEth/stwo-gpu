@@ -21,8 +21,8 @@ accumulate_aux(uint32_t *left_column_0, uint32_t *left_column_1, uint32_t *left_
                uint32_t *right_column_0, uint32_t *right_column_1, uint32_t *right_column_2,
                uint32_t *right_column_3) {
     uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
-    left_column_0[i] += right_column_0[i];
-    left_column_1[i] += right_column_1[i];
-    left_column_2[i] += right_column_2[i];
-    left_column_3[i] += right_column_3[i];
+    left_column_0[i] = add(left_column_0[i], right_column_0[i]);
+    left_column_1[i] = add(left_column_1[i], right_column_1[i]);
+    left_column_2[i] = add(left_column_2[i], right_column_2[i]);
+    left_column_3[i] = add(left_column_3[i], right_column_3[i]);
 }
