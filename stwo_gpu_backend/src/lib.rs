@@ -7,6 +7,8 @@ mod fri;
 mod poly;
 mod quotient;
 
+mod examples;
+
 pub use backend::CudaBackend;
 
 #[cfg(test)]
