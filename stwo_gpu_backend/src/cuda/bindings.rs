@@ -4,6 +4,7 @@ use stwo_prover::core::{
     circle::CirclePoint,
     fields::{m31::BaseField, qm31::SecureField},
 };
+use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
 
 // This is needed since `CirclePoint<BaseField>` is not FFI safe.
 #[repr(C)]
@@ -132,5 +133,14 @@ extern "C" {
         right_column_1: *const u32,
         right_column_2: *const u32,
         right_column_3: *const u32,
+    );
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn commit_on_layer(
+        size: usize,
+        column: *const u32,
+        result: &[Blake2sHash]
     );
 }
