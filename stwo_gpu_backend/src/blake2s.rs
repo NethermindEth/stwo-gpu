@@ -32,3 +32,32 @@ impl MerkleOps<Blake2sMerkleHasher> for CudaBackend {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use stwo_prover::core::backend::CpuBackend;
+    use stwo_prover::core::fields::m31::{BaseField, M31};
+    use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleHasher;
+    use stwo_prover::core::vcs::ops::MerkleOps;
+    use crate::cuda::BaseFieldVec;
+    use crate::CudaBackend;
+
+    #[test]
+    fn test_commit_on_layer_first_layer_compared_with_cpu() {
+        let log_size = 3;
+        let size = 1 << log_size;
+
+        let column = vec![M31::from(1)].repeat(size);
+
+        let columns: Vec<&Vec<BaseField>> = vec![&column];
+        let columns_for_cpu: &[&Vec<BaseField>] = columns.as_slice();
+
+        let base_field_vector: BaseFieldVec = BaseFieldVec::from_vec(column.clone());
+        let columns_for_gpu: Vec<&BaseFieldVec> = vec![&base_field_vector];
+
+        let expected_result = <CpuBackend as MerkleOps<Blake2sMerkleHasher>>::commit_on_layer(log_size, None, columns_for_cpu);
+        let result = CudaBackend::commit_on_layer(log_size, None, columns_for_gpu.as_slice());
+
+        assert_eq!(result, expected_result);
+    }
+}
