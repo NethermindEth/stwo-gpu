@@ -1,6 +1,16 @@
 {
-    "image": "nvidia/cuda:12.4.1-devel-ubuntu22.04",
-    "runArgs": [
-            "--gpus", "all"
-        ],
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "runArgs": [
+    "--gpus",
+    "all"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer"
+      ]
+    }
+  }
 }
