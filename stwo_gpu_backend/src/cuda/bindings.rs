@@ -98,12 +98,24 @@ extern "C" {
 
 #[link(name = "gpubackend")]
 extern "C" {
-    pub fn interpolate(values: *const u32, inverse_twiddles_tree: *const u32, values_size: u32);
+    pub fn interpolate(
+        eval_domain_size: u32,
+        values: *const u32,
+        inverse_twiddles_tree: *const u32,
+        inverse_twiddle_tree_size: u32,
+        values_size: u32,
+    );
 }
 
 #[link(name = "gpubackend")]
 extern "C" {
-    pub fn evaluate(values: *const u32, inverse_twiddles_tree: *const u32, values_size: u32);
+    pub fn evaluate(
+        eval_domain_size: u32,
+        values: *const u32,
+        twiddles_tree: *const u32,
+        twiddle_tree_size: u32,
+        values_size: u32,
+    );
 }
 
 #[link(name = "gpubackend")]

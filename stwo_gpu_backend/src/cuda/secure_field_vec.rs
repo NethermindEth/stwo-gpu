@@ -24,7 +24,10 @@ impl SecureFieldVec {
     }
 
     pub fn new_uninitialized(size: usize) -> Self {
-        Self::new(unsafe { bindings::cuda_malloc_uint32_t(4 * size as u32) }, size)
+        Self::new(
+            unsafe { bindings::cuda_malloc_uint32_t(4 * size as u32) },
+            size,
+        )
     }
 
     pub fn copy_from(&mut self, other: &Self) {
@@ -52,7 +55,6 @@ impl SecureFieldVec {
     }
 }
 
-
 impl Clone for SecureFieldVec {
     fn clone(&self) -> Self {
         let mut cloned = Self::new_uninitialized(self.size);
@@ -66,7 +68,6 @@ impl Drop for SecureFieldVec {
         unsafe { bindings::free_uint32_t_vec(self.device_ptr) };
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -87,4 +88,3 @@ mod tests {
         assert_eq!(secure_field_vec.size, host_data.len());
     }
 }
-

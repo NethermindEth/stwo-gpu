@@ -167,7 +167,8 @@ __global__ void rescale(m31 *values, int size, m31 factor) {
     }
 }
 
-void interpolate(m31 *values, m31 *inverse_twiddles_tree, int values_size) {
+void interpolate(int eval_domain_size, m31 *values, m31 *inverse_twiddles_tree, int inverse_twiddles_size, int values_size) {
+    inverse_twiddles_tree = &inverse_twiddles_tree[inverse_twiddles_size - eval_domain_size];
     int block_dim = 256;
     int num_blocks = ((values_size >> 1) + block_dim - 1) / block_dim;
     ifft_circle_part<<<num_blocks, block_dim>>>(values, inverse_twiddles_tree, values_size);
@@ -192,7 +193,8 @@ void interpolate(m31 *values, m31 *inverse_twiddles_tree, int values_size) {
     cudaDeviceSynchronize();
 }
 
-void evaluate(m31 *values, m31 *inverse_twiddles_tree, int values_size) {
+void evaluate(int eval_domain_size, m31 *values, m31 *twiddles_tree, int twiddles_size, int values_size) {
+    twiddles_tree = &twiddles_tree[twiddles_size - eval_domain_size];
     int block_dim = 256;
     int num_blocks = ((values_size >> 1) + block_dim - 1) / block_dim;
 
@@ -201,13 +203,13 @@ void evaluate(m31 *values, m31 *inverse_twiddles_tree, int values_size) {
     int layer_domain_offset = (values_size >> 1) - 2;
     int i = log_values_size - 1;
     while (i > 0) {
-        rfft_line_part<<<num_blocks, block_dim>>>(values, inverse_twiddles_tree, values_size, layer_domain_size, layer_domain_offset, i);
+        rfft_line_part<<<num_blocks, block_dim>>>(values, twiddles_tree, values_size, layer_domain_size, layer_domain_offset, i);
         layer_domain_size <<= 1;
         layer_domain_offset -= layer_domain_size;
         i -= 1;
     }
 
-    rfft_circle_part<<<num_blocks, block_dim>>>(values, inverse_twiddles_tree, values_size);
+    rfft_circle_part<<<num_blocks, block_dim>>>(values, twiddles_tree, values_size);
     cudaDeviceSynchronize();
 }
 

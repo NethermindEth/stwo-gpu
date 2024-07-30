@@ -181,6 +181,7 @@ __global__ void fold_applying2(uint32_t *domain,
                                const uint32_t twiddle_offset,
                                const uint32_t n,
                                const qm31 alpha,
+                               const qm31 alpha_sq,
                                uint32_t *eval_values_0,
                                uint32_t *eval_values_1,
                                uint32_t *eval_values_2,
@@ -195,6 +196,7 @@ __global__ void fold_applying2(uint32_t *domain,
                                       eval_values_3};
 
     const uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
+    domain = &domain[twiddle_offset];
 
     if (i < n / 2) {
         const uint32_t x_inverse = g(domain, twiddle_offset, i);
@@ -210,10 +212,18 @@ __global__ void fold_applying2(uint32_t *domain,
 
         const qm31 f_prime = add(f_0, mul(alpha, f_1));
 
-        folded_values_0[i] = f_prime.a.a;
-        folded_values_1[i] = f_prime.a.b;
-        folded_values_2[i] = f_prime.b.a;
-        folded_values_3[i] = f_prime.b.b;
+        qm31 previous_value = qm31 {
+            folded_values_0[i],
+            folded_values_1[i],
+            folded_values_2[i],
+            folded_values_3[i],
+        };
+        qm31 new_value = add(mul(previous_value, alpha_sq), f_prime);
+
+        folded_values_0[i] = new_value.a.a;
+        folded_values_1[i] = new_value.a.b;
+        folded_values_2[i] = new_value.b.a;
+        folded_values_3[i] = new_value.b.b;
     }
 }
 
@@ -230,11 +240,13 @@ void fold_circle_into_line(uint32_t *gpu_domain,
                            uint32_t *folded_values_3) {
     int block_dim = 1024;
     int num_blocks = (n / 2 + block_dim - 1) / block_dim;
+    qm31 alpha_sq = mul(alpha, alpha);
     fold_applying2<<<num_blocks, block_dim>>>(
             gpu_domain,
             twiddle_offset,
             n,
             alpha,
+            alpha_sq,
             eval_values_0,
             eval_values_1,
             eval_values_2,

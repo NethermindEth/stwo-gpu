@@ -11,10 +11,10 @@ extern "C"
 m31* precompute_twiddles(point initial, point step, int total_size);
 
 extern "C"
-void interpolate(m31 *values, m31 *inverse_twiddles_tree, int values_size);
+void interpolate(int eval_domain_size, m31 *values, m31 *inverse_twiddles_tree, int inverse_twiddles_size, int values_size);
 
 extern "C"
-void evaluate(m31 *values, m31 *inverse_twiddles_tree, int values_size);
+void evaluate(int eval_domain_size, m31 *values, m31 *twiddles_tree, int twiddles_size, int values_size);
 
 extern "C"
 qm31 eval_at_point(m31 *coeffs, int coeffs_size, qm31 point_x, qm31 point_y);

@@ -1,4 +1,5 @@
 #include "../include/utils.cuh"
+#include <cstdio>
 
 void copy_uint32_t_vec_from_device_to_host(uint32_t *device_ptr, uint32_t *host_ptr, int size) {
     cudaMemcpy(host_ptr, device_ptr, sizeof(uint32_t) * size, cudaMemcpyDeviceToHost);
@@ -19,6 +20,13 @@ uint32_t* cuda_malloc_uint32_t(int size) {
     uint32_t* device_ptr;
     cudaMalloc((void**)&device_ptr, sizeof(uint32_t) * size);
     return device_ptr;
+}
+
+__global__ void print_array(uint32_t *array, int size) {
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if(idx < size) {
+        printf("%d, ", array[idx]);
+    }
 }
 
 uint32_t* cuda_alloc_zeroes_uint32_t(int size) {

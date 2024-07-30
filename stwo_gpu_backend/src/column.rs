@@ -44,8 +44,9 @@ impl Column<BaseField> for cuda::BaseFieldVec {
         self.size
     }
 
-    fn at(&self, _index: usize) -> BaseField {
-        todo!()
+    fn at(&self, index: usize) -> BaseField {
+        // TODO: highly inefficient
+        self.to_cpu()[index]
     }
 
     fn set(&mut self, _index: usize, _value: BaseField) {

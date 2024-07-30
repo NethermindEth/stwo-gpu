@@ -81,10 +81,10 @@ mod tests {
             BaseFieldVec::from_vec(vec![M31::from(1)].repeat(size)),
         ];
         let right_summand: [BaseFieldVec; 4] = [
-            BaseFieldVec::from_vec(vec![M31::from(P-1)].repeat(size)),
-            BaseFieldVec::from_vec(vec![M31::from(P-1)].repeat(size)),
-            BaseFieldVec::from_vec(vec![M31::from(P-1)].repeat(size)),
-            BaseFieldVec::from_vec(vec![M31::from(P-1)].repeat(size)),
+            BaseFieldVec::from_vec(vec![M31::from(P - 1)].repeat(size)),
+            BaseFieldVec::from_vec(vec![M31::from(P - 1)].repeat(size)),
+            BaseFieldVec::from_vec(vec![M31::from(P - 1)].repeat(size)),
+            BaseFieldVec::from_vec(vec![M31::from(P - 1)].repeat(size)),
         ];
 
         let mut left_secure_column = SecureColumnByCoords {
