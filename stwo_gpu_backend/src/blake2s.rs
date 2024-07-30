@@ -55,7 +55,7 @@ mod tests {
     use crate::CudaBackend;
 
     #[test]
-    fn test_commit_on_first_layer_compared_with_cpu() {
+    fn test_commit_on_first_layer_with_one_column_compared_with_cpu() {
         let log_size = 11;
         let size = 1 << log_size;
 
