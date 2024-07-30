@@ -138,18 +138,9 @@ extern "C" {
 
 #[link(name = "gpubackend")]
 extern "C" {
-    pub fn commit_on_layer(
+    pub fn commit_on_first_layer(
         size: usize,
         column: *const u32,
-        result: &[Blake2sHash]
-    );
-}
-
-#[link(name = "gpubackend")]
-extern "C" {
-    pub fn blake_2s_hash(
-        size: usize,
-        data: *const u32,
         result: *mut Blake2sHash,
     );
 }
@@ -172,6 +163,30 @@ extern "C" {
 #[link(name = "gpubackend")]
 extern "C" {
     pub fn free_blake_2s_hash(
+        device_pointer: *const Blake2sHash,
+    );
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn copy_blake_2s_hash_vec_from_host_to_device(
+        from: *const Blake2sHash,
+        size: usize,
+    ) -> *mut Blake2sHash;
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn copy_blake_2s_hash_vec_from_device_to_host(
+        from: *const Blake2sHash,
+        to: *const Blake2sHash,
+        size: usize,
+    );
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn free_blake_2s_hash_vec(
         device_pointer: *const Blake2sHash,
     );
 }

@@ -43,4 +43,13 @@ void copy_blake_2s_hash_from_device_to_host(H *device_ptr, H *host_ptr);
 extern "C"
 void free_blake_2s_hash(H* device_ptr);
 
+extern "C"
+H* copy_blake_2s_hash_vec_from_host_to_device(H *host_ptr, uint32_t size);
+
+extern "C"
+void copy_blake_2s_hash_vec_from_device_to_host(H *device_ptr, H *host_ptr, uint32_t size);
+
+extern "C"
+void free_blake_2s_hash_vec(H* device_ptr);
+
 #endif // UTILS_H

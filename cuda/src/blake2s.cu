@@ -1,35 +1,11 @@
 #include "../include/blake2s.cuh"
 #include <cstdio>
 
-__global__ void
-commit_on_layer_aux(uint32_t size, uint32_t *column, char *result);
+void blake_2s_hash(uint32_t size, unsigned int *data, H *result);
 
-void commit_on_layer(uint32_t size, uint32_t *column, char *result) {
-    unsigned int block_dim = 1024;
-
-    unsigned int num_blocks = (size + block_dim - 1) / block_dim;
-    commit_on_layer_aux<<<num_blocks, min(size, block_dim)>>>(
-            size, column, result);
-    cudaDeviceSynchronize();
+void commit_on_first_layer(uint32_t size, uint32_t *column, H *result) {
+    blake_2s_hash(size, column, result);
 }
-
-__global__ void
-commit_on_layer_aux(uint32_t size, uint32_t *column, char *result) {
-    for (int i = 0; i < 32 * size; i++) {
-        result[i] = 0;
-    }
-
-    //(0..(1 << log_size))
-    //     .map(|i| {
-    //         Blake2sMerkleHasher::hash_node(
-    //             prev_layer.map(|prev_layer| (prev_layer[2 * i], prev_layer[2 * i + 1])),
-    //             &columns.iter().map(|column| column.to_cpu()[i]).collect_vec(),
-    //         )
-    //     })
-    //     .collect()
-}
-
-/* ************************* */
 
 static __constant__ const unsigned int IV[8] = {
         0x6A09E667,
@@ -151,7 +127,7 @@ __global__ void blake_2s_hash_aux(uint32_t size, unsigned int *data, H *result) 
         return;
 
     H state = {0};
-    compress_cols(&state, &data, (int) size, idx);
+    compress_cols(&state, &data, 1, idx);
 
     result[idx] = state;
 }

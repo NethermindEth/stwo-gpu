@@ -5,9 +5,6 @@
 #include "utils.cuh"
 
 extern "C"
-void commit_on_layer(uint32_t size, uint32_t *column, char* result);
-
-extern "C"
-void blake_2s_hash(uint32_t size, unsigned int *data, H *result);
+void commit_on_first_layer(uint32_t size, uint32_t *column, H* result);
 
 #endif // BLAKE2S_H

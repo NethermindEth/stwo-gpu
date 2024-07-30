@@ -53,3 +53,18 @@ void copy_blake_2s_hash_from_device_to_host(H *device_ptr, H *host_ptr) {
 void free_blake_2s_hash(H* device_ptr) {
     cudaFree(device_ptr);
 }
+
+H* copy_blake_2s_hash_vec_from_host_to_device(H *host_ptr, uint32_t size) {
+    H* device_ptr;
+    cudaMalloc((void**)&device_ptr, sizeof(H) * size);
+    cudaMemcpy(device_ptr, host_ptr, sizeof(H) * size, cudaMemcpyHostToDevice);
+    return device_ptr;
+}
+
+void copy_blake_2s_hash_vec_from_device_to_host(H *device_ptr, H *host_ptr, uint32_t size) {
+    cudaMemcpy(host_ptr, device_ptr, sizeof(H) * size, cudaMemcpyDeviceToHost);
+}
+
+void free_blake_2s_hash_vec(H* device_ptr) {
+    cudaFree(device_ptr);
+}
