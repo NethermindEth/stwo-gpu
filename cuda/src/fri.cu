@@ -114,13 +114,12 @@ void compute_g_values(uint32_t *f_values, uint32_t size, uint32_t lambda, uint32
     cudaDeviceSynchronize();
 }
 
-qm31 sum_secure_field(uint32_t *column_0, uint32_t *column_1, uint32_t *column_2, uint32_t *column_3,
-                      const uint32_t column_size) {
+qm31 sum_secure_field(uint32_t *columns[], const uint32_t column_size) {
     m31 a, b, c, d;
-    sum(column_0, column_size, &a);
-    sum(column_1, column_size, &b);
-    sum(column_2, column_size, &c);
-    sum(column_3, column_size, &d);
+    sum(columns[0], column_size, &a);
+    sum(columns[1], column_size, &b);
+    sum(columns[2], column_size, &c);
+    sum(columns[3], column_size, &d);
 
     return {mul(a, inv(column_size)),
             mul(b, inv(column_size)),
@@ -128,14 +127,15 @@ qm31 sum_secure_field(uint32_t *column_0, uint32_t *column_1, uint32_t *column_2
             mul(d, inv(column_size))};
 }
 
-void decompose(uint32_t *column_0, uint32_t *column_1, uint32_t *column_2, uint32_t *column_3, uint32_t size,
-               qm31 *lambda, uint32_t *g_value_0, uint32_t *g_value_1, uint32_t *g_value_2,
-               uint32_t *g_value_3) {
-    *lambda = sum_secure_field(column_0, column_1, column_2, column_3, size);
-    compute_g_values(column_0, size, lambda->a.a, g_value_0);
-    compute_g_values(column_1, size, lambda->a.b, g_value_1);
-    compute_g_values(column_2, size, lambda->b.a, g_value_2);
-    compute_g_values(column_3, size, lambda->b.b, g_value_3);
+void decompose(uint32_t *columns[],
+               uint32_t column_size,
+               qm31 *lambda,
+               uint32_t *g_values[]) {
+    *lambda = sum_secure_field(columns, column_size);
+    compute_g_values(columns[0], column_size, lambda->a.a, g_values[0]);
+    compute_g_values(columns[1], column_size, lambda->a.b, g_values[1]);
+    compute_g_values(columns[2], column_size, lambda->b.a, g_values[2]);
+    compute_g_values(columns[3], column_size, lambda->b.b, g_values[3]);
 }
 
 __device__ uint32_t f(const uint32_t *domain,
@@ -194,15 +194,9 @@ __global__ void fold_applying(const uint32_t *domain,
 void fold_line(uint32_t *gpu_domain,
                uint32_t twiddle_offset,
                uint32_t n,
-               uint32_t *eval_values_1,
-               uint32_t *eval_values_2,
-               uint32_t *eval_values_3,
-               uint32_t *eval_values_4,
+               uint32_t **eval_values,
                qm31 alpha,
-               uint32_t *folded_values_1,
-               uint32_t *folded_values_2,
-               uint32_t *folded_values_3,
-               uint32_t *folded_values_4) {
+               uint32_t **folded_values) {
     int block_dim = 1024;
     int num_blocks = (n / 2 + block_dim - 1) / block_dim;
     fold_applying<<<num_blocks, block_dim>>>(
@@ -210,14 +204,14 @@ void fold_line(uint32_t *gpu_domain,
             twiddle_offset,
             n,
             alpha,
-            eval_values_1,
-            eval_values_2,
-            eval_values_3,
-            eval_values_4,
-            folded_values_1,
-            folded_values_2,
-            folded_values_3,
-            folded_values_4);
+            eval_values[0],
+            eval_values[1],
+            eval_values[2],
+            eval_values[3],
+            folded_values[0],
+            folded_values[1],
+            folded_values[2],
+            folded_values[3]);
     cudaDeviceSynchronize();
 }
 
@@ -279,15 +273,9 @@ __global__ void fold_applying2(uint32_t *domain,
 
 void fold_circle_into_line(uint32_t *gpu_domain,
                            uint32_t twiddle_offset, uint32_t n,
-                           uint32_t *eval_values_0,
-                           uint32_t *eval_values_1,
-                           uint32_t *eval_values_2,
-                           uint32_t *eval_values_3,
+                           uint32_t *eval_values[],
                            qm31 alpha,
-                           uint32_t *folded_values_0,
-                           uint32_t *folded_values_1,
-                           uint32_t *folded_values_2,
-                           uint32_t *folded_values_3) {
+                           uint32_t *folded_values[]) {
     int block_dim = 1024;
     int num_blocks = (n / 2 + block_dim - 1) / block_dim;
     qm31 alpha_sq = mul(alpha, alpha);
@@ -297,13 +285,13 @@ void fold_circle_into_line(uint32_t *gpu_domain,
             n,
             alpha,
             alpha_sq,
-            eval_values_0,
-            eval_values_1,
-            eval_values_2,
-            eval_values_3,
-            folded_values_0,
-            folded_values_1,
-            folded_values_2,
-            folded_values_3);
+            eval_values[0],
+            eval_values[1],
+            eval_values[2],
+            eval_values[3],
+            folded_values[0],
+            folded_values[1],
+            folded_values[2],
+            folded_values[3]);
     cudaDeviceSynchronize();
 }

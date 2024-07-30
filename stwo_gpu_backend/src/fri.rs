@@ -1,15 +1,13 @@
-use stwo_prover::core::backend::Column;
-use stwo_prover::core::fields::m31::{BaseField, M31};
-use stwo_prover::core::fields::secure_column::SecureColumnByCoords;
-use stwo_prover::core::fri::CIRCLE_TO_LINE_FOLD_STEP;
 use stwo_prover::core::{
     fields::qm31::SecureField,
     fri::FriOps,
     poly::{circle::SecureEvaluation, line::LineEvaluation, twiddles::TwiddleTree},
 };
+use stwo_prover::core::fri::CIRCLE_TO_LINE_FOLD_STEP;
 
 use crate::backend::CudaBackend;
-use crate::cuda::{bindings, BaseFieldVec};
+use crate::cuda::bindings;
+use crate::secure_column::CudaSecureColumn;
 
 impl FriOps for CudaBackend {
     fn fold_line(
@@ -24,32 +22,22 @@ impl FriOps for CudaBackend {
         let remaining_folds = n.ilog2();
         let twiddle_offset: usize = twiddles_size - (1 << remaining_folds);
 
-        let eval_values = &eval.values.columns;
-
         unsafe {
             let gpu_domain = twiddles.itwiddles.device_ptr;
-            let folded_values = alloc_secure_column_on_gpu_as_array(n >> 1);
+            let folded_values = CudaSecureColumn::new_with_size(n >> 1);
 
             bindings::fold_line(
                 gpu_domain,
                 twiddle_offset,
                 n,
-                eval_values[0].device_ptr,
-                eval_values[1].device_ptr,
-                eval_values[2].device_ptr,
-                eval_values[3].device_ptr,
+                CudaSecureColumn::from_secure_column(&eval.values).device_ptr(),
                 alpha,
-                folded_values[0].device_ptr,
-                folded_values[1].device_ptr,
-                folded_values[2].device_ptr,
-                folded_values[3].device_ptr,
+                CudaSecureColumn::from_secure_column(&folded_values).device_ptr(),
             );
 
             LineEvaluation::new(
                 eval.domain().double(),
-                SecureColumnByCoords {
-                    columns: folded_values,
-                },
+                folded_values,
             )
         }
     }
@@ -63,9 +51,6 @@ impl FriOps for CudaBackend {
         let n = src.len();
         assert_eq!(n >> CIRCLE_TO_LINE_FOLD_STEP, dst.len());
 
-        let folded_values = &dst.values.columns;
-        let eval_values = &src.values;
-
         unsafe {
             let gpu_domain = twiddles.itwiddles.device_ptr;
             let twiddle_offset = twiddles.root_coset.size() - dst.domain().size();
@@ -73,75 +58,32 @@ impl FriOps for CudaBackend {
                 gpu_domain,
                 twiddle_offset,
                 n,
-                eval_values.columns[0].device_ptr,
-                eval_values.columns[1].device_ptr,
-                eval_values.columns[2].device_ptr,
-                eval_values.columns[3].device_ptr,
+                CudaSecureColumn::from_secure_column(&src.values).device_ptr(),
                 alpha,
-                folded_values[0].device_ptr,
-                folded_values[1].device_ptr,
-                folded_values[2].device_ptr,
-                folded_values[3].device_ptr,
+                CudaSecureColumn::from_secure_column(&dst.values).device_ptr(),
             );
         }
     }
 
     fn decompose(eval: &SecureEvaluation<Self>) -> (SecureEvaluation<Self>, SecureField) {
-        let columns = &eval.columns;
         let size = eval.len();
         unsafe {
             let lambda = SecureField::from_u32_unchecked(0, 0, 0, 0);
-            let g_values = alloc_secure_column_on_gpu_as_array(size);
+            let g_values = CudaSecureColumn::new_with_size(size);
 
-            bindings::decompose(columns[0].device_ptr,
-                                columns[1].device_ptr,
-                                columns[2].device_ptr,
-                                columns[3].device_ptr,
-                                size as u32,
-                                &lambda,
-                                g_values[0].device_ptr,
-                                g_values[1].device_ptr,
-                                g_values[2].device_ptr,
-                                g_values[3].device_ptr,
+            bindings::decompose(
+                CudaSecureColumn::from_secure_column(&eval).device_ptr(),
+                size as u32,
+                &lambda,
+                CudaSecureColumn::from_secure_column(&g_values).device_ptr(),
             );
 
             let g = SecureEvaluation {
                 domain: eval.domain,
-                values: SecureColumnByCoords { columns: g_values },
+                values: g_values,
             };
             (g, lambda)
         }
-    }
-}
-
-unsafe fn alloc_secure_column_on_gpu_as_array(n: usize) -> [BaseFieldVec; 4] {
-    let folded_values_0 = BaseFieldVec::new_uninitialized(n);
-    let folded_values_1 = BaseFieldVec::new_uninitialized(n);
-    let folded_values_2 = BaseFieldVec::new_uninitialized(n);
-    let folded_values_3 = BaseFieldVec::new_uninitialized(n);
-
-    [
-        folded_values_0,
-        folded_values_1,
-        folded_values_2,
-        folded_values_3,
-    ]
-}
-
-impl CudaBackend {
-    unsafe fn sum(column: &BaseFieldVec) -> BaseField {
-        let column_size = column.size;
-        return bindings::sum(column.device_ptr, column_size as u32);
-    }
-
-    unsafe fn compute_g_values(f_values: &BaseFieldVec, lambda: M31) -> BaseFieldVec {
-        let size = f_values.size;
-
-        let result = BaseFieldVec {
-            device_ptr: bindings::compute_g_values(f_values.device_ptr, size, lambda),
-            size: size,
-        };
-        return result;
     }
 }
 
@@ -150,14 +92,14 @@ mod tests {
     use std::iter::zip;
 
     use itertools::Itertools;
-    use rand::rngs::SmallRng;
     use rand::{Rng, SeedableRng};
+    use rand::rngs::SmallRng;
     use stwo_prover::core::backend::{Column, ColumnOps, CpuBackend};
     use stwo_prover::core::circle::{CirclePoint, CirclePointIndex, Coset};
-    use stwo_prover::core::fields::m31::{BaseField, M31};
-    use stwo_prover::core::fields::qm31::{SecureField, QM31};
-    use stwo_prover::core::fields::secure_column::SecureColumnByCoords;
     use stwo_prover::core::fields::Field;
+    use stwo_prover::core::fields::m31::{BaseField, M31};
+    use stwo_prover::core::fields::qm31::{QM31, SecureField};
+    use stwo_prover::core::fields::secure_column::SecureColumnByCoords;
     use stwo_prover::core::fri::FriOps;
     use stwo_prover::core::poly::circle::{CanonicCoset, CircleDomain, PolyOps, SecureEvaluation};
     use stwo_prover::core::poly::line::{LineDomain, LineEvaluation, LinePoly};

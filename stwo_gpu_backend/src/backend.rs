@@ -19,7 +19,7 @@ impl Backend for CudaBackend {}
 impl ColumnOps<Blake2sHash> for CudaBackend {
     type Column = Vec<Blake2sHash>;
     // TODO: implement
-    fn bit_reverse_column(column: &mut Self::Column) {
+    fn bit_reverse_column(_column: &mut Self::Column) {
         unimplemented!()
     }
 }

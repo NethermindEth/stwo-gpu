@@ -6,6 +6,7 @@ mod field;
 mod fri;
 mod poly;
 mod quotient;
+mod secure_column;
 
 pub use backend::CudaBackend;
 

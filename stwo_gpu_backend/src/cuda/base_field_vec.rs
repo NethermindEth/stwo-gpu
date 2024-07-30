@@ -92,13 +92,13 @@ mod tests {
     #[test]
     fn test_zeroes() {
         let size = 64;
-        let new_zeroes = BaseFieldVec::new_zeroes(size);
-        let new_zeroes = BaseFieldVec::new_zeroes(size);
-        let new_zeroes = BaseFieldVec::new_zeroes(size);
-        let new_zeroes = BaseFieldVec::new_zeroes(size);
-        let new_zeroes = BaseFieldVec::new_zeroes(size);
-        let new_zeroes = BaseFieldVec::new_zeroes(size);
-        let new_zeroes = BaseFieldVec::new_zeroes(size);
+        BaseFieldVec::new_zeroes(size);
+        BaseFieldVec::new_zeroes(size);
+        BaseFieldVec::new_zeroes(size);
+        BaseFieldVec::new_zeroes(size);
+        BaseFieldVec::new_zeroes(size);
+        BaseFieldVec::new_zeroes(size);
+        BaseFieldVec::new_zeroes(size);
         let new_zeroes = BaseFieldVec::new_zeroes(size);
         for a in new_zeroes.to_vec().iter() {
             assert_eq!(a, &BaseField::from(0));

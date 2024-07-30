@@ -93,30 +93,18 @@ extern "C" {
         gpu_domain: *const u32,
         twiddle_offset: usize,
         n: usize,
-        eval_values_1: *const u32,
-        eval_values_2: *const u32,
-        eval_values_3: *const u32,
-        eval_values_4: *const u32,
+        eval_values: *const*const u32,
         alpha: SecureField,
-        folded_values_1: *const u32,
-        folded_values_2: *const u32,
-        folded_values_3: *const u32,
-        folded_values_4: *const u32,
+        folded_values: *const*const u32,
     );
 
     pub fn fold_circle_into_line(
         gpu_domain: *const u32,
         twiddle_offset: usize,
         n: usize,
-        eval_values_0: *const u32,
-        eval_values_1: *const u32,
-        eval_values_2: *const u32,
-        eval_values_3: *const u32,
+        eval_values: *const*const u32,
         alpha: SecureField,
-        folded_values_0: *const u32,
-        folded_values_1: *const u32,
-        folded_values_2: *const u32,
-        folded_values_3: *const u32,
+        folded_values: *const*const u32,
     );
 
     pub fn sum_secure_field(
@@ -128,16 +116,10 @@ extern "C" {
     ) -> SecureField;
 
     pub fn decompose(
-        column_0: *const u32,
-        column_1: *const u32,
-        column_2: *const u32,
-        column_3: *const u32,
-        size: u32,
+        columns: *const*const u32,
+        column_size: u32,
         lambda: &QM31,
-        g_value_0: *const u32,
-        g_value_1: *const u32,
-        g_value_2: *const u32,
-        g_value_3: *const u32,
+        g_values: *const*const u32,
     );
 
     pub fn accumulate(
