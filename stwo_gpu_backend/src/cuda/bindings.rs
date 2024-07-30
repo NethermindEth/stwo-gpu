@@ -143,10 +143,35 @@ extern "C" {
         column: *const u32,
         result: &[Blake2sHash]
     );
+}
 
+#[link(name = "gpubackend")]
+extern "C" {
     pub fn blake_2s_hash(
         size: usize,
-        data: &Vec<u8>,
-        result: Blake2sHash,
+        data: *const u32,
+        result: *mut Blake2sHash,
+    );
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn copy_blake_2s_hash_from_host_to_device(
+        from: *const Blake2sHash,
+    ) -> *mut Blake2sHash;
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn copy_blake_2s_hash_from_device_to_host(
+        from: *const Blake2sHash,
+        to: *const Blake2sHash,
+    );
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn free_blake_2s_hash(
+        device_pointer: *const Blake2sHash,
     );
 }

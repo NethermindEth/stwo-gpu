@@ -38,3 +38,18 @@ uint32_t* cuda_alloc_zeroes_uint32_t(int size) {
 void free_uint32_t_vec(uint32_t *device_ptr) {
     cudaFree(device_ptr);
 }
+
+H* copy_blake_2s_hash_from_host_to_device(H *host_ptr) {
+    H* device_ptr;
+    cudaMalloc((void**)&device_ptr, sizeof(H));
+    cudaMemcpy(device_ptr, host_ptr, sizeof(H), cudaMemcpyHostToDevice);
+    return device_ptr;
+}
+
+void copy_blake_2s_hash_from_device_to_host(H *device_ptr, H *host_ptr) {
+    cudaMemcpy(host_ptr, device_ptr, sizeof(H), cudaMemcpyDeviceToHost);
+}
+
+void free_blake_2s_hash(H* device_ptr) {
+    cudaFree(device_ptr);
+}

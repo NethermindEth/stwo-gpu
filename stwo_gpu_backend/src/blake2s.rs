@@ -1,5 +1,6 @@
 use itertools::Itertools;
-use stwo_prover::core::backend::{Column, ColumnOps};
+use stwo_prover::core::backend::{Col, Column, ColumnOps};
+use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::vcs::blake2_hash::{Blake2sHash, Blake2sHasher};
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleHasher;
 use stwo_prover::core::vcs::ops::{MerkleHasher, MerkleOps};
@@ -39,10 +40,32 @@ impl MerkleOps<Blake2sMerkleHasher> for CudaBackend {
     }
 }
 
-fn blake_2s_hash_gpu(size: usize, data: &Vec<u8>) -> Blake2sHash {
+fn blake_2s_hash_gpu(size: usize, data: &Vec<M31>) -> Blake2sHash {
     let mut result: Blake2sHash = Default::default();
-    unsafe { bindings::blake_2s_hash(size, data, result); }
+    let result_pointer: *mut Blake2sHash = &mut result;
 
+    unsafe {
+        let device_data = bindings::copy_uint32_t_vec_from_host_to_device(
+            data.as_ptr() as *const u32,
+            data.len() as u32,
+        );
+        let device_result_pointer = bindings::copy_blake_2s_hash_from_host_to_device(
+            result_pointer
+        );
+
+        bindings::blake_2s_hash(size, device_data, device_result_pointer);
+
+        bindings::copy_blake_2s_hash_from_device_to_host(
+            device_result_pointer,
+            result_pointer,
+        );
+
+        bindings::free_uint32_t_vec(device_data);
+        bindings::free_blake_2s_hash(result_pointer);
+    }
+    // println!("*************** RUST RESULT");
+    // println!("{:?}", result);
+    // println!("***************");
     return result;
 }
 
@@ -53,18 +76,17 @@ mod tests {
     use stwo_prover::core::vcs::blake2_hash::Blake2sHasher;
     use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleHasher;
     use stwo_prover::core::vcs::hasher::Hasher;
-    use stwo_prover::core::vcs::ops::MerkleOps;
+    use stwo_prover::core::vcs::ops::{MerkleHasher, MerkleOps};
     use crate::blake2s::blake_2s_hash_gpu;
     use crate::cuda::BaseFieldVec;
     use crate::CudaBackend;
 
     #[test]
     fn test_blake_2s_hash() {
-        let mut blake_2s_cpu_hasher = Blake2sHasher::new();
-        let data = vec![0; 32];
-        blake_2s_cpu_hasher.update(&data);
-        let expected_result = blake_2s_cpu_hasher.finalize();
+        const DATA_SIZE: usize = 4096;
+        let data = vec![M31::from(12345); DATA_SIZE];
 
+        let expected_result = Blake2sMerkleHasher::hash_node(None, &data);
         let result = blake_2s_hash_gpu(data.len(), &data);
 
         assert_eq!(result, expected_result);

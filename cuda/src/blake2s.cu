@@ -1,4 +1,5 @@
 #include "../include/blake2s.cuh"
+#include <cstdio>
 
 __global__ void
 commit_on_layer_aux(uint32_t size, uint32_t *column, char* result);
@@ -29,11 +30,6 @@ commit_on_layer_aux(uint32_t size, uint32_t *column, char* result) {
 }
 
 /* ************************* */
-
-struct H
-{
-    unsigned int s[8];
-};
 
 static __constant__ const unsigned int IV[8] = {
         0x6A09E667,
@@ -125,9 +121,66 @@ __device__ void compress(H *state, unsigned int m[16]) {
     state->s[7] ^= v[7] ^ v[15];
 }
 
-void blake_2s_hash(uint32_t size, char *data, char *result) {
-    H state = {0};
+__device__ void compress_cols(H *state, unsigned int **cols, int n_cols, unsigned int idx)
+{
+    int i;
+    for (i = 0; i + 15 < n_cols; i += 16)
+    {
+        unsigned int msg[16] = {0};
+        for (int j = 0; j < 16; j++)
+        {
+            msg[j] = cols[i + j][idx];
+        }
+        compress(state, msg);
+    }
 
+    if (i == n_cols)
+    {
+        return;
+    }
+
+    // Remainder.
     unsigned int msg[16] = {0};
-    compress(&state, msg);
+    for (int j = 0; i < n_cols; i++, j++)
+    {
+        msg[j] = cols[i][idx];
+    }
+    compress(state, msg);
+}
+
+__global__ void blake_2s_hash_aux(uint32_t size, unsigned int *data, H *result) {
+    unsigned int idx = threadIdx.x + (blockIdx.x * blockDim.x);
+    if (idx >= size)
+        return;
+
+    H state = {0};
+    printf(
+        "*********************************************************\n"
+        "%d"
+        "\n*********************************************************\n",
+        data[0]
+    );
+    compress_cols(&state, &data, (int)size, idx);
+
+    result[idx] = state;
+}
+
+void blake_2s_hash(uint32_t size, unsigned int *data, H *result) {
+    unsigned int block_dim = 1024;
+
+    unsigned int num_blocks = (size + block_dim - 1) / block_dim;
+
+
+    blake_2s_hash_aux<<<num_blocks, min(size, block_dim)>>>(
+            size, data, result
+    );
+
+    cudaDeviceSynchronize();
+    cudaError_t err = cudaGetLastError(); // Get the last error
+    if (err != cudaSuccess) {
+        // Print the error message
+        printf("****************\n");
+        printf("CUDA error: %s\n", cudaGetErrorString(err));
+        printf("****************\n");
+    }
 }

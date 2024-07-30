@@ -3,6 +3,10 @@
 
 #include "fields.cuh"
 
+struct H {
+    unsigned int s[8];
+};
+
 __device__ __forceinline__ uint32_t bit_reverse(uint32_t n, int bits) {
     unsigned int reversed_n = __brev(n);
     return reversed_n >> (32 - bits);
@@ -30,5 +34,13 @@ uint32_t* cuda_alloc_zeroes_uint32_t(int);
 extern "C"
 void free_uint32_t_vec(uint32_t*);
 
-#endif // UTILS_H
+extern "C"
+H* copy_blake_2s_hash_from_host_to_device(H *host_ptr);
 
+extern "C"
+void copy_blake_2s_hash_from_device_to_host(H *device_ptr, H *host_ptr);
+
+extern "C"
+void free_blake_2s_hash(H* device_ptr);
+
+#endif // UTILS_H
