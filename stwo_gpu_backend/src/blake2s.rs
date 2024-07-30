@@ -63,9 +63,6 @@ fn blake_2s_hash_gpu(size: usize, data: &Vec<M31>) -> Blake2sHash {
         bindings::free_uint32_t_vec(device_data);
         bindings::free_blake_2s_hash(result_pointer);
     }
-    // println!("*************** RUST RESULT");
-    // println!("{:?}", result);
-    // println!("***************");
     return result;
 }
 
@@ -93,7 +90,7 @@ mod tests {
     }
 
     #[test]
-    fn test_commit_on_layer_first_layer_compared_with_cpu() {
+    fn test_commit_on_first_layer_compared_with_cpu() {
         let log_size = 3;
         let size = 1 << log_size;
 

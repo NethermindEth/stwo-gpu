@@ -2,9 +2,9 @@
 #include <cstdio>
 
 __global__ void
-commit_on_layer_aux(uint32_t size, uint32_t *column, char* result);
+commit_on_layer_aux(uint32_t size, uint32_t *column, char *result);
 
-void commit_on_layer(uint32_t size, uint32_t *column, char* result) {
+void commit_on_layer(uint32_t size, uint32_t *column, char *result) {
     unsigned int block_dim = 1024;
 
     unsigned int num_blocks = (size + block_dim - 1) / block_dim;
@@ -14,8 +14,8 @@ void commit_on_layer(uint32_t size, uint32_t *column, char* result) {
 }
 
 __global__ void
-commit_on_layer_aux(uint32_t size, uint32_t *column, char* result) {
-    for(int i = 0; i < 32 * size; i++) {
+commit_on_layer_aux(uint32_t size, uint32_t *column, char *result) {
+    for (int i = 0; i < 32 * size; i++) {
         result[i] = 0;
     }
 
@@ -57,19 +57,21 @@ __device__ __forceinline__ static unsigned int rotr(unsigned int x, unsigned int
 }
 
 static __constant__ const unsigned char SIGMA[12][16] = {
-        {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
-        {14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3},
-        {11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4},
-        {7, 9, 3, 1, 13, 12, 11, 14, 2, 6, 5, 10, 4, 0, 15, 8},
-        {9, 0, 5, 7, 2, 4, 10, 15, 14, 1, 11, 12, 6, 8, 3, 13},
-        {2, 12, 6, 10, 0, 11, 8, 3, 4, 13, 7, 5, 15, 14, 1, 9},
-        {12, 5, 1, 15, 14, 13, 4, 10, 0, 7, 6, 3, 9, 2, 8, 11},
-        {13, 11, 7, 14, 12, 1, 3, 9, 5, 0, 15, 4, 8, 6, 2, 10},
-        {6, 15, 14, 9, 11, 3, 0, 8, 12, 2, 13, 7, 1, 4, 10, 5},
-        {10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0},
+        {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15},
+        {14, 10, 4,  8,  9,  15, 13, 6,  1,  12, 0,  2,  11, 7,  5,  3},
+        {11, 8,  12, 0,  5,  2,  15, 13, 10, 14, 3,  6,  7,  1,  9,  4},
+        {7,  9,  3,  1,  13, 12, 11, 14, 2,  6,  5,  10, 4,  0,  15, 8},
+        {9,  0,  5,  7,  2,  4,  10, 15, 14, 1,  11, 12, 6,  8,  3,  13},
+        {2,  12, 6,  10, 0,  11, 8,  3,  4,  13, 7,  5,  15, 14, 1,  9},
+        {12, 5,  1,  15, 14, 13, 4,  10, 0,  7,  6,  3,  9,  2,  8,  11},
+        {13, 11, 7,  14, 12, 1,  3,  9,  5,  0,  15, 4,  8,  6,  2,  10},
+        {6,  15, 14, 9,  11, 3,  0,  8,  12, 2,  13, 7,  1,  4,  10, 5},
+        {10, 2,  8,  4,  7,  6,  1,  5,  15, 11, 9,  14, 3,  12, 13, 0},
 };
 
-__device__ __forceinline__ static void G(const int r, const int i, unsigned int &a, unsigned int &b, unsigned int &c, unsigned int &d, unsigned int const m[16]) {
+__device__ __forceinline__ static void
+G(const int r, const int i, unsigned int &a, unsigned int &b, unsigned int &c, unsigned int &d,
+  unsigned int const m[16]) {
     a = a + b + m[SIGMA[r][2 * i]];
     d = rotr(d ^ a, 16);
     c = c + d;
@@ -121,28 +123,23 @@ __device__ void compress(H *state, unsigned int m[16]) {
     state->s[7] ^= v[7] ^ v[15];
 }
 
-__device__ void compress_cols(H *state, unsigned int **cols, int n_cols, unsigned int idx)
-{
+__device__ void compress_cols(H *state, unsigned int **cols, int n_cols, unsigned int idx) {
     int i;
-    for (i = 0; i + 15 < n_cols; i += 16)
-    {
+    for (i = 0; i + 15 < n_cols; i += 16) {
         unsigned int msg[16] = {0};
-        for (int j = 0; j < 16; j++)
-        {
+        for (int j = 0; j < 16; j++) {
             msg[j] = cols[i + j][idx];
         }
         compress(state, msg);
     }
 
-    if (i == n_cols)
-    {
+    if (i == n_cols) {
         return;
     }
 
     // Remainder.
     unsigned int msg[16] = {0};
-    for (int j = 0; i < n_cols; i++, j++)
-    {
+    for (int j = 0; i < n_cols; i++, j++) {
         msg[j] = cols[i][idx];
     }
     compress(state, msg);
@@ -154,33 +151,15 @@ __global__ void blake_2s_hash_aux(uint32_t size, unsigned int *data, H *result) 
         return;
 
     H state = {0};
-    printf(
-        "*********************************************************\n"
-        "%d"
-        "\n*********************************************************\n",
-        data[0]
-    );
-    compress_cols(&state, &data, (int)size, idx);
+    compress_cols(&state, &data, (int) size, idx);
 
     result[idx] = state;
 }
 
 void blake_2s_hash(uint32_t size, unsigned int *data, H *result) {
     unsigned int block_dim = 1024;
-
     unsigned int num_blocks = (size + block_dim - 1) / block_dim;
 
-
-    blake_2s_hash_aux<<<num_blocks, min(size, block_dim)>>>(
-            size, data, result
-    );
-
+    blake_2s_hash_aux<<<num_blocks, min(size, block_dim)>>>(size, data, result);
     cudaDeviceSynchronize();
-    cudaError_t err = cudaGetLastError(); // Get the last error
-    if (err != cudaSuccess) {
-        // Print the error message
-        printf("****************\n");
-        printf("CUDA error: %s\n", cudaGetErrorString(err));
-        printf("****************\n");
-    }
 }
