@@ -23,7 +23,7 @@ uint32_t* cuda_malloc_uint32_t(int size) {
 
 uint32_t* cuda_alloc_zeroes_uint32_t(int size) {
     uint32_t* device_ptr = cuda_malloc_uint32_t(size);
-    cudaMemset((void**)&device_ptr, 0, sizeof(uint32_t) * size);
+    cudaMemset(device_ptr, 0x00, sizeof(uint32_t) * size);
     return device_ptr;
 }
 
