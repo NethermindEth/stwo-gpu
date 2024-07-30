@@ -60,8 +60,8 @@ mod tests {
         let size = 1 << log_size;
 
         let cpu_column = vec![M31::from(1)].repeat(size);
-        let columns: Vec<&Vec<BaseField>> = vec![&cpu_column];
-        let cpu_columns: &[&Vec<BaseField>] = columns.as_slice();
+        let cpu_columns_vector: Vec<&Vec<BaseField>> = vec![&cpu_column];
+        let cpu_columns: &[&Vec<BaseField>] = cpu_columns_vector.as_slice();
 
         let gpu_column = cpu_column.clone();
         let base_field_vector: BaseFieldVec = BaseFieldVec::from_vec(gpu_column);
@@ -70,6 +70,26 @@ mod tests {
 
         let expected_result = <CpuBackend as MerkleOps<Blake2sMerkleHasher>>::commit_on_layer(log_size, None, cpu_columns);
         let result = CudaBackend::commit_on_layer(log_size, None, gpu_columns);
+
+        assert_eq!(result, expected_result);
+    }
+
+    #[test]
+    fn test_commit_on_first_layer_with_many_columns_compared_with_cpu() {
+        let log_size = 11;
+        let size = 1 << log_size;
+
+        let cpu_columns_vector: Vec<Vec<BaseField>> = (0..35).map(|index|
+            vec![M31::from(index)].repeat(size)
+        ).collect();
+
+        let columns = cpu_columns_vector.clone();
+        let gpu_columns_vector: Vec<BaseFieldVec> = columns.into_iter().map(|vector|
+            BaseFieldVec::from_vec(vector)
+        ).collect();
+
+        let expected_result = <CpuBackend as MerkleOps<Blake2sMerkleHasher>>::commit_on_layer(log_size, None, &cpu_columns_vector.iter().collect::<Vec<_>>());
+        let result = CudaBackend::commit_on_layer(log_size, None, &gpu_columns_vector.iter().collect::<Vec<_>>());
 
         assert_eq!(result, expected_result);
     }
