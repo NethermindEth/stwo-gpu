@@ -143,4 +143,10 @@ extern "C" {
         column: *const u32,
         result: &[Blake2sHash]
     );
+
+    pub fn blake_2s_hash(
+        size: usize,
+        data: &Vec<u8>,
+        result: Blake2sHash,
+    );
 }
