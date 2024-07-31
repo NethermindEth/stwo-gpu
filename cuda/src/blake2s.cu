@@ -120,37 +120,41 @@ __device__ void compress_cols(H *state, unsigned int **cols, unsigned int n_cols
 __global__ void commit_on_first_layer_in_gpu(
         uint32_t size, uint32_t number_of_columns, unsigned int **data, H *result
 ) {
-    unsigned int idx = threadIdx.x + (blockIdx.x * blockDim.x);
-    if (idx >= size)
+    unsigned int index = threadIdx.x + (blockIdx.x * blockDim.x);
+    if (index >= size)
         return;
 
     H state = {0};
-    compress_cols(&state, data, number_of_columns, idx);
+    compress_cols(&state, data, number_of_columns, index);
 
-    result[idx] = state;
+    result[index] = state;
 }
 
 __global__ void commit_on_layer_using_previous_in_gpu(
         uint32_t size, uint32_t number_of_columns, unsigned int **data, H *previous_layer, H *result
 ) {
-    unsigned int idx = threadIdx.x + (blockIdx.x * blockDim.x);
-    if (idx >= size)
+    unsigned int index = threadIdx.x + (blockIdx.x * blockDim.x);
+    if (index >= size)
         return;
 
     H state = {0};
     unsigned int msg[16] = {0};
     for (int j = 0; j < 8; j++) {
-        msg[j] = previous_layer[idx * 2].s[j];
-        msg[j + 8] = previous_layer[idx * 2 + 1].s[j];
+        msg[j] = previous_layer[index * 2].s[j];
+        msg[j + 8] = previous_layer[index * 2 + 1].s[j];
     }
     compress(&state, msg);
 
-    compress_cols(&state, data, number_of_columns, idx);
-    result[idx] = state;
+    compress_cols(&state, data, number_of_columns, index);
+    result[index] = state;
+}
+
+uint32_t number_of_blocks_for(uint32_t size) {
+    return (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 }
 
 void commit_on_first_layer(uint32_t size, uint32_t number_of_columns, uint32_t **columns, H *result) {
-    unsigned int number_of_blocks = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    unsigned int number_of_blocks = number_of_blocks_for(size);
 
     commit_on_first_layer_in_gpu<<<number_of_blocks, min(size, BLOCK_SIZE)>>>(
             size, number_of_columns, columns, result
