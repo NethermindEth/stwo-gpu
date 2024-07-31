@@ -130,9 +130,10 @@ mod tests {
     }
 
     fn columns_test_vector(number_of_columns: usize, size_of_columns: usize) -> Vec<Vec<BaseField>> {
-        (0..number_of_columns).map(|index| {
-            let initial_value = index as i32;
-            vec![M31::from(initial_value)].repeat(size_of_columns)
-        } ).collect()
+        (0..number_of_columns).map(|index_of_column|
+            (0..size_of_columns).map(|index_in_column|
+                M31::from(index_in_column * index_of_column)
+            ).collect()
+        ).collect()
     }
 }
