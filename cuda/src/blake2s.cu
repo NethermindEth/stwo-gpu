@@ -160,8 +160,4 @@ void commit_on_layer_with_previous(uint32_t size, uint32_t number_of_columns, ui
 
     commit_on_layer_with_previous_aux<<<numBlocks, min(size, blockDim1)>>>(size, number_of_columns, columns, previous_layer, result);
     cudaDeviceSynchronize();
-    cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        printf("CUDA error: %s\n", cudaGetErrorString(err));
-    }
 }
