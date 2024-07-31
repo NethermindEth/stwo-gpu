@@ -2,6 +2,9 @@
 #include "../include/utils.cuh"
 #include "../include/circle.cuh"
 
+void
+compute_all_g_values(const m31 *const *columns, uint32_t column_size, const qm31 *lambda, uint32_t *const *g_values);
+
 uint32_t num_blocks_for(const uint32_t size) {
     uint32_t block_dim = max_block_dim;
     return (uint32_t) (size + block_dim - 1) / block_dim;
@@ -117,22 +120,32 @@ __global__ void compute_g_values(const m31 *f_values, m31 *results, int size, m3
 }
 
 
+void compute_all_g_values(
+        const m31 *const *columns,
+        uint32_t column_size,
+        const qm31 &lambda,
+        uint32_t *const *g_values) {
+    uint32_t num_blocks = num_blocks_for(column_size);
+    uint32_t block_dim = min(column_size, max_block_dim);
+
+    compute_g_values<<<num_blocks, block_dim>>>(
+            columns[0], g_values[0], column_size, lambda.a.a);
+    compute_g_values<<<num_blocks, block_dim>>>(
+            columns[1], g_values[1], column_size, lambda.a.b);
+    compute_g_values<<<num_blocks, block_dim>>>(
+            columns[2], g_values[2], column_size, lambda.b.a);
+    compute_g_values<<<num_blocks, block_dim>>>(
+            columns[3], g_values[3], column_size, lambda.b.b);
+
+    cudaDeviceSynchronize();
+}
+
 void decompose(const m31 *columns[4],
                uint32_t column_size,
                qm31 *lambda,
                uint32_t *g_values[4]) {
     *lambda = get_vanishing_polynomial_coefficients(columns, column_size);
-    uint32_t num_blocks = num_blocks_for(column_size);
-    uint32_t block_dim = min(column_size, max_block_dim);
-    compute_g_values<<<num_blocks, block_dim>>>(
-            columns[0], g_values[0], column_size, lambda->a.a);
-    compute_g_values<<<num_blocks, block_dim>>>(
-            columns[1], g_values[1], column_size, lambda->a.b);
-    compute_g_values<<<num_blocks, block_dim>>>(
-            columns[2], g_values[2], column_size, lambda->b.a);
-    compute_g_values<<<num_blocks, block_dim>>>(
-            columns[3], g_values[3], column_size, lambda->b.b);
-    cudaDeviceSynchronize();
+    compute_all_g_values(columns, column_size, *lambda, g_values);
 }
 
 __device__ uint32_t f(const m31 *domain,
