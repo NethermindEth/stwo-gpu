@@ -60,7 +60,6 @@ __global__ void sum_reduce2(uint32_t *list, uint32_t *temp_list, uint32_t *resul
     }
 }
 
-extern "C"
 void get_vanishing_polynomial_coefficients(uint32_t *list, const uint32_t list_size, uint32_t *result) {
     int block_dim = 1024;
     int num_blocks = (list_size / 2 + block_dim - 1) / block_dim;
