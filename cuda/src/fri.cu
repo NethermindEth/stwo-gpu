@@ -2,6 +2,10 @@
 #include "../include/utils.cuh"
 #include "../include/circle.cuh"
 
+void
+sum_reduce_with_first_reduce_operation(const m31 *list, const uint32_t list_size, const m31 *temp_list, m31 *results,
+                                       m31 (*first_reduce_operation)(m31, m31));
+
 uint32_t num_blocks_for(const uint32_t size) {
     uint32_t block_dim = max_block_dim;
     return (uint32_t) (size + block_dim - 1) / block_dim;
@@ -28,7 +32,9 @@ __device__ void sum_block_list(m31 *results,
     }
 }
 
-__global__ void sum_reduce(const m31 *list, m31 *temp_list, m31 *results, const uint32_t list_size) {
+__device__ void
+sum_reduce_with_first_reduce_operation(const m31 *list, const uint32_t list_size, m31 *temp_list, m31 *results,
+                                       m31 (*first_reduce_operation)(m31, m31)) {
     const uint32_t block_thread_index = threadIdx.x;
     const uint32_t first_thread_in_block_index = blockIdx.x * blockDim.x;
     const uint32_t grid_thread_index = first_thread_in_block_index + block_thread_index;
@@ -38,7 +44,7 @@ __global__ void sum_reduce(const m31 *list, m31 *temp_list, m31 *results, const 
         m31 *list_to_sum_in_block = &temp_list[first_thread_in_block_index];
         m31 &thread_result = list_to_sum_in_block[block_thread_index];
 
-        thread_result = sub(
+        thread_result = first_reduce_operation(
                 list[grid_thread_index],
                 list[grid_thread_index + half_list_size]);
 
@@ -48,24 +54,12 @@ __global__ void sum_reduce(const m31 *list, m31 *temp_list, m31 *results, const 
     }
 }
 
+__global__ void sum_reduce(const m31 *list, m31 *temp_list, m31 *results, const uint32_t list_size) {
+    sum_reduce_with_first_reduce_operation(list, list_size, temp_list, results, sub);
+}
+
 __global__ void sum_reduce2(const m31 *list, m31 *temp_list, m31 *results, const uint32_t list_size) {
-    const uint32_t block_thread_index = threadIdx.x;
-    const uint32_t first_thread_in_block_index = blockIdx.x * blockDim.x;
-    const uint32_t grid_thread_index = first_thread_in_block_index + block_thread_index;
-    const uint32_t half_list_size = list_size >> 1;
-
-    if (grid_thread_index < half_list_size) {
-        m31 *list_to_sum_in_block = &temp_list[first_thread_in_block_index];
-        m31 &thread_result = list_to_sum_in_block[block_thread_index];
-
-        thread_result = add(
-                list[grid_thread_index],
-                list[grid_thread_index + half_list_size]);
-
-        __syncthreads();
-
-        sum_block_list(results, block_thread_index, half_list_size, list_to_sum_in_block, thread_result);
-    }
+    sum_reduce_with_first_reduce_operation(list, list_size, temp_list, results, add);
 }
 
 void get_vanishing_polynomial_coefficient(const m31 *list, const uint32_t list_size, m31 *result) {
