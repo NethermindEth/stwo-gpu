@@ -4,25 +4,25 @@
 #include "fields.cuh"
 
 extern "C"
-void fold_line(uint32_t *gpu_domain,
+void fold_line(m31 *gpu_domain,
                uint32_t twiddle_offset,
                uint32_t n,
-               uint32_t *eval_values[4],
+               m31 *eval_values[4],
                qm31 alpha,
-               uint32_t *folded_values[4]);
+               m31 *folded_values[4]);
 
 extern "C"
-void fold_circle_into_line(uint32_t *gpu_domain,
+void fold_circle_into_line(m31 *gpu_domain,
                            uint32_t twiddle_offset,
                            uint32_t n,
-                           uint32_t *eval_values[4],
+                           m31 *eval_values[4],
                            qm31 alpha,
-                           uint32_t *folded_values[4]);
+                           m31 *folded_values[4]);
 
 extern "C"
 void decompose(const m31 *columns[4],
                uint32_t column_size,
                qm31 *lambda,
-               uint32_t *g_values[4]);
+               m31 *g_values[4]);
 
 #endif

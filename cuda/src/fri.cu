@@ -2,8 +2,11 @@
 #include "../include/utils.cuh"
 #include "../include/circle.cuh"
 
-__device__ void sum_block_list(uint32_t *results, const uint32_t block_thread_index, const uint32_t half_list_size,
-                               const uint32_t *list_to_sum_in_block, uint32_t &thread_result) {
+__device__ void sum_block_list(m31 *results,
+                               const uint32_t block_thread_index,
+                               const uint32_t half_list_size,
+                               const m31 *list_to_sum_in_block,
+                               m31 &thread_result) {
     uint32_t list_to_sum_in_block_half_size = min(half_list_size, blockDim.x) >> 1;
     while (block_thread_index < list_to_sum_in_block_half_size) {
         thread_result = add(
@@ -20,7 +23,7 @@ __device__ void sum_block_list(uint32_t *results, const uint32_t block_thread_in
     }
 }
 
-__global__ void sum_reduce(const m31 *list, uint32_t *temp_list, uint32_t *results, const uint32_t list_size) {
+__global__ void sum_reduce(const m31 *list, m31 *temp_list, m31 *results, const uint32_t list_size) {
     const uint32_t block_thread_index = threadIdx.x;
     const uint32_t first_thread_in_block_index = blockIdx.x * blockDim.x;
     const uint32_t grid_thread_index = first_thread_in_block_index + block_thread_index;
@@ -40,7 +43,7 @@ __global__ void sum_reduce(const m31 *list, uint32_t *temp_list, uint32_t *resul
     }
 }
 
-__global__ void sum_reduce2(const m31 *list, uint32_t *temp_list, uint32_t *results, const uint32_t list_size) {
+__global__ void sum_reduce2(const m31 *list, m31 *temp_list, m31 *results, const uint32_t list_size) {
     const uint32_t block_thread_index = threadIdx.x;
     const uint32_t first_thread_in_block_index = blockIdx.x * blockDim.x;
     const uint32_t grid_thread_index = first_thread_in_block_index + block_thread_index;
@@ -60,7 +63,7 @@ __global__ void sum_reduce2(const m31 *list, uint32_t *temp_list, uint32_t *resu
     }
 }
 
-void get_vanishing_polynomial_coefficient(const m31 *list, const uint32_t list_size, uint32_t *result) {
+void get_vanishing_polynomial_coefficient(const m31 *list, const uint32_t list_size, m31 *result) {
     int block_dim = 1024;
     int num_blocks = (list_size / 2 + block_dim - 1) / block_dim;
 
@@ -92,7 +95,7 @@ void get_vanishing_polynomial_coefficient(const m31 *list, const uint32_t list_s
     free_uint32_t_vec(results);
 }
 
-qm31 get_vanishing_polynomial_coefficients(const m31 *columns[4], const m31 column_size) {
+qm31 get_vanishing_polynomial_coefficients(const m31 *columns[4], const uint32_t column_size) {
     m31 a, b, c, d;
     get_vanishing_polynomial_coefficient(columns[0], column_size, &a);
     get_vanishing_polynomial_coefficient(columns[1], column_size, &b);
@@ -105,7 +108,7 @@ qm31 get_vanishing_polynomial_coefficients(const m31 *columns[4], const m31 colu
             mul(d, inv(column_size))};
 }
 
-__global__ void compute_g_values_aux(const uint32_t *f_values, uint32_t *results, int size, uint32_t lambda) {
+__global__ void compute_g_values_aux(const m31 *f_values, m31 *results, int size, m31 lambda) {
     // Computes one coordinate of the QM31 g_values for the decomposition f = g + lambda * v_n at the first step of FRI.
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -119,7 +122,7 @@ __global__ void compute_g_values_aux(const uint32_t *f_values, uint32_t *results
     }
 }
 
-void compute_g_values(const uint32_t *f_values, uint32_t size, uint32_t lambda, uint32_t *g_value) {
+void compute_g_values(const m31 *f_values, uint32_t size, m31 lambda, m31 *g_value) {
     int block_dim = 1024;
     int num_blocks = (size + block_dim - 1) / block_dim;
     compute_g_values_aux<<<num_blocks, min(size, block_dim)>>>(f_values, g_value, size, lambda);
@@ -150,18 +153,18 @@ __device__ const qm31 getEvaluation(const uint32_t *const *eval_values, const ui
                     eval_values[3][index]}};
 }
 
-__global__ void fold_applying(const uint32_t *domain,
+__global__ void fold_applying(const m31 *domain,
                               const uint32_t twiddle_offset,
                               const uint32_t n,
                               const qm31 alpha,
-                              uint32_t *eval_values_0,
-                              uint32_t *eval_values_1,
-                              uint32_t *eval_values_2,
-                              uint32_t *eval_values_3,
-                              uint32_t *folded_values_0,
-                              uint32_t *folded_values_1,
-                              uint32_t *folded_values_2,
-                              uint32_t *folded_values_3) {
+                              m31 *eval_values_0,
+                              m31 *eval_values_1,
+                              m31 *eval_values_2,
+                              m31 *eval_values_3,
+                              m31 *folded_values_0,
+                              m31 *folded_values_1,
+                              m31 *folded_values_2,
+                              m31 *folded_values_3) {
     const uint32_t *eval_values[4] = {eval_values_0,
                                       eval_values_1,
                                       eval_values_2,
@@ -190,12 +193,12 @@ __global__ void fold_applying(const uint32_t *domain,
     }
 }
 
-void fold_line(uint32_t *gpu_domain,
+void fold_line(m31 *gpu_domain,
                uint32_t twiddle_offset,
                uint32_t n,
-               uint32_t *eval_values[4],
+               m31 *eval_values[4],
                qm31 alpha,
-               uint32_t *folded_values[4]) {
+               m31 *folded_values[4]) {
     int block_dim = 1024;
     int num_blocks = (n / 2 + block_dim - 1) / block_dim;
     fold_applying<<<num_blocks, block_dim>>>(
