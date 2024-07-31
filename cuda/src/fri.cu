@@ -64,7 +64,7 @@ __global__ void sum_reduce2(const m31 *list, m31 *temp_list, m31 *results, const
 
 void get_vanishing_polynomial_coefficient(const m31 *list, const uint32_t list_size, m31 *result) {
     int block_dim = 1024;
-    int num_blocks = (list_size / 2 + block_dim - 1) / block_dim;
+    int num_blocks = num_blocks_for(list_size << 1);
 
     m31 *temp_list = cuda_malloc_uint32_t(list_size);
     m31 *results = cuda_alloc_zeroes_uint32_t(num_blocks);
