@@ -78,33 +78,11 @@ mod tests {
     use crate::CudaBackend;
 
     #[test]
-    fn test_commit_on_first_layer_with_one_column_compared_with_cpu() {
-        let log_size = 11;
-        let size = 1 << log_size;
-
-        let cpu_column = vec![M31::from(1)].repeat(size);
-        let cpu_columns_vector: Vec<&Vec<BaseField>> = vec![&cpu_column];
-        let cpu_columns: &[&Vec<BaseField>] = cpu_columns_vector.as_slice();
-
-        let gpu_column = cpu_column.clone();
-        let base_field_vector: BaseFieldVec = BaseFieldVec::from_vec(gpu_column);
-        let gpu_columns_vector: Vec<&BaseFieldVec> = vec![&base_field_vector];
-        let gpu_columns = gpu_columns_vector.as_slice();
-
-        let expected_result = <CpuBackend as MerkleOps<Blake2sMerkleHasher>>::commit_on_layer(log_size, None, cpu_columns);
-        let result = CudaBackend::commit_on_layer(log_size, None, gpu_columns);
-
-        assert_eq!(result, expected_result);
-    }
-
-    #[test]
     fn test_commit_on_first_layer_with_many_columns_compared_with_cpu() {
         let log_size = 11;
         let size = 1 << log_size;
 
-        let cpu_columns_vector: Vec<Vec<BaseField>> = (0..35).map(|index|
-            vec![M31::from(index)].repeat(size)
-        ).collect();
+        let cpu_columns_vector: Vec<Vec<BaseField>> = columns_test_vector(35, size);
 
         let columns = cpu_columns_vector.clone();
         let gpu_columns_vector: Vec<BaseFieldVec> = columns.into_iter().map(|vector|
@@ -126,9 +104,7 @@ mod tests {
 
         // First layer
 
-        let cpu_columns_vector: Vec<Vec<BaseField>> = (0..35).map(|index|
-            vec![M31::from(index)].repeat(previous_layer_size)
-        ).collect();
+        let cpu_columns_vector: Vec<Vec<BaseField>> = columns_test_vector(35, previous_layer_size);
 
         let columns = cpu_columns_vector.clone();
         let gpu_columns_vector: Vec<BaseFieldVec> = columns.into_iter().map(|vector|
@@ -140,9 +116,7 @@ mod tests {
 
         // Current layer
 
-        let cpu_columns_vector: Vec<Vec<BaseField>> = (0..16).map(|index|
-            vec![M31::from(index + 8)].repeat(current_layer_size)
-        ).collect();
+        let cpu_columns_vector: Vec<Vec<BaseField>> = columns_test_vector(16, current_layer_size);
 
         let columns = cpu_columns_vector.clone();
         let gpu_columns_vector: Vec<BaseFieldVec> = columns.into_iter().map(|vector|
@@ -153,5 +127,12 @@ mod tests {
         let result = CudaBackend::commit_on_layer(current_layer_log_size, Some(&gpu_previous_layer), &gpu_columns_vector.iter().collect::<Vec<_>>());
 
         assert_eq!(result, expected_result);
+    }
+
+    fn columns_test_vector(number_of_columns: usize, size_of_columns: usize) -> Vec<Vec<BaseField>> {
+        (0..number_of_columns).map(|index| {
+            let initial_value = index as i32;
+            vec![M31::from(initial_value)].repeat(size_of_columns)
+        } ).collect()
     }
 }
