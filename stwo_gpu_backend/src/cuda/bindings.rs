@@ -4,6 +4,7 @@ use stwo_prover::core::{
     circle::CirclePoint,
     fields::{m31::BaseField, qm31::SecureField},
 };
+use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
 
 // This is needed since `CirclePoint<BaseField>` is not FFI safe.
 #[repr(C)]
@@ -132,5 +133,87 @@ extern "C" {
         right_column_1: *const u32,
         right_column_2: *const u32,
         right_column_3: *const u32,
+    );
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn commit_on_first_layer(
+        size: usize,
+        amount_of_columns: usize,
+        columns: *const *const u32,
+        result: *mut Blake2sHash,
+    );
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn commit_on_layer_with_previous(
+        size: usize,
+        amount_of_columns: usize,
+        columns: *const *const u32,
+        previous_layer: *const Blake2sHash,
+        result: *mut Blake2sHash,
+    );
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn copy_blake_2s_hash_from_host_to_device(
+        from: *const Blake2sHash,
+    ) -> *mut Blake2sHash;
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn copy_blake_2s_hash_from_device_to_host(
+        from: *const Blake2sHash,
+        to: *const Blake2sHash,
+    );
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn free_blake_2s_hash(
+        device_pointer: *const Blake2sHash,
+    );
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn copy_blake_2s_hash_vec_from_host_to_device(
+        from: *const Blake2sHash,
+        size: usize,
+    ) -> *mut Blake2sHash;
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn copy_blake_2s_hash_vec_from_device_to_host(
+        from: *const Blake2sHash,
+        to: *const Blake2sHash,
+        size: usize,
+    );
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn free_blake_2s_hash_vec(
+        device_pointer: *const Blake2sHash,
+    );
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn copy_device_pointer_vec_from_host_to_device(
+        from: *const *const u32,
+        size: usize,
+    ) -> *const *const u32;
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn free_device_pointer_vec(
+        device_pointer: *const *const u32,
     );
 }
