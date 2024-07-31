@@ -52,4 +52,10 @@ void copy_blake_2s_hash_vec_from_device_to_host(H *device_ptr, H *host_ptr, uint
 extern "C"
 void free_blake_2s_hash_vec(H* device_ptr);
 
+extern "C"
+uint32_t** copy_device_pointer_vec_from_host_to_device(uint32_t** host_ptr, uint32_t size);
+
+extern "C"
+void free_device_pointer_vec(unsigned int **device_ptr);
+
 #endif // UTILS_H

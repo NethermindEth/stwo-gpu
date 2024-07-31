@@ -1,10 +1,12 @@
+// Extracted from @spapini's implementation
+
 #include "../include/blake2s.cuh"
 #include <cstdio>
 
-void blake_2s_hash(uint32_t size, unsigned int *data, H *result);
+void blake_2s_hash(uint32_t size, uint32_t number_of_columns, unsigned int **data, H *result);
 
-void commit_on_first_layer(uint32_t size, uint32_t *column, H *result) {
-    blake_2s_hash(size, column, result);
+void commit_on_first_layer(uint32_t size, uint32_t number_of_columns, uint32_t **columns, H *result) {
+    blake_2s_hash(size, number_of_columns, columns, result);
 }
 
 static __constant__ const unsigned int IV[8] = {
@@ -99,7 +101,7 @@ __device__ void compress(H *state, unsigned int m[16]) {
     state->s[7] ^= v[7] ^ v[15];
 }
 
-__device__ void compress_cols(H *state, unsigned int **cols, int n_cols, unsigned int idx) {
+__device__ void compress_cols(H *state, unsigned int **cols, unsigned int n_cols, unsigned int idx) {
     int i;
     for (i = 0; i + 15 < n_cols; i += 16) {
         unsigned int msg[16] = {0};
@@ -121,21 +123,25 @@ __device__ void compress_cols(H *state, unsigned int **cols, int n_cols, unsigne
     compress(state, msg);
 }
 
-__global__ void blake_2s_hash_aux(uint32_t size, unsigned int *data, H *result) {
+__global__ void blake_2s_hash_aux(uint32_t size, uint32_t number_of_columns, unsigned int **data, H *result) {
     unsigned int idx = threadIdx.x + (blockIdx.x * blockDim.x);
     if (idx >= size)
         return;
 
     H state = {0};
-    compress_cols(&state, &data, 1, idx);
+    compress_cols(&state, data, number_of_columns, idx);
 
     result[idx] = state;
 }
 
-void blake_2s_hash(uint32_t size, unsigned int *data, H *result) {
+void blake_2s_hash(uint32_t size, uint32_t number_of_columns, unsigned int **data, H *result) {
     unsigned int block_dim = 1024;
     unsigned int num_blocks = (size + block_dim - 1) / block_dim;
 
-    blake_2s_hash_aux<<<num_blocks, min(size, block_dim)>>>(size, data, result);
+    blake_2s_hash_aux<<<num_blocks, min(size, block_dim)>>>(size, number_of_columns, data, result);
     cudaDeviceSynchronize();
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        printf("CUDA error: %s\n", cudaGetErrorString(err));
+    }
 }

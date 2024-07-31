@@ -22,22 +22,31 @@ impl MerkleOps<Blake2sMerkleHasher> for CudaBackend {
         prev_layer: Option<&Vec<Blake2sHash>>,
         columns: &[&BaseFieldVec],
     ) -> Vec<Blake2sHash> {
-        let column = columns[0];
         let size = 1 << log_size;
         let mut result = vec![Blake2sHash::default(); size];
         let result_pointer = result.as_mut_ptr();
+        let device_column_pointers_vector: Vec<*const u32> = columns
+            .iter()
+            .map(|column| column.device_ptr)
+            .collect();
+        let number_of_columns = columns.len();
 
         unsafe{
             let device_result_pointer = bindings::copy_blake_2s_hash_vec_from_host_to_device(
                 result_pointer, size
             );
 
-            bindings::commit_on_first_layer(size, column.device_ptr, device_result_pointer);
+            let device_column_pointers: *const *const u32 = bindings::copy_device_pointer_vec_from_host_to_device(
+                device_column_pointers_vector.as_ptr(), number_of_columns
+            );
+
+            bindings::commit_on_first_layer(size, number_of_columns, device_column_pointers, device_result_pointer);
 
             bindings::copy_blake_2s_hash_vec_from_device_to_host(
                 device_result_pointer, result_pointer, size,
             );
             bindings::free_blake_2s_hash_vec(device_result_pointer);
+            bindings::free_device_pointer_vec(device_column_pointers);
         }
 
         return result.to_vec();

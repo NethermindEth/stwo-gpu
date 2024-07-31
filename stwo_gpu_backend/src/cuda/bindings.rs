@@ -140,7 +140,8 @@ extern "C" {
 extern "C" {
     pub fn commit_on_first_layer(
         size: usize,
-        column: *const u32,
+        amount_of_columns: usize,
+        columns: *const *const u32,
         result: *mut Blake2sHash,
     );
 }
@@ -188,5 +189,20 @@ extern "C" {
 extern "C" {
     pub fn free_blake_2s_hash_vec(
         device_pointer: *const Blake2sHash,
+    );
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn copy_device_pointer_vec_from_host_to_device(
+        from: *const *const u32,
+        size: usize,
+    ) -> *const *const u32;
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn free_device_pointer_vec(
+        device_pointer: *const *const u32,
     );
 }
