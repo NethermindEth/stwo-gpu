@@ -81,7 +81,7 @@ void get_vanishing_polynomial_coefficient(const m31 *list, const uint32_t list_s
             list_to_sum = partial_results;
             last_size = num_blocks;
             partial_results = list_to_sum;
-            num_blocks = (num_blocks / 2 + max_block_dim - 1) / max_block_dim;
+            num_blocks = num_blocks_for(num_blocks / 2);
 
             sum_reduce2<<<num_blocks, max_block_dim>>>(
                     list_to_sum, temp_list, partial_results, last_size);
