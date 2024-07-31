@@ -2,10 +2,6 @@
 #include "../include/utils.cuh"
 #include "../include/circle.cuh"
 
-void
-sum_reduce_with_first_reduce_operation(const m31 *list, const uint32_t list_size, const m31 *temp_list, m31 *results,
-                                       m31 (*first_reduce_operation)(m31, m31));
-
 uint32_t num_blocks_for(const uint32_t size) {
     uint32_t block_dim = max_block_dim;
     return (uint32_t) (size + block_dim - 1) / block_dim;
@@ -63,7 +59,7 @@ __global__ void sum_reduce2(const m31 *list, m31 *temp_list, m31 *results, const
 }
 
 void get_vanishing_polynomial_coefficient(const m31 *list, const uint32_t list_size, m31 *result) {
-    int num_blocks = num_blocks_for(list_size << 1);
+    int num_blocks = num_blocks_for(list_size >> 1);
 
     m31 *temp_list = cuda_malloc_uint32_t(list_size);
     m31 *results = cuda_alloc_zeroes_uint32_t(num_blocks);
@@ -74,14 +70,14 @@ void get_vanishing_polynomial_coefficient(const m31 *list, const uint32_t list_s
     if (num_blocks == 1) {
         copy_uint32_t_vec_from_device_to_host(results, result, 1);
     } else {
-        m31 *list_to_sum = cuda_malloc_uint32_t((num_blocks << 1) / max_block_dim);
+        m31 *list_to_sum = cuda_malloc_uint32_t((num_blocks >> 1) / max_block_dim);
         m31 *partial_results = results;
         uint32_t last_size = num_blocks;
         do {
             list_to_sum = partial_results;
             last_size = num_blocks;
             partial_results = list_to_sum;
-            num_blocks = num_blocks_for(num_blocks / 2);
+            num_blocks = num_blocks_for(num_blocks >> 1);
 
             sum_reduce2<<<num_blocks, max_block_dim>>>(
                     list_to_sum, temp_list, partial_results, last_size);
