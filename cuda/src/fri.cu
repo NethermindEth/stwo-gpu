@@ -61,7 +61,7 @@ __global__ void sum_reduce2(uint32_t *list, uint32_t *temp_list, uint32_t *resul
 }
 
 extern "C"
-void sum(uint32_t *list, const uint32_t list_size, uint32_t *result) {
+void get_vanishing_polynomial_coefficients(uint32_t *list, const uint32_t list_size, uint32_t *result) {
     int block_dim = 1024;
     int num_blocks = (list_size / 2 + block_dim - 1) / block_dim;
 
@@ -114,12 +114,12 @@ void compute_g_values(uint32_t *f_values, uint32_t size, uint32_t lambda, uint32
     cudaDeviceSynchronize();
 }
 
-qm31 sum_secure_field(uint32_t *columns[], const uint32_t column_size) {
+qm31 get_vanishing_polynomial_coefficients(uint32_t *columns[], const uint32_t column_size) {
     m31 a, b, c, d;
-    sum(columns[0], column_size, &a);
-    sum(columns[1], column_size, &b);
-    sum(columns[2], column_size, &c);
-    sum(columns[3], column_size, &d);
+    get_vanishing_polynomial_coefficients(columns[0], column_size, &a);
+    get_vanishing_polynomial_coefficients(columns[1], column_size, &b);
+    get_vanishing_polynomial_coefficients(columns[2], column_size, &c);
+    get_vanishing_polynomial_coefficients(columns[3], column_size, &d);
 
     return {mul(a, inv(column_size)),
             mul(b, inv(column_size)),
@@ -127,11 +127,11 @@ qm31 sum_secure_field(uint32_t *columns[], const uint32_t column_size) {
             mul(d, inv(column_size))};
 }
 
-void decompose(uint32_t *columns[],
+void decompose(m31 *columns[],
                uint32_t column_size,
                qm31 *lambda,
                uint32_t *g_values[]) {
-    *lambda = sum_secure_field(columns, column_size);
+    *lambda = get_vanishing_polynomial_coefficients(columns, column_size);
     compute_g_values(columns[0], column_size, lambda->a.a, g_values[0]);
     compute_g_values(columns[1], column_size, lambda->a.b, g_values[1]);
     compute_g_values(columns[2], column_size, lambda->b.a, g_values[2]);
