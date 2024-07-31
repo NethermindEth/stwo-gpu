@@ -117,7 +117,7 @@ __device__ void compress_cols(H *state, unsigned int **cols, unsigned int n_cols
     compress(state, msg);
 }
 
-__global__ void commit_on_first_layer_aux(uint32_t size, uint32_t number_of_columns, unsigned int **data, H *result) {
+__global__ void commit_on_first_layer_in_gpu(uint32_t size, uint32_t number_of_columns, unsigned int **data, H *result) {
     unsigned int idx = threadIdx.x + (blockIdx.x * blockDim.x);
     if (idx >= size)
         return;
@@ -128,7 +128,7 @@ __global__ void commit_on_first_layer_aux(uint32_t size, uint32_t number_of_colu
     result[idx] = state;
 }
 
-__global__ void commit_on_layer_with_previous_aux(uint32_t size, uint32_t number_of_columns, unsigned int **data, H* previous_layer, H *result) {
+__global__ void commit_on_layer_using_previous_in_gpu(uint32_t size, uint32_t number_of_columns, unsigned int **data, H* previous_layer, H *result) {
     unsigned int idx = threadIdx.x + (blockIdx.x * blockDim.x);
     if (idx >= size)
         return;
@@ -150,7 +150,9 @@ void commit_on_first_layer(uint32_t size, uint32_t number_of_columns, uint32_t *
     unsigned int blockDim1 = 1024;
     unsigned int numBlocks = (size + blockDim1 - 1) / blockDim1;
 
-    commit_on_first_layer_aux<<<numBlocks, min(size, blockDim1)>>>(size, number_of_columns, columns, result);
+    commit_on_first_layer_in_gpu<<<numBlocks, min(size, blockDim1)>>>(
+        size, number_of_columns, columns, result
+    );
     cudaDeviceSynchronize();
 }
 
@@ -158,6 +160,8 @@ void commit_on_layer_with_previous(uint32_t size, uint32_t number_of_columns, ui
     unsigned int blockDim1 = 1024;
     unsigned int numBlocks = (size + blockDim1 - 1) / blockDim1;
 
-    commit_on_layer_with_previous_aux<<<numBlocks, min(size, blockDim1)>>>(size, number_of_columns, columns, previous_layer, result);
+    commit_on_layer_using_previous_in_gpu<<<numBlocks, min(size, blockDim1)>>>(
+        size, number_of_columns, columns, previous_layer, result
+    );
     cudaDeviceSynchronize();
 }
