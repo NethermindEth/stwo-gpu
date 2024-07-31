@@ -1,10 +1,10 @@
 use stwo_prover::core::fields::secure_column::SecureColumnByCoords;
 
-use crate::cuda::BaseFieldVec;
+use crate::cuda::{BaseFieldVec, bindings};
 use crate::CudaBackend;
 
 pub struct CudaSecureColumn {
-    columns: [*const u32; 4],
+    columns: *const *const u32,
 }
 
 impl CudaSecureColumn {
@@ -22,7 +22,7 @@ impl CudaSecureColumn {
     }
 
     pub fn device_ptr(&self) -> *const*const u32 {
-        self.columns.as_ptr()
+        self.columns
     }
 }
 
@@ -36,7 +36,7 @@ impl<'a> From<&'a SecureColumnByCoords<CudaBackend>> for CudaSecureColumn {
         let columns_ptrs_as_array: [*const u32; 4] = columns_ptrs_as_vec.try_into().unwrap();
 
         Self {
-            columns: columns_ptrs_as_array
+            columns: unsafe { bindings::copy_device_pointer_vec_from_host_to_device(columns_ptrs_as_array.as_ptr(), 4) }
         }
     }
 }
@@ -51,7 +51,7 @@ impl<'a> From<&'a mut SecureColumnByCoords<CudaBackend>> for CudaSecureColumn {
         let columns_ptrs_as_array: [*const u32; 4] = columns_ptrs_as_vec.try_into().unwrap();
 
         Self {
-            columns: columns_ptrs_as_array
+            columns: unsafe { bindings::copy_device_pointer_vec_from_host_to_device(columns_ptrs_as_array.as_ptr(), 4) }
         }
     }
 }
