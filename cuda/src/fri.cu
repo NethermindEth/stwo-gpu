@@ -30,8 +30,8 @@ __global__ void sum_reduce(const m31 *list, m31 *temp_list, m31 *results, const 
     const uint32_t half_list_size = list_size >> 1;
 
     if (grid_thread_index < half_list_size) {
-        uint32_t *list_to_sum_in_block = &temp_list[first_thread_in_block_index];
-        uint32_t &thread_result = list_to_sum_in_block[block_thread_index];
+        m31 *list_to_sum_in_block = &temp_list[first_thread_in_block_index];
+        m31 &thread_result = list_to_sum_in_block[block_thread_index];
 
         thread_result = sub(
                 list[grid_thread_index],
@@ -50,8 +50,8 @@ __global__ void sum_reduce2(const m31 *list, m31 *temp_list, m31 *results, const
     const uint32_t half_list_size = list_size >> 1;
 
     if (grid_thread_index < half_list_size) {
-        uint32_t *list_to_sum_in_block = &temp_list[first_thread_in_block_index];
-        uint32_t &thread_result = list_to_sum_in_block[block_thread_index];
+        m31 *list_to_sum_in_block = &temp_list[first_thread_in_block_index];
+        m31 &thread_result = list_to_sum_in_block[block_thread_index];
 
         thread_result = add(
                 list[grid_thread_index],
@@ -67,8 +67,8 @@ void get_vanishing_polynomial_coefficient(const m31 *list, const uint32_t list_s
     int block_dim = 1024;
     int num_blocks = (list_size / 2 + block_dim - 1) / block_dim;
 
-    uint32_t *temp_list = cuda_malloc_uint32_t(list_size);
-    uint32_t *results = cuda_alloc_zeroes_uint32_t(num_blocks);
+    m31 *temp_list = cuda_malloc_uint32_t(list_size);
+    m31 *results = cuda_alloc_zeroes_uint32_t(num_blocks);
 
     sum_reduce<<<num_blocks, min(list_size, block_dim)>>>(list, temp_list, results, list_size);
     cudaDeviceSynchronize();
@@ -76,8 +76,8 @@ void get_vanishing_polynomial_coefficient(const m31 *list, const uint32_t list_s
     if (num_blocks == 1) {
         copy_uint32_t_vec_from_device_to_host(results, result, 1);
     } else {
-        uint32_t *list_to_sum = cuda_malloc_uint32_t(num_blocks / 2 / block_dim);
-        uint32_t *partial_results = results;
+        m31 *list_to_sum = cuda_malloc_uint32_t(num_blocks / 2 / block_dim);
+        m31 *partial_results = results;
         uint32_t last_size = num_blocks;
         do {
             list_to_sum = partial_results;
@@ -140,7 +140,7 @@ void decompose(const m31 *columns[4],
     compute_g_values(columns[3], column_size, lambda->b.b, g_values[3]);
 }
 
-__device__ uint32_t f(const uint32_t *domain,
+__device__ uint32_t f(const m31 *domain,
                       const uint32_t twiddle_offset,
                       const uint32_t i) {
     return domain[i + twiddle_offset];
