@@ -69,9 +69,9 @@ impl FriOps for CudaBackend {
     fn decompose(eval: &SecureEvaluation<Self>) -> (SecureEvaluation<Self>, SecureField) {
         let size = eval.len();
         unsafe {
+            let lambda = CudaSecureField::zero();
             let g_values = CudaSecureColumn::new_with_size(size);
 
-            let lambda = CudaSecureField::zero();
             bindings::decompose(
                 CudaSecureColumn::from(&eval.values).device_ptr(),
                 size as u32,
