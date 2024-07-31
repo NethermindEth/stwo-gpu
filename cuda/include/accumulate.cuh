@@ -4,8 +4,8 @@
 #include "fields.cuh"
 
 extern "C"
-void accumulate(uint32_t size, uint32_t *left_column_0, uint32_t *left_column_1, uint32_t *left_column_2,
-                uint32_t *left_column_3, uint32_t *right_column_0, uint32_t *right_column_1, uint32_t *right_column_2,
-                uint32_t *right_column_3);
+void accumulate(uint32_t size,
+                uint32_t *left_columns[],
+                uint32_t *right_columns[]);
 
 #endif // ACCUMULATE_H

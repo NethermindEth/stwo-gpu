@@ -21,7 +21,13 @@ impl CudaSecureColumn {
         }
     }
 
-    pub fn from_secure_column(secure_column: &SecureColumnByCoords<CudaBackend>) -> Self {
+    pub fn device_ptr(&self) -> *const*const u32 {
+        self.columns.as_ptr()
+    }
+}
+
+impl<'a> From<&'a SecureColumnByCoords<CudaBackend>> for CudaSecureColumn {
+    fn from(secure_column: &'a SecureColumnByCoords<CudaBackend>) -> Self {
         let columns = &secure_column.columns;
         let columns_ptrs_as_vec = columns
             .iter()
@@ -33,8 +39,19 @@ impl CudaSecureColumn {
             columns: columns_ptrs_as_array
         }
     }
+}
 
-    pub fn device_ptr(&self) -> *const*const u32 {
-        self.columns.as_ptr()
+impl<'a> From<&'a mut SecureColumnByCoords<CudaBackend>> for CudaSecureColumn {
+    fn from(secure_column: &'a mut SecureColumnByCoords<CudaBackend>) -> Self {
+        let columns = &secure_column.columns;
+        let columns_ptrs_as_vec = columns
+            .iter()
+            .map(|column| column.device_ptr)
+            .collect::<Vec<*const u32>>();
+        let columns_ptrs_as_array: [*const u32; 4] = columns_ptrs_as_vec.try_into().unwrap();
+
+        Self {
+            columns: columns_ptrs_as_array
+        }
     }
 }

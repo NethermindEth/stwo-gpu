@@ -5,14 +5,14 @@ accumulate_aux(uint32_t *left_column_0, uint32_t *left_column_1, uint32_t *left_
                uint32_t *right_column_0, uint32_t *right_column_1, uint32_t *right_column_2,
                uint32_t *right_column_3);
 
-void accumulate(uint32_t size, uint32_t *left_column_0, uint32_t *left_column_1, uint32_t *left_column_2,
-                uint32_t *left_column_3, uint32_t *right_column_0, uint32_t *right_column_1, uint32_t *right_column_2,
-                uint32_t *right_column_3) {
+void accumulate(uint32_t size,
+                uint32_t *left_columns[],
+                uint32_t *right_columns[]) {
     int block_dim = 1024;
     int num_blocks = (size + block_dim - 1) / block_dim;
     accumulate_aux<<<num_blocks, min(size, block_dim)>>>(
-            left_column_0, left_column_1, left_column_2, left_column_3,
-            right_column_0, right_column_1, right_column_2, right_column_3);
+            left_columns[0], left_columns[1], left_columns[2], left_columns[3],
+            right_columns[0], right_columns[1], right_columns[2], right_columns[3]);
     cudaDeviceSynchronize();
 }
 

@@ -1,4 +1,3 @@
-use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use stwo_prover::core::{
     circle::CirclePoint,
@@ -86,10 +85,6 @@ extern "C" {
         point_y: SecureField,
     ) -> SecureField;
 
-    pub fn sum(list: *const u32, list_size: u32) -> BaseField;
-
-    pub fn compute_g_values(f_values: *const u32, size: usize, lambda: M31) -> *const u32;
-
     pub fn fold_line(
         gpu_domain: *const u32,
         twiddle_offset: usize,
@@ -108,14 +103,6 @@ extern "C" {
         folded_values: *const*const u32,
     );
 
-    pub fn sum_secure_field(
-        column_0: *const u32,
-        column_1: *const u32,
-        column_2: *const u32,
-        column_3: *const u32,
-        n: u32,
-    ) -> SecureField;
-
     pub fn decompose(
         columns: *const*const u32,
         column_size: u32,
@@ -125,14 +112,8 @@ extern "C" {
 
     pub fn accumulate(
         size: u32,
-        left_column_0: *const u32,
-        left_column_1: *const u32,
-        left_column_2: *const u32,
-        left_column_3: *const u32,
-        right_column_0: *const u32,
-        right_column_1: *const u32,
-        right_column_2: *const u32,
-        right_column_3: *const u32,
+        left_columns: *const *const u32,
+        right_columns: *const *const u32,
     );
 }
 

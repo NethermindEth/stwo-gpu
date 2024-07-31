@@ -30,9 +30,9 @@ impl FriOps for CudaBackend {
                 gpu_domain,
                 twiddle_offset,
                 n,
-                CudaSecureColumn::from_secure_column(&eval.values).device_ptr(),
+                CudaSecureColumn::from(&eval.values).device_ptr(),
                 alpha,
-                CudaSecureColumn::from_secure_column(&folded_values).device_ptr(),
+                CudaSecureColumn::from(&folded_values).device_ptr(),
             );
 
             LineEvaluation::new(
@@ -58,9 +58,9 @@ impl FriOps for CudaBackend {
                 gpu_domain,
                 twiddle_offset,
                 n,
-                CudaSecureColumn::from_secure_column(&src.values).device_ptr(),
+                CudaSecureColumn::from(&src.values).device_ptr(),
                 alpha,
-                CudaSecureColumn::from_secure_column(&dst.values).device_ptr(),
+                CudaSecureColumn::from(&dst.values).device_ptr(),
             );
         }
     }
@@ -72,10 +72,10 @@ impl FriOps for CudaBackend {
             let g_values = CudaSecureColumn::new_with_size(size);
 
             bindings::decompose(
-                CudaSecureColumn::from_secure_column(&eval).device_ptr(),
+                CudaSecureColumn::from(&eval.values).device_ptr(),
                 size as u32,
                 &lambda,
-                CudaSecureColumn::from_secure_column(&g_values).device_ptr(),
+                CudaSecureColumn::from(&g_values).device_ptr(),
             );
 
             let g = SecureEvaluation {

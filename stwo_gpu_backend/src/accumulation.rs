@@ -4,22 +4,15 @@ use stwo_prover::core::{
 
 use crate::backend::CudaBackend;
 use crate::cuda::bindings;
+use crate::secure_column::CudaSecureColumn;
 
 impl AccumulationOps for CudaBackend {
     fn accumulate(column: &mut SecureColumnByCoords<Self>, other: &SecureColumnByCoords<Self>) {
-        let left_columns = &column.columns;
-        let right_columns = &other.columns;
         unsafe {
             bindings::accumulate(
                 column.len() as u32,
-                left_columns[0].device_ptr,
-                left_columns[1].device_ptr,
-                left_columns[2].device_ptr,
-                left_columns[3].device_ptr,
-                right_columns[0].device_ptr,
-                right_columns[1].device_ptr,
-                right_columns[2].device_ptr,
-                right_columns[3].device_ptr,
+                CudaSecureColumn::from(column).device_ptr(),
+                CudaSecureColumn::from(other).device_ptr(),
             )
         }
     }
