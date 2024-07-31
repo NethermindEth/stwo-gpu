@@ -117,7 +117,9 @@ __device__ void compress_cols(H *state, unsigned int **cols, unsigned int n_cols
     compress(state, msg);
 }
 
-__global__ void commit_on_first_layer_in_gpu(uint32_t size, uint32_t number_of_columns, unsigned int **data, H *result) {
+__global__ void commit_on_first_layer_in_gpu(
+        uint32_t size, uint32_t number_of_columns, unsigned int **data, H *result
+) {
     unsigned int idx = threadIdx.x + (blockIdx.x * blockDim.x);
     if (idx >= size)
         return;
@@ -128,15 +130,16 @@ __global__ void commit_on_first_layer_in_gpu(uint32_t size, uint32_t number_of_c
     result[idx] = state;
 }
 
-__global__ void commit_on_layer_using_previous_in_gpu(uint32_t size, uint32_t number_of_columns, unsigned int **data, H* previous_layer, H *result) {
+__global__ void commit_on_layer_using_previous_in_gpu(
+        uint32_t size, uint32_t number_of_columns, unsigned int **data, H *previous_layer, H *result
+) {
     unsigned int idx = threadIdx.x + (blockIdx.x * blockDim.x);
     if (idx >= size)
         return;
 
     H state = {0};
     unsigned int msg[16] = {0};
-    for (int j = 0; j < 8; j++)
-    {
+    for (int j = 0; j < 8; j++) {
         msg[j] = previous_layer[idx * 2].s[j];
         msg[j + 8] = previous_layer[idx * 2 + 1].s[j];
     }
@@ -151,17 +154,18 @@ void commit_on_first_layer(uint32_t size, uint32_t number_of_columns, uint32_t *
     unsigned int numBlocks = (size + blockDim1 - 1) / blockDim1;
 
     commit_on_first_layer_in_gpu<<<numBlocks, min(size, blockDim1)>>>(
-        size, number_of_columns, columns, result
+            size, number_of_columns, columns, result
     );
     cudaDeviceSynchronize();
 }
 
-void commit_on_layer_with_previous(uint32_t size, uint32_t number_of_columns, uint32_t **columns, H* previous_layer, H* result) {
+void commit_on_layer_with_previous(uint32_t size, uint32_t number_of_columns, uint32_t **columns, H *previous_layer,
+                                   H *result) {
     unsigned int blockDim1 = 1024;
     unsigned int numBlocks = (size + blockDim1 - 1) / blockDim1;
 
     commit_on_layer_using_previous_in_gpu<<<numBlocks, min(size, blockDim1)>>>(
-        size, number_of_columns, columns, previous_layer, result
+            size, number_of_columns, columns, previous_layer, result
     );
     cudaDeviceSynchronize();
 }
