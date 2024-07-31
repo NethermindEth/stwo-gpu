@@ -1,8 +1,6 @@
 #include "../include/utils.cuh"
 #include <cstdio>
 
-#include <cstdio>
-
 void copy_uint32_t_vec_from_device_to_host(uint32_t *device_ptr, uint32_t *host_ptr, int size) {
     cudaMemcpy(host_ptr, device_ptr, sizeof(uint32_t) * size, cudaMemcpyDeviceToHost);
 }

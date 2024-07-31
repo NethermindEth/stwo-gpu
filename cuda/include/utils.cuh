@@ -3,6 +3,8 @@
 
 #include "fields.cuh"
 
+const uint32_t max_block_dim = 1024;
+
 struct H {
     unsigned int s[8];
 };

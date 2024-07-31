@@ -2,6 +2,11 @@
 #include "../include/utils.cuh"
 #include "../include/circle.cuh"
 
+uint32_t num_blocks_for(const uint32_t size) {
+    uint32_t block_dim = max_block_dim;
+    return (uint32_t) (size + block_dim - 1) / block_dim;
+}
+
 __device__ void sum_block_list(m31 *results,
                                const uint32_t block_thread_index,
                                const uint32_t half_list_size,
@@ -108,7 +113,7 @@ qm31 get_vanishing_polynomial_coefficients(const m31 *columns[4], const uint32_t
             mul(d, inv(column_size))};
 }
 
-__global__ void compute_g_values_aux(const m31 *f_values, m31 *results, int size, m31 lambda) {
+__global__ void compute_g_values(const m31 *f_values, m31 *results, int size, m31 lambda) {
     // Computes one coordinate of the QM31 g_values for the decomposition f = g + lambda * v_n at the first step of FRI.
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -122,22 +127,23 @@ __global__ void compute_g_values_aux(const m31 *f_values, m31 *results, int size
     }
 }
 
-void compute_g_values(const m31 *f_values, uint32_t size, m31 lambda, m31 *g_value) {
-    int block_dim = 1024;
-    int num_blocks = (size + block_dim - 1) / block_dim;
-    compute_g_values_aux<<<num_blocks, min(size, block_dim)>>>(f_values, g_value, size, lambda);
-    cudaDeviceSynchronize();
-}
 
 void decompose(const m31 *columns[4],
                uint32_t column_size,
                qm31 *lambda,
                uint32_t *g_values[4]) {
     *lambda = get_vanishing_polynomial_coefficients(columns, column_size);
-    compute_g_values(columns[0], column_size, lambda->a.a, g_values[0]);
-    compute_g_values(columns[1], column_size, lambda->a.b, g_values[1]);
-    compute_g_values(columns[2], column_size, lambda->b.a, g_values[2]);
-    compute_g_values(columns[3], column_size, lambda->b.b, g_values[3]);
+    uint32_t num_blocks = num_blocks_for(column_size);
+    uint32_t block_dim = min(column_size, max_block_dim);
+    compute_g_values<<<num_blocks, block_dim>>>(
+            columns[0], g_values[0], column_size, lambda->a.a);
+    compute_g_values<<<num_blocks, block_dim>>>(
+            columns[1], g_values[1], column_size, lambda->a.b);
+    compute_g_values<<<num_blocks, block_dim>>>(
+            columns[2], g_values[2], column_size, lambda->b.a);
+    compute_g_values<<<num_blocks, block_dim>>>(
+            columns[3], g_values[3], column_size, lambda->b.b);
+    cudaDeviceSynchronize();
 }
 
 __device__ uint32_t f(const m31 *domain,
@@ -237,9 +243,9 @@ __global__ void fold_applying2(m31 *domain,
                                m31 *folded_values_2,
                                m31 *folded_values_3) {
     const m31 *eval_values[4] = {eval_values_0,
-                                      eval_values_1,
-                                      eval_values_2,
-                                      eval_values_3};
+                                 eval_values_1,
+                                 eval_values_2,
+                                 eval_values_3};
 
     const uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
     domain = &domain[twiddle_offset];
@@ -258,11 +264,11 @@ __global__ void fold_applying2(m31 *domain,
 
         const qm31 f_prime = add(f_0, mul(alpha, f_1));
 
-        qm31 previous_value = qm31 {
-            folded_values_0[i],
-            folded_values_1[i],
-            folded_values_2[i],
-            folded_values_3[i],
+        qm31 previous_value = qm31{
+                folded_values_0[i],
+                folded_values_1[i],
+                folded_values_2[i],
+                folded_values_3[i],
         };
         qm31 new_value = add(mul(previous_value, alpha_sq), f_prime);
 
