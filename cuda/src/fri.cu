@@ -63,28 +63,27 @@ __global__ void sum_reduce2(const m31 *list, m31 *temp_list, m31 *results, const
 }
 
 void get_vanishing_polynomial_coefficient(const m31 *list, const uint32_t list_size, m31 *result) {
-    int block_dim = 1024;
     int num_blocks = num_blocks_for(list_size << 1);
 
     m31 *temp_list = cuda_malloc_uint32_t(list_size);
     m31 *results = cuda_alloc_zeroes_uint32_t(num_blocks);
 
-    sum_reduce<<<num_blocks, min(list_size, block_dim)>>>(list, temp_list, results, list_size);
+    sum_reduce<<<num_blocks, min(list_size, max_block_dim)>>>(list, temp_list, results, list_size);
     cudaDeviceSynchronize();
 
     if (num_blocks == 1) {
         copy_uint32_t_vec_from_device_to_host(results, result, 1);
     } else {
-        m31 *list_to_sum = cuda_malloc_uint32_t(num_blocks / 2 / block_dim);
+        m31 *list_to_sum = cuda_malloc_uint32_t(num_blocks / 2 / max_block_dim);
         m31 *partial_results = results;
         uint32_t last_size = num_blocks;
         do {
             list_to_sum = partial_results;
             last_size = num_blocks;
             partial_results = list_to_sum;
-            num_blocks = (num_blocks / 2 + block_dim - 1) / block_dim;
+            num_blocks = (num_blocks / 2 + max_block_dim - 1) / max_block_dim;
 
-            sum_reduce2<<<num_blocks, block_dim>>>(
+            sum_reduce2<<<num_blocks, max_block_dim>>>(
                     list_to_sum, temp_list, partial_results, last_size);
         } while (num_blocks > 1);
         copy_uint32_t_vec_from_device_to_host(partial_results, result, 1);
