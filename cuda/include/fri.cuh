@@ -20,7 +20,7 @@ void fold_circle_into_line(uint32_t *gpu_domain,
                            uint32_t *folded_values[4]);
 
 extern "C"
-void decompose(m31 *columns[4],
+void decompose(const m31 *columns[4],
                uint32_t column_size,
                qm31 *lambda,
                uint32_t *g_values[4]);

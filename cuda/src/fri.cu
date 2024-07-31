@@ -20,7 +20,7 @@ __device__ void sum_block_list(uint32_t *results, const uint32_t block_thread_in
     }
 }
 
-__global__ void sum_reduce(uint32_t *list, uint32_t *temp_list, uint32_t *results, const uint32_t list_size) {
+__global__ void sum_reduce(const m31 *list, uint32_t *temp_list, uint32_t *results, const uint32_t list_size) {
     const uint32_t block_thread_index = threadIdx.x;
     const uint32_t first_thread_in_block_index = blockIdx.x * blockDim.x;
     const uint32_t grid_thread_index = first_thread_in_block_index + block_thread_index;
@@ -40,7 +40,7 @@ __global__ void sum_reduce(uint32_t *list, uint32_t *temp_list, uint32_t *result
     }
 }
 
-__global__ void sum_reduce2(uint32_t *list, uint32_t *temp_list, uint32_t *results, const uint32_t list_size) {
+__global__ void sum_reduce2(const m31 *list, uint32_t *temp_list, uint32_t *results, const uint32_t list_size) {
     const uint32_t block_thread_index = threadIdx.x;
     const uint32_t first_thread_in_block_index = blockIdx.x * blockDim.x;
     const uint32_t grid_thread_index = first_thread_in_block_index + block_thread_index;
@@ -60,7 +60,7 @@ __global__ void sum_reduce2(uint32_t *list, uint32_t *temp_list, uint32_t *resul
     }
 }
 
-void get_vanishing_polynomial_coefficient(uint32_t *list, const uint32_t list_size, uint32_t *result) {
+void get_vanishing_polynomial_coefficient(const m31 *list, const uint32_t list_size, uint32_t *result) {
     int block_dim = 1024;
     int num_blocks = (list_size / 2 + block_dim - 1) / block_dim;
 
@@ -92,7 +92,7 @@ void get_vanishing_polynomial_coefficient(uint32_t *list, const uint32_t list_si
     free_uint32_t_vec(results);
 }
 
-qm31 get_vanishing_polynomial_coefficients(uint32_t *columns[4], const uint32_t column_size) {
+qm31 get_vanishing_polynomial_coefficients(const m31 *columns[4], const m31 column_size) {
     m31 a, b, c, d;
     get_vanishing_polynomial_coefficient(columns[0], column_size, &a);
     get_vanishing_polynomial_coefficient(columns[1], column_size, &b);
@@ -105,7 +105,7 @@ qm31 get_vanishing_polynomial_coefficients(uint32_t *columns[4], const uint32_t 
             mul(d, inv(column_size))};
 }
 
-__global__ void compute_g_values_aux(uint32_t *f_values, uint32_t *results, int size, uint32_t lambda) {
+__global__ void compute_g_values_aux(const uint32_t *f_values, uint32_t *results, int size, uint32_t lambda) {
     // Computes one coordinate of the QM31 g_values for the decomposition f = g + lambda * v_n at the first step of FRI.
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -119,14 +119,14 @@ __global__ void compute_g_values_aux(uint32_t *f_values, uint32_t *results, int 
     }
 }
 
-void compute_g_values(uint32_t *f_values, uint32_t size, uint32_t lambda, uint32_t *g_value) {
+void compute_g_values(const uint32_t *f_values, uint32_t size, uint32_t lambda, uint32_t *g_value) {
     int block_dim = 1024;
     int num_blocks = (size + block_dim - 1) / block_dim;
     compute_g_values_aux<<<num_blocks, min(size, block_dim)>>>(f_values, g_value, size, lambda);
     cudaDeviceSynchronize();
 }
 
-void decompose(m31 *columns[4],
+void decompose(const m31 *columns[4],
                uint32_t column_size,
                qm31 *lambda,
                uint32_t *g_values[4]) {
