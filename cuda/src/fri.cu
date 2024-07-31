@@ -114,7 +114,7 @@ void compute_g_values(uint32_t *f_values, uint32_t size, uint32_t lambda, uint32
     cudaDeviceSynchronize();
 }
 
-qm31 get_vanishing_polynomial_coefficients(uint32_t *columns[], const uint32_t column_size) {
+qm31 get_vanishing_polynomial_coefficients(uint32_t *columns[4], const uint32_t column_size) {
     m31 a, b, c, d;
     get_vanishing_polynomial_coefficients(columns[0], column_size, &a);
     get_vanishing_polynomial_coefficients(columns[1], column_size, &b);
@@ -130,7 +130,7 @@ qm31 get_vanishing_polynomial_coefficients(uint32_t *columns[], const uint32_t c
 void decompose(m31 *columns[],
                uint32_t column_size,
                qm31 *lambda,
-               uint32_t *g_values[]) {
+               uint32_t *g_values[4]) {
     *lambda = get_vanishing_polynomial_coefficients(columns, column_size);
     compute_g_values(columns[0], column_size, lambda->a.a, g_values[0]);
     compute_g_values(columns[1], column_size, lambda->a.b, g_values[1]);
@@ -194,9 +194,9 @@ __global__ void fold_applying(const uint32_t *domain,
 void fold_line(uint32_t *gpu_domain,
                uint32_t twiddle_offset,
                uint32_t n,
-               uint32_t **eval_values,
+               uint32_t *eval_values[4],
                qm31 alpha,
-               uint32_t **folded_values) {
+               uint32_t *folded_values[4]) {
     int block_dim = 1024;
     int num_blocks = (n / 2 + block_dim - 1) / block_dim;
     fold_applying<<<num_blocks, block_dim>>>(
@@ -273,9 +273,9 @@ __global__ void fold_applying2(uint32_t *domain,
 
 void fold_circle_into_line(uint32_t *gpu_domain,
                            uint32_t twiddle_offset, uint32_t n,
-                           uint32_t *eval_values[],
+                           uint32_t *eval_values[4],
                            qm31 alpha,
-                           uint32_t *folded_values[]) {
+                           uint32_t *folded_values[4]) {
     int block_dim = 1024;
     int num_blocks = (n / 2 + block_dim - 1) / block_dim;
     qm31 alpha_sq = mul(alpha, alpha);
