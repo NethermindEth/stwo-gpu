@@ -125,7 +125,8 @@ void compute_g_values(uint32_t *f_values, uint32_t size, uint32_t lambda, uint32
     compute_g_values_aux<<<num_blocks, min(size, block_dim)>>>(f_values, g_value, size, lambda);
     cudaDeviceSynchronize();
 }
-void decompose(m31 *columns[],
+
+void decompose(m31 *columns[4],
                uint32_t column_size,
                qm31 *lambda,
                uint32_t *g_values[4]) {
