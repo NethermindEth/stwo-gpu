@@ -150,10 +150,9 @@ __global__ void commit_on_layer_using_previous_in_gpu(
 }
 
 void commit_on_first_layer(uint32_t size, uint32_t number_of_columns, uint32_t **columns, H *result) {
-    unsigned int block_size = 1024;
-    unsigned int number_of_blocks = (size + block_size - 1) / block_size;
+    unsigned int number_of_blocks = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
-    commit_on_first_layer_in_gpu<<<number_of_blocks, min(size, block_size)>>>(
+    commit_on_first_layer_in_gpu<<<number_of_blocks, min(size, BLOCK_SIZE)>>>(
             size, number_of_columns, columns, result
     );
     cudaDeviceSynchronize();
@@ -161,10 +160,9 @@ void commit_on_first_layer(uint32_t size, uint32_t number_of_columns, uint32_t *
 
 void commit_on_layer_with_previous(uint32_t size, uint32_t number_of_columns, uint32_t **columns, H *previous_layer,
                                    H *result) {
-    unsigned int block_size = 1024;
-    unsigned int number_of_blocks = (size + block_size - 1) / block_size;
+    unsigned int number_of_blocks = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
-    commit_on_layer_using_previous_in_gpu<<<number_of_blocks, min(size, block_size)>>>(
+    commit_on_layer_using_previous_in_gpu<<<number_of_blocks, min(size, BLOCK_SIZE)>>>(
             size, number_of_columns, columns, previous_layer, result
     );
     cudaDeviceSynchronize();
