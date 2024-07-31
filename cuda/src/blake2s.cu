@@ -3,12 +3,6 @@
 #include "../include/blake2s.cuh"
 #include <cstdio>
 
-void blake_2s_hash(uint32_t size, uint32_t number_of_columns, unsigned int **data, H *result);
-
-void commit_on_first_layer(uint32_t size, uint32_t number_of_columns, uint32_t **columns, H *result) {
-    blake_2s_hash(size, number_of_columns, columns, result);
-}
-
 static __constant__ const unsigned int IV[8] = {
         0x6A09E667,
         0xBB67AE85,
@@ -123,7 +117,7 @@ __device__ void compress_cols(H *state, unsigned int **cols, unsigned int n_cols
     compress(state, msg);
 }
 
-__global__ void blake_2s_hash_aux(uint32_t size, uint32_t number_of_columns, unsigned int **data, H *result) {
+__global__ void commit_on_first_layer_aux(uint32_t size, uint32_t number_of_columns, unsigned int **data, H *result) {
     unsigned int idx = threadIdx.x + (blockIdx.x * blockDim.x);
     if (idx >= size)
         return;
@@ -134,11 +128,37 @@ __global__ void blake_2s_hash_aux(uint32_t size, uint32_t number_of_columns, uns
     result[idx] = state;
 }
 
-void blake_2s_hash(uint32_t size, uint32_t number_of_columns, unsigned int **data, H *result) {
-    unsigned int block_dim = 1024;
-    unsigned int num_blocks = (size + block_dim - 1) / block_dim;
+__global__ void commit_on_layer_with_previous_aux(uint32_t size, uint32_t number_of_columns, unsigned int **data, H* previous_layer, H *result) {
+    unsigned int idx = threadIdx.x + (blockIdx.x * blockDim.x);
+    if (idx >= size)
+        return;
 
-    blake_2s_hash_aux<<<num_blocks, min(size, block_dim)>>>(size, number_of_columns, data, result);
+    H state = {0};
+    unsigned int msg[16] = {0};
+    for (int j = 0; j < 8; j++)
+    {
+        msg[j] = previous_layer[idx * 2].s[j];
+        msg[j + 8] = previous_layer[idx * 2 + 1].s[j];
+    }
+    compress(&state, msg);
+
+    compress_cols(&state, data, number_of_columns, idx);
+    result[idx] = state;
+}
+
+void commit_on_first_layer(uint32_t size, uint32_t number_of_columns, uint32_t **columns, H *result) {
+    unsigned int blockDim1 = 1024;
+    unsigned int numBlocks = (size + blockDim1 - 1) / blockDim1;
+
+    commit_on_first_layer_aux<<<numBlocks, min(size, blockDim1)>>>(size, number_of_columns, columns, result);
+    cudaDeviceSynchronize();
+}
+
+void commit_on_layer_with_previous(uint32_t size, uint32_t number_of_columns, uint32_t **columns, H* previous_layer, H* result) {
+    unsigned int blockDim1 = 1024;
+    unsigned int numBlocks = (size + blockDim1 - 1) / blockDim1;
+
+    commit_on_layer_with_previous_aux<<<numBlocks, min(size, blockDim1)>>>(size, number_of_columns, columns, previous_layer, result);
     cudaDeviceSynchronize();
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {

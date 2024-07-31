@@ -148,6 +148,17 @@ extern "C" {
 
 #[link(name = "gpubackend")]
 extern "C" {
+    pub fn commit_on_layer_with_previous(
+        size: usize,
+        amount_of_columns: usize,
+        columns: *const *const u32,
+        previous_layer: *const Blake2sHash,
+        result: *mut Blake2sHash,
+    );
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
     pub fn copy_blake_2s_hash_from_host_to_device(
         from: *const Blake2sHash,
     ) -> *mut Blake2sHash;
