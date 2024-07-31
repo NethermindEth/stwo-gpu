@@ -60,7 +60,7 @@ __global__ void sum_reduce2(uint32_t *list, uint32_t *temp_list, uint32_t *resul
     }
 }
 
-void get_vanishing_polynomial_coefficients(uint32_t *list, const uint32_t list_size, uint32_t *result) {
+void get_vanishing_polynomial_coefficient(uint32_t *list, const uint32_t list_size, uint32_t *result) {
     int block_dim = 1024;
     int num_blocks = (list_size / 2 + block_dim - 1) / block_dim;
 
@@ -92,6 +92,19 @@ void get_vanishing_polynomial_coefficients(uint32_t *list, const uint32_t list_s
     free_uint32_t_vec(results);
 }
 
+qm31 get_vanishing_polynomial_coefficients(uint32_t *columns[4], const uint32_t column_size) {
+    m31 a, b, c, d;
+    get_vanishing_polynomial_coefficient(columns[0], column_size, &a);
+    get_vanishing_polynomial_coefficient(columns[1], column_size, &b);
+    get_vanishing_polynomial_coefficient(columns[2], column_size, &c);
+    get_vanishing_polynomial_coefficient(columns[3], column_size, &d);
+
+    return {mul(a, inv(column_size)),
+            mul(b, inv(column_size)),
+            mul(c, inv(column_size)),
+            mul(d, inv(column_size))};
+}
+
 __global__ void compute_g_values_aux(uint32_t *f_values, uint32_t *results, int size, uint32_t lambda) {
     // Computes one coordinate of the QM31 g_values for the decomposition f = g + lambda * v_n at the first step of FRI.
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -112,20 +125,6 @@ void compute_g_values(uint32_t *f_values, uint32_t size, uint32_t lambda, uint32
     compute_g_values_aux<<<num_blocks, min(size, block_dim)>>>(f_values, g_value, size, lambda);
     cudaDeviceSynchronize();
 }
-
-qm31 get_vanishing_polynomial_coefficients(uint32_t *columns[4], const uint32_t column_size) {
-    m31 a, b, c, d;
-    get_vanishing_polynomial_coefficients(columns[0], column_size, &a);
-    get_vanishing_polynomial_coefficients(columns[1], column_size, &b);
-    get_vanishing_polynomial_coefficients(columns[2], column_size, &c);
-    get_vanishing_polynomial_coefficients(columns[3], column_size, &d);
-
-    return {mul(a, inv(column_size)),
-            mul(b, inv(column_size)),
-            mul(c, inv(column_size)),
-            mul(d, inv(column_size))};
-}
-
 void decompose(m31 *columns[],
                uint32_t column_size,
                qm31 *lambda,
