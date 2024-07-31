@@ -92,9 +92,7 @@ mod tests {
         let cpu_columns_vector: Vec<Vec<BaseField>> = columns_test_vector(35, size);
 
         let columns = cpu_columns_vector.clone();
-        let gpu_columns_vector: Vec<BaseFieldVec> = columns.into_iter().map(|vector|
-            BaseFieldVec::from_vec(vector)
-        ).collect();
+        let gpu_columns_vector: Vec<BaseFieldVec> = gpu_columns_from(columns);
 
         let expected_result = <CpuBackend as MerkleOps<Blake2sMerkleHasher>>::commit_on_layer(log_size, None, &cpu_columns_vector.iter().collect::<Vec<_>>());
         let result = CudaBackend::commit_on_layer(log_size, None, &gpu_columns_vector.iter().collect::<Vec<_>>());
@@ -114,9 +112,7 @@ mod tests {
         let cpu_columns_vector: Vec<Vec<BaseField>> = columns_test_vector(35, previous_layer_size);
 
         let columns = cpu_columns_vector.clone();
-        let gpu_columns_vector: Vec<BaseFieldVec> = columns.into_iter().map(|vector|
-            BaseFieldVec::from_vec(vector)
-        ).collect();
+        let gpu_columns_vector: Vec<BaseFieldVec> = gpu_columns_from(columns);
 
         let cpu_previous_layer = <CpuBackend as MerkleOps<Blake2sMerkleHasher>>::commit_on_layer(previous_layer_log_size, None, &cpu_columns_vector.iter().collect::<Vec<_>>());
         let gpu_previous_layer = CudaBackend::commit_on_layer(previous_layer_log_size, None, &gpu_columns_vector.iter().collect::<Vec<_>>());
@@ -126,14 +122,18 @@ mod tests {
         let cpu_columns_vector: Vec<Vec<BaseField>> = columns_test_vector(16, current_layer_size);
 
         let columns = cpu_columns_vector.clone();
-        let gpu_columns_vector: Vec<BaseFieldVec> = columns.into_iter().map(|vector|
-            BaseFieldVec::from_vec(vector)
-        ).collect();
+        let gpu_columns_vector: Vec<BaseFieldVec> = gpu_columns_from(columns);
 
         let expected_result = <CpuBackend as MerkleOps<Blake2sMerkleHasher>>::commit_on_layer(current_layer_log_size, Some(&cpu_previous_layer), &cpu_columns_vector.iter().collect::<Vec<_>>());
         let result = CudaBackend::commit_on_layer(current_layer_log_size, Some(&gpu_previous_layer), &gpu_columns_vector.iter().collect::<Vec<_>>());
 
         assert_eq!(result, expected_result);
+    }
+
+    fn gpu_columns_from(columns: Vec<Vec<BaseField>>) -> Vec<BaseFieldVec> {
+        columns.into_iter().map(|vector|
+        BaseFieldVec::from_vec(vector)
+        ).collect()
     }
 
     fn columns_test_vector(number_of_columns: usize, size_of_columns: usize) -> Vec<Vec<BaseField>> {
