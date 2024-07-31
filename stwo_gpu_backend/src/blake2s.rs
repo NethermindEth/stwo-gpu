@@ -22,13 +22,14 @@ impl MerkleOps<Blake2sMerkleHasher> for CudaBackend {
         columns: &[&BaseFieldVec],
     ) -> Vec<Blake2sHash> {
         let size = 1 << log_size;
+        let number_of_columns = columns.len();
+
         let result = vec![Blake2sHash::default(); size];
         let result_pointer = result.as_ptr();
         let device_column_pointers_vector: Vec<*const u32> = columns
             .iter()
             .map(|column| column.device_ptr)
             .collect();
-        let number_of_columns = columns.len();
 
         unsafe{
             let device_result_pointer = bindings::copy_blake_2s_hash_vec_from_host_to_device(
