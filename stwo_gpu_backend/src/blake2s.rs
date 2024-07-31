@@ -1,8 +1,7 @@
-use itertools::Itertools;
-use stwo_prover::core::backend::{Column, ColumnOps};
+use stwo_prover::core::backend::ColumnOps;
 use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleHasher;
-use stwo_prover::core::vcs::ops::{MerkleHasher, MerkleOps};
+use stwo_prover::core::vcs::ops::MerkleOps;
 
 use crate::cuda::{BaseFieldVec, bindings};
 use crate::CudaBackend;
@@ -23,7 +22,7 @@ impl MerkleOps<Blake2sMerkleHasher> for CudaBackend {
         columns: &[&BaseFieldVec],
     ) -> Vec<Blake2sHash> {
         let size = 1 << log_size;
-        let mut result = vec![Blake2sHash::default(); size];
+        let result = vec![Blake2sHash::default(); size];
         let result_pointer = result.as_ptr();
         let device_column_pointers_vector: Vec<*const u32> = columns
             .iter()

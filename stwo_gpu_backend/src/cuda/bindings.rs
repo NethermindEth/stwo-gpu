@@ -1,9 +1,44 @@
-use stwo_prover::core::fields::qm31::QM31;
 use stwo_prover::core::{
     circle::CirclePoint,
     fields::{m31::BaseField, qm31::SecureField},
 };
 use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
+
+#[repr(C)]
+pub struct CudaSecureField {
+    a: BaseField,
+    b: BaseField,
+    c: BaseField,
+    d: BaseField,
+}
+
+impl CudaSecureField {
+    pub fn zero() -> Self {
+        Self {
+            a: BaseField::from(0),
+            b: BaseField::from(0),
+            c: BaseField::from(0),
+            d: BaseField::from(0),
+        }
+    }
+}
+
+impl From<SecureField> for CudaSecureField {
+    fn from(value: SecureField) -> Self {
+        Self {
+            a: value.0.0,
+            b: value.0.1,
+            c: value.1.0,
+            d: value.1.1,
+        }
+    }
+}
+
+impl Into<SecureField> for CudaSecureField {
+    fn into(self) -> SecureField {
+        SecureField::from_m31(self.a, self.b, self.c, self.d)
+    }
+}
 
 // This is needed since `CirclePoint<BaseField>` is not FFI safe.
 #[repr(C)]
@@ -81,16 +116,16 @@ extern "C" {
     pub fn eval_at_point(
         coeffs: *const u32,
         coeffs_size: u32,
-        point_x: SecureField,
-        point_y: SecureField,
-    ) -> SecureField;
+        point_x: CudaSecureField,
+        point_y: CudaSecureField,
+    ) -> CudaSecureField;
 
     pub fn fold_line(
         gpu_domain: *const u32,
         twiddle_offset: usize,
         n: usize,
         eval_values: *const*const u32,
-        alpha: SecureField,
+        alpha: CudaSecureField,
         folded_values: *const*const u32,
     );
 
@@ -99,14 +134,14 @@ extern "C" {
         twiddle_offset: usize,
         n: usize,
         eval_values: *const*const u32,
-        alpha: SecureField,
+        alpha: CudaSecureField,
         folded_values: *const*const u32,
     );
 
     pub fn decompose(
         columns: *const*const u32,
         column_size: u32,
-        lambda: &QM31,
+        lambda: &CudaSecureField,
         g_values: *const*const u32,
     );
 
@@ -115,20 +150,14 @@ extern "C" {
         left_columns: *const *const u32,
         right_columns: *const *const u32,
     );
-}
 
-#[link(name = "gpubackend")]
-extern "C" {
     pub fn commit_on_first_layer(
         size: usize,
         amount_of_columns: usize,
         columns: *const *const u32,
         result: *mut Blake2sHash,
     );
-}
 
-#[link(name = "gpubackend")]
-extern "C" {
     pub fn commit_on_layer_with_previous(
         size: usize,
         amount_of_columns: usize,
@@ -136,64 +165,27 @@ extern "C" {
         previous_layer: *const Blake2sHash,
         result: *mut Blake2sHash,
     );
-}
 
-#[link(name = "gpubackend")]
-extern "C" {
-    pub fn copy_blake_2s_hash_from_host_to_device(
-        from: *const Blake2sHash,
-    ) -> *mut Blake2sHash;
-}
-
-#[link(name = "gpubackend")]
-extern "C" {
-    pub fn copy_blake_2s_hash_from_device_to_host(
-        from: *const Blake2sHash,
-        to: *const Blake2sHash,
-    );
-}
-
-#[link(name = "gpubackend")]
-extern "C" {
-    pub fn free_blake_2s_hash(
-        device_pointer: *const Blake2sHash,
-    );
-}
-
-#[link(name = "gpubackend")]
-extern "C" {
     pub fn copy_blake_2s_hash_vec_from_host_to_device(
         from: *const Blake2sHash,
         size: usize,
     ) -> *mut Blake2sHash;
-}
 
-#[link(name = "gpubackend")]
-extern "C" {
     pub fn copy_blake_2s_hash_vec_from_device_to_host(
         from: *const Blake2sHash,
         to: *const Blake2sHash,
         size: usize,
     );
-}
 
-#[link(name = "gpubackend")]
-extern "C" {
     pub fn free_blake_2s_hash_vec(
         device_pointer: *const Blake2sHash,
     );
-}
 
-#[link(name = "gpubackend")]
-extern "C" {
     pub fn copy_device_pointer_vec_from_host_to_device(
         from: *const *const u32,
         size: usize,
     ) -> *const *const u32;
-}
 
-#[link(name = "gpubackend")]
-extern "C" {
     pub fn free_device_pointer_vec(
         device_pointer: *const *const u32,
     );

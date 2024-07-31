@@ -13,6 +13,7 @@ use crate::{
     backend::CudaBackend,
     cuda::{self},
 };
+use crate::cuda::bindings::CudaSecureField;
 
 impl PolyOps for CudaBackend {
     type Twiddles = cuda::BaseFieldVec;
@@ -56,9 +57,9 @@ impl PolyOps for CudaBackend {
             cuda::bindings::eval_at_point(
                 poly.coeffs.device_ptr,
                 poly.coeffs.len() as u32,
-                point.x,
-                point.y,
-            )
+                CudaSecureField::from(point.x),
+                CudaSecureField::from(point.y),
+            ).into()
         }
     }
 

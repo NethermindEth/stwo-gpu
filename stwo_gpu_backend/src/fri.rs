@@ -7,6 +7,7 @@ use stwo_prover::core::fri::CIRCLE_TO_LINE_FOLD_STEP;
 
 use crate::backend::CudaBackend;
 use crate::cuda::bindings;
+use crate::cuda::bindings::CudaSecureField;
 use crate::secure_column::CudaSecureColumn;
 
 impl FriOps for CudaBackend {
@@ -31,7 +32,7 @@ impl FriOps for CudaBackend {
                 twiddle_offset,
                 n,
                 CudaSecureColumn::from(&eval.values).device_ptr(),
-                alpha,
+                CudaSecureField::from(alpha),
                 CudaSecureColumn::from(&folded_values).device_ptr(),
             );
 
@@ -59,7 +60,7 @@ impl FriOps for CudaBackend {
                 twiddle_offset,
                 n,
                 CudaSecureColumn::from(&src.values).device_ptr(),
-                alpha,
+                CudaSecureField::from(alpha),
                 CudaSecureColumn::from(&dst.values).device_ptr(),
             );
         }
@@ -68,9 +69,9 @@ impl FriOps for CudaBackend {
     fn decompose(eval: &SecureEvaluation<Self>) -> (SecureEvaluation<Self>, SecureField) {
         let size = eval.len();
         unsafe {
-            let lambda = SecureField::from_u32_unchecked(0, 0, 0, 0);
             let g_values = CudaSecureColumn::new_with_size(size);
 
+            let lambda = CudaSecureField::zero();
             bindings::decompose(
                 CudaSecureColumn::from(&eval.values).device_ptr(),
                 size as u32,
@@ -82,7 +83,7 @@ impl FriOps for CudaBackend {
                 domain: eval.domain,
                 values: g_values,
             };
-            (g, lambda)
+            (g, lambda.into())
         }
     }
 }
