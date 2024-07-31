@@ -22,47 +22,55 @@ impl MerkleOps<Blake2sMerkleHasher> for CudaBackend {
         columns: &[&BaseFieldVec],
     ) -> Vec<Blake2sHash> {
         let size = 1 << log_size;
+        let number_of_columns = columns.len();
+
         let result = vec![Blake2sHash::default(); size];
         let result_pointer = result.as_ptr();
+
+        unsafe {
+            Self::commit_on_layer_using_gpu(size, number_of_columns, columns, prev_layer, result_pointer);
+        }
+
+        return result.to_vec();
+    }
+}
+
+impl CudaBackend {
+    unsafe fn commit_on_layer_using_gpu(size: usize, number_of_columns: usize, columns: &[&BaseFieldVec], prev_layer: Option<&Vec<Blake2sHash>>, result_pointer: *const Blake2sHash) {
         let device_column_pointers_vector: Vec<*const u32> = columns
             .iter()
             .map(|column| column.device_ptr)
             .collect();
-        let number_of_columns = columns.len();
 
-        unsafe{
-            let device_result_pointer = bindings::copy_blake_2s_hash_vec_from_host_to_device(
-                result_pointer, size
+        let device_result_pointer = bindings::copy_blake_2s_hash_vec_from_host_to_device(
+            result_pointer, size
+        );
+
+        let device_column_pointers: *const *const u32 = bindings::copy_device_pointer_vec_from_host_to_device(
+            device_column_pointers_vector.as_ptr(), number_of_columns
+        );
+
+        if let Some(previous_layer) = prev_layer {
+            let device_previous_layer_pointer = bindings::copy_blake_2s_hash_vec_from_host_to_device(
+                previous_layer.as_ptr(), size << 1
             );
 
-            let device_column_pointers: *const *const u32 = bindings::copy_device_pointer_vec_from_host_to_device(
-                device_column_pointers_vector.as_ptr(), number_of_columns
+            bindings::commit_on_layer_with_previous(
+                size, number_of_columns, device_column_pointers, device_previous_layer_pointer, device_result_pointer
             );
 
-            if let Some(previous_layer) = prev_layer {
-                let device_previous_layer_pointer = bindings::copy_blake_2s_hash_vec_from_host_to_device(
-                    previous_layer.as_ptr(), size << 1
-                );
-
-                bindings::commit_on_layer_with_previous(
-                    size, number_of_columns, device_column_pointers, device_previous_layer_pointer, device_result_pointer
-                );
-
-                bindings::free_blake_2s_hash_vec(device_previous_layer_pointer);
-            } else {
-                bindings::commit_on_first_layer(
-                    size, number_of_columns, device_column_pointers, device_result_pointer
-                );
-            }
-
-            bindings::copy_blake_2s_hash_vec_from_device_to_host(
-                device_result_pointer, result_pointer, size,
+            bindings::free_blake_2s_hash_vec(device_previous_layer_pointer);
+        } else {
+            bindings::commit_on_first_layer(
+                size, number_of_columns, device_column_pointers, device_result_pointer
             );
-            bindings::free_blake_2s_hash_vec(device_result_pointer);
-            bindings::free_device_pointer_vec(device_column_pointers);
         }
 
-        return result.to_vec();
+        bindings::copy_blake_2s_hash_vec_from_device_to_host(
+            device_result_pointer, result_pointer, size,
+        );
+        bindings::free_blake_2s_hash_vec(device_result_pointer);
+        bindings::free_device_pointer_vec(device_column_pointers);
     }
 }
 
@@ -82,11 +90,7 @@ mod tests {
         let size = 1 << log_size;
 
         let cpu_columns_vector: Vec<Vec<BaseField>> = columns_test_vector(35, size);
-
-        let columns = cpu_columns_vector.clone();
-        let gpu_columns_vector: Vec<BaseFieldVec> = columns.into_iter().map(|vector|
-            BaseFieldVec::from_vec(vector)
-        ).collect();
+        let gpu_columns_vector: Vec<BaseFieldVec> = gpu_columns_from(&cpu_columns_vector);
 
         let expected_result = <CpuBackend as MerkleOps<Blake2sMerkleHasher>>::commit_on_layer(log_size, None, &cpu_columns_vector.iter().collect::<Vec<_>>());
         let result = CudaBackend::commit_on_layer(log_size, None, &gpu_columns_vector.iter().collect::<Vec<_>>());
@@ -100,32 +104,31 @@ mod tests {
         let current_layer_size = 1 << current_layer_log_size;
         let previous_layer_log_size = current_layer_log_size + 1;
         let previous_layer_size = 1 << previous_layer_log_size;
+        let no_previous_layer = None;
 
         // First layer
 
         let cpu_columns_vector: Vec<Vec<BaseField>> = columns_test_vector(35, previous_layer_size);
+        let gpu_columns_vector: Vec<BaseFieldVec> = gpu_columns_from(&cpu_columns_vector);
 
-        let columns = cpu_columns_vector.clone();
-        let gpu_columns_vector: Vec<BaseFieldVec> = columns.into_iter().map(|vector|
-            BaseFieldVec::from_vec(vector)
-        ).collect();
-
-        let cpu_previous_layer = <CpuBackend as MerkleOps<Blake2sMerkleHasher>>::commit_on_layer(previous_layer_log_size, None, &cpu_columns_vector.iter().collect::<Vec<_>>());
-        let gpu_previous_layer = CudaBackend::commit_on_layer(previous_layer_log_size, None, &gpu_columns_vector.iter().collect::<Vec<_>>());
+        let cpu_previous_layer = <CpuBackend as MerkleOps<Blake2sMerkleHasher>>::commit_on_layer(previous_layer_log_size, no_previous_layer, &cpu_columns_vector.iter().collect::<Vec<_>>());
+        let gpu_previous_layer = CudaBackend::commit_on_layer(previous_layer_log_size, no_previous_layer, &gpu_columns_vector.iter().collect::<Vec<_>>());
 
         // Current layer
 
         let cpu_columns_vector: Vec<Vec<BaseField>> = columns_test_vector(16, current_layer_size);
-
-        let columns = cpu_columns_vector.clone();
-        let gpu_columns_vector: Vec<BaseFieldVec> = columns.into_iter().map(|vector|
-            BaseFieldVec::from_vec(vector)
-        ).collect();
+        let gpu_columns_vector: Vec<BaseFieldVec> = gpu_columns_from(&cpu_columns_vector);
 
         let expected_result = <CpuBackend as MerkleOps<Blake2sMerkleHasher>>::commit_on_layer(current_layer_log_size, Some(&cpu_previous_layer), &cpu_columns_vector.iter().collect::<Vec<_>>());
         let result = CudaBackend::commit_on_layer(current_layer_log_size, Some(&gpu_previous_layer), &gpu_columns_vector.iter().collect::<Vec<_>>());
 
         assert_eq!(result, expected_result);
+    }
+
+    fn gpu_columns_from(columns: &Vec<Vec<BaseField>>) -> Vec<BaseFieldVec> {
+        columns.clone().into_iter().map(|vector|
+            BaseFieldVec::from_vec(vector)
+        ).collect()
     }
 
     fn columns_test_vector(number_of_columns: usize, size_of_columns: usize) -> Vec<Vec<BaseField>> {

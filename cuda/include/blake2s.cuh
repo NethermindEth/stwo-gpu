@@ -4,6 +4,8 @@
 #include "fields.cuh"
 #include "utils.cuh"
 
+const unsigned int BLOCK_SIZE = 1024;
+
 extern "C"
 void commit_on_first_layer(uint32_t size, uint32_t number_of_columns, uint32_t **columns, H* result);
 

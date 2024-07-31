@@ -3,7 +3,7 @@
 #include "../include/blake2s.cuh"
 #include <cstdio>
 
-static __constant__ const unsigned int IV[8] = {
+static __constant__ const unsigned int INITIALIZATION_VECTOR[8] = {
         0x6A09E667,
         0xBB67AE85,
         0x3C6EF372,
@@ -64,14 +64,14 @@ __device__ void compress(H *state, unsigned int m[16]) {
             state->s[5],
             state->s[6],
             state->s[7],
-            IV[0],
-            IV[1],
-            IV[2],
-            IV[3],
-            IV[4],
-            IV[5],
-            IV[6],
-            IV[7],
+            INITIALIZATION_VECTOR[0],
+            INITIALIZATION_VECTOR[1],
+            INITIALIZATION_VECTOR[2],
+            INITIALIZATION_VECTOR[3],
+            INITIALIZATION_VECTOR[4],
+            INITIALIZATION_VECTOR[5],
+            INITIALIZATION_VECTOR[6],
+            INITIALIZATION_VECTOR[7],
     };
 
     ROUND(0);
@@ -95,69 +95,77 @@ __device__ void compress(H *state, unsigned int m[16]) {
     state->s[7] ^= v[7] ^ v[15];
 }
 
-__device__ void compress_cols(H *state, unsigned int **cols, unsigned int n_cols, unsigned int idx) {
-    int i;
-    for (i = 0; i + 15 < n_cols; i += 16) {
+__device__ void compress_cols(
+        H *state, unsigned int **columns, unsigned int number_of_columns, unsigned int index_in_column
+) {
+    int chunk_index;
+    for (chunk_index = 0; chunk_index + 15 < number_of_columns; chunk_index += 16) {
         unsigned int msg[16] = {0};
         for (int j = 0; j < 16; j++) {
-            msg[j] = cols[i + j][idx];
+            msg[j] = columns[chunk_index + j][index_in_column];
         }
         compress(state, msg);
     }
 
-    if (i == n_cols) {
+    if (chunk_index == number_of_columns) {
         return;
     }
 
     // Remainder.
     unsigned int msg[16] = {0};
-    for (int j = 0; i < n_cols; i++, j++) {
-        msg[j] = cols[i][idx];
+    for (int j = 0; chunk_index < number_of_columns; chunk_index++, j++) {
+        msg[j] = columns[chunk_index][index_in_column];
     }
     compress(state, msg);
 }
 
-__global__ void commit_on_first_layer_aux(uint32_t size, uint32_t number_of_columns, unsigned int **data, H *result) {
-    unsigned int idx = threadIdx.x + (blockIdx.x * blockDim.x);
-    if (idx >= size)
+__global__ void commit_on_first_layer_in_gpu(
+        uint32_t size, uint32_t number_of_columns, unsigned int **data, H *result
+) {
+    unsigned int index = threadIdx.x + (blockIdx.x * blockDim.x);
+    if (index >= size)
         return;
 
     H state = {0};
-    compress_cols(&state, data, number_of_columns, idx);
+    compress_cols(&state, data, number_of_columns, index);
 
-    result[idx] = state;
+    result[index] = state;
 }
 
-__global__ void commit_on_layer_with_previous_aux(uint32_t size, uint32_t number_of_columns, unsigned int **data, H* previous_layer, H *result) {
-    unsigned int idx = threadIdx.x + (blockIdx.x * blockDim.x);
-    if (idx >= size)
+__global__ void commit_on_layer_using_previous_in_gpu(
+        uint32_t size, uint32_t number_of_columns, unsigned int **data, H *previous_layer, H *result
+) {
+    unsigned int index = threadIdx.x + (blockIdx.x * blockDim.x);
+    if (index >= size)
         return;
 
     H state = {0};
     unsigned int msg[16] = {0};
-    for (int j = 0; j < 8; j++)
-    {
-        msg[j] = previous_layer[idx * 2].s[j];
-        msg[j + 8] = previous_layer[idx * 2 + 1].s[j];
+    for (int j = 0; j < 8; j++) {
+        msg[j] = previous_layer[index * 2].s[j];
+        msg[j + 8] = previous_layer[index * 2 + 1].s[j];
     }
     compress(&state, msg);
 
-    compress_cols(&state, data, number_of_columns, idx);
-    result[idx] = state;
+    compress_cols(&state, data, number_of_columns, index);
+    result[index] = state;
+}
+
+uint32_t number_of_blocks_for(uint32_t size) {
+    return (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 }
 
 void commit_on_first_layer(uint32_t size, uint32_t number_of_columns, uint32_t **columns, H *result) {
-    unsigned int blockDim1 = 1024;
-    unsigned int numBlocks = (size + blockDim1 - 1) / blockDim1;
-
-    commit_on_first_layer_aux<<<numBlocks, min(size, blockDim1)>>>(size, number_of_columns, columns, result);
+    commit_on_first_layer_in_gpu<<<number_of_blocks_for(size), min(size, BLOCK_SIZE)>>>(
+            size, number_of_columns, columns, result
+    );
     cudaDeviceSynchronize();
 }
 
-void commit_on_layer_with_previous(uint32_t size, uint32_t number_of_columns, uint32_t **columns, H* previous_layer, H* result) {
-    unsigned int blockDim1 = 1024;
-    unsigned int numBlocks = (size + blockDim1 - 1) / blockDim1;
-
-    commit_on_layer_with_previous_aux<<<numBlocks, min(size, blockDim1)>>>(size, number_of_columns, columns, previous_layer, result);
+void commit_on_layer_with_previous(uint32_t size, uint32_t number_of_columns, uint32_t **columns, H *previous_layer,
+                                   H *result) {
+    commit_on_layer_using_previous_in_gpu<<<number_of_blocks_for(size), min(size, BLOCK_SIZE)>>>(
+            size, number_of_columns, columns, previous_layer, result
+    );
     cudaDeviceSynchronize();
 }
