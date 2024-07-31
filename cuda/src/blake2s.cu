@@ -3,7 +3,7 @@
 #include "../include/blake2s.cuh"
 #include <cstdio>
 
-static __constant__ const unsigned int IV[8] = {
+static __constant__ const unsigned int INITIALIZATION_VECTOR[8] = {
         0x6A09E667,
         0xBB67AE85,
         0x3C6EF372,
@@ -64,14 +64,14 @@ __device__ void compress(H *state, unsigned int m[16]) {
             state->s[5],
             state->s[6],
             state->s[7],
-            IV[0],
-            IV[1],
-            IV[2],
-            IV[3],
-            IV[4],
-            IV[5],
-            IV[6],
-            IV[7],
+            INITIALIZATION_VECTOR[0],
+            INITIALIZATION_VECTOR[1],
+            INITIALIZATION_VECTOR[2],
+            INITIALIZATION_VECTOR[3],
+            INITIALIZATION_VECTOR[4],
+            INITIALIZATION_VECTOR[5],
+            INITIALIZATION_VECTOR[6],
+            INITIALIZATION_VECTOR[7],
     };
 
     ROUND(0);
