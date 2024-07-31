@@ -74,7 +74,7 @@ void get_vanishing_polynomial_coefficient(const m31 *list, const uint32_t list_s
     if (num_blocks == 1) {
         copy_uint32_t_vec_from_device_to_host(results, result, 1);
     } else {
-        m31 *list_to_sum = cuda_malloc_uint32_t(num_blocks / 2 / max_block_dim);
+        m31 *list_to_sum = cuda_malloc_uint32_t((num_blocks << 1) / max_block_dim);
         m31 *partial_results = results;
         uint32_t last_size = num_blocks;
         do {
