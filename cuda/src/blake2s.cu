@@ -95,24 +95,26 @@ __device__ void compress(H *state, unsigned int m[16]) {
     state->s[7] ^= v[7] ^ v[15];
 }
 
-__device__ void compress_cols(H *state, unsigned int **cols, unsigned int n_cols, unsigned int idx) {
-    int i;
-    for (i = 0; i + 15 < n_cols; i += 16) {
+__device__ void compress_cols(
+        H *state, unsigned int **columns, unsigned int number_of_columns, unsigned int index_in_column
+) {
+    int chunk_index;
+    for (chunk_index = 0; chunk_index + 15 < number_of_columns; chunk_index += 16) {
         unsigned int msg[16] = {0};
         for (int j = 0; j < 16; j++) {
-            msg[j] = cols[i + j][idx];
+            msg[j] = columns[chunk_index + j][index_in_column];
         }
         compress(state, msg);
     }
 
-    if (i == n_cols) {
+    if (chunk_index == number_of_columns) {
         return;
     }
 
     // Remainder.
     unsigned int msg[16] = {0};
-    for (int j = 0; i < n_cols; i++, j++) {
-        msg[j] = cols[i][idx];
+    for (int j = 0; chunk_index < number_of_columns; chunk_index++, j++) {
+        msg[j] = columns[chunk_index][index_in_column];
     }
     compress(state, msg);
 }
