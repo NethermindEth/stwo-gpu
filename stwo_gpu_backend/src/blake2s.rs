@@ -104,14 +104,15 @@ mod tests {
         let current_layer_size = 1 << current_layer_log_size;
         let previous_layer_log_size = current_layer_log_size + 1;
         let previous_layer_size = 1 << previous_layer_log_size;
+        let no_previous_layer = None;
 
         // First layer
 
         let cpu_columns_vector: Vec<Vec<BaseField>> = columns_test_vector(35, previous_layer_size);
         let gpu_columns_vector: Vec<BaseFieldVec> = gpu_columns_from(&cpu_columns_vector);
 
-        let cpu_previous_layer = <CpuBackend as MerkleOps<Blake2sMerkleHasher>>::commit_on_layer(previous_layer_log_size, None, &cpu_columns_vector.iter().collect::<Vec<_>>());
-        let gpu_previous_layer = CudaBackend::commit_on_layer(previous_layer_log_size, None, &gpu_columns_vector.iter().collect::<Vec<_>>());
+        let cpu_previous_layer = <CpuBackend as MerkleOps<Blake2sMerkleHasher>>::commit_on_layer(previous_layer_log_size, no_previous_layer, &cpu_columns_vector.iter().collect::<Vec<_>>());
+        let gpu_previous_layer = CudaBackend::commit_on_layer(previous_layer_log_size, no_previous_layer, &gpu_columns_vector.iter().collect::<Vec<_>>());
 
         // Current layer
 
