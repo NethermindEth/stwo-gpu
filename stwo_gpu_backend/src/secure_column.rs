@@ -8,7 +8,7 @@ pub struct CudaSecureColumn {
 }
 
 impl CudaSecureColumn {
-    pub unsafe fn new_with_size(size: usize) -> SecureColumnByCoords<CudaBackend> {
+    pub fn new_with_size(size: usize) -> SecureColumnByCoords<CudaBackend> {
         let folded_values_column = BaseFieldVec::new_uninitialized(size);
 
         SecureColumnByCoords {
