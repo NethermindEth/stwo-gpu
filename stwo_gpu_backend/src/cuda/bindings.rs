@@ -216,6 +216,7 @@ extern "C" {
         sample_columns: *const u32,
         sample_column_values: *const CudaSecureField,
         sample_column_and_values_sizes: *const u32,
+        sample_size: u32,
         result_column_0: *const u32,
         result_column_1: *const u32,
         result_column_2: *const u32,

@@ -81,6 +81,7 @@ impl QuotientOps for CudaBackend {
                 sample_column_indexes.as_ptr(),
                 sample_column_values.as_ptr(),
                 sample_column_and_values_sizes.as_ptr(),
+                sample_points.len() as u32,
                 result.values.columns[0].device_ptr,
                 result.values.columns[1].device_ptr,
                 result.values.columns[2].device_ptr,
