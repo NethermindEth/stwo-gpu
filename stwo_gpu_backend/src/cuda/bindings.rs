@@ -221,5 +221,8 @@ extern "C" {
         result_column_1: *const u32,
         result_column_2: *const u32,
         result_column_3: *const u32,
+        flattened_line_coeffs: *const u32,
+        line_coeffs_sizes: *const u32,
+        batch_random_coeffs: *const u32
     );
 }

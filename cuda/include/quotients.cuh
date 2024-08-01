@@ -22,7 +22,10 @@ void accumulate_quotients(
         uint32_t *result_column_0,
         uint32_t *result_column_1,
         uint32_t *result_column_2,
-        uint32_t *result_column_3
+        uint32_t *result_column_3,
+        uint32_t *flattened_line_coeffs,
+        uint32_t *line_coeffs_sizes,
+        uint32_t *batch_random_coeffs
 );
 
 #endif // QUOTIENTS_H
