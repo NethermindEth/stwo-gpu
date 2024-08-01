@@ -12,7 +12,7 @@ use stwo_prover::core::{
 use stwo_prover::core::circle::CirclePoint;
 use crate::{backend::CudaBackend, cuda::BaseFieldVec};
 use crate::cuda::bindings;
-use crate::cuda::bindings::{CirclePointBaseField, CirclePointSecureField};
+use crate::cuda::bindings::{CirclePointBaseField, CirclePointSecureField, CudaSecureField};
 
 impl QuotientOps for CudaBackend {
     fn accumulate_quotients(
@@ -62,6 +62,12 @@ impl QuotientOps for CudaBackend {
                 column_sample_batch.columns_and_values.len() as u32,
             ).collect_vec();
 
+            let sample_column_values: Vec<CudaSecureField> = sample_batches.iter().flat_map( |column_sample_batch|
+                column_sample_batch.columns_and_values.iter().map(|(_, value)|
+                    (*value).into()
+                ).collect_vec()
+            ).collect_vec();
+
             println!("{:#?}", sample_batches[0].columns_and_values);
 
             bindings::accumulate_quotients(
@@ -73,8 +79,8 @@ impl QuotientOps for CudaBackend {
                 random_coeff.into(),
                 sample_points.as_ptr() as *const u32,
                 sample_column_indexes.as_ptr(),
+                sample_column_values.as_ptr(),
                 sample_column_and_values_sizes.as_ptr(),
-                // device_sample_coeffs,
                 result.values.columns[0].device_ptr,
                 result.values.columns[1].device_ptr,
                 result.values.columns[2].device_ptr,
