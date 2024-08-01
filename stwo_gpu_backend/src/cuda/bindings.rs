@@ -56,6 +56,21 @@ impl From<CirclePoint<BaseField>> for CirclePointBaseField {
     }
 }
 
+#[repr(C)]
+pub(crate) struct CirclePointSecureField {
+    x: CudaSecureField,
+    y: CudaSecureField,
+}
+
+impl From<CirclePoint<SecureField>> for CirclePointSecureField {
+    fn from(value: CirclePoint<SecureField>) -> Self {
+        Self {
+            x: CudaSecureField::from(value.x),
+            y: CudaSecureField::from(value.y),
+        }
+    }
+}
+
 #[link(name = "gpubackend")]
 extern "C" {
     pub fn copy_uint32_t_vec_from_device_to_host(
@@ -188,5 +203,19 @@ extern "C" {
 
     pub fn free_device_pointer_vec(
         device_pointer: *const *const u32,
+    );
+
+    pub fn accumulate_quotients(
+        domain_initial_point: CirclePointBaseField,
+        domain_step: CirclePointBaseField,
+        domain_size: u32,
+        columns: *const *const u32,
+        number_of_columns: usize,
+        random_coeff: CudaSecureField,
+        sample_points: *const u32,
+        result_column_0: *const u32,
+        result_column_1: *const u32,
+        result_column_2: *const u32,
+        result_column_3: *const u32,
     );
 }

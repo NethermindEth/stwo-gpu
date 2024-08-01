@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use rand::seq::index::sample;
 use stwo_prover::core::{
     backend::CpuBackend,
     fields::{m31::BaseField, qm31::SecureField, secure_column::SecureColumnByCoords},
@@ -8,8 +9,10 @@ use stwo_prover::core::{
         circle::{CircleDomain, CircleEvaluation, SecureEvaluation},
     },
 };
-
+use stwo_prover::core::circle::CirclePoint;
 use crate::{backend::CudaBackend, cuda::BaseFieldVec};
+use crate::cuda::bindings;
+use crate::cuda::bindings::{CirclePointBaseField, CirclePointSecureField};
 
 impl QuotientOps for CudaBackend {
     fn accumulate_quotients(
@@ -18,32 +21,57 @@ impl QuotientOps for CudaBackend {
         random_coeff: SecureField,
         sample_batches: &[ColumnSampleBatch],
     ) -> SecureEvaluation<Self> {
-        let columns = columns
-            .iter()
-            .map(|column| {
-                CircleEvaluation::<CpuBackend, BaseField, BitReversedOrder>::new(
-                    column.domain,
-                    column.to_vec(),
-                )
-            })
-            .collect_vec();
-        let cpu_result = <CpuBackend as QuotientOps>::accumulate_quotients(
+        let domain_size = domain.size();
+        let number_of_columns = columns.len();
+
+        let mut result: SecureEvaluation<CudaBackend> = SecureEvaluation {
             domain,
-            columns.iter().collect_vec().as_slice(),
-            random_coeff,
-            sample_batches,
-        );
-        SecureEvaluation {
-            domain: cpu_result.domain,
             values: SecureColumnByCoords {
                 columns: [
-                    BaseFieldVec::from_vec(cpu_result.values.columns[0].clone()),
-                    BaseFieldVec::from_vec(cpu_result.values.columns[1].clone()),
-                    BaseFieldVec::from_vec(cpu_result.values.columns[2].clone()),
-                    BaseFieldVec::from_vec(cpu_result.values.columns[3].clone()),
+                    BaseFieldVec::new_uninitialized(domain_size),
+                    BaseFieldVec::new_uninitialized(domain_size),
+                    BaseFieldVec::new_uninitialized(domain_size),
+                    BaseFieldVec::new_uninitialized(domain_size),
                 ],
             },
+        };
+
+        let device_column_pointers_vector = columns.iter()
+            .map(|column| column.values.device_ptr)
+            .collect_vec();
+
+        unsafe {
+            let domain_initial_point = domain.half_coset.initial().into();
+            let domain_step = domain.half_coset.step.into();
+
+            let device_column_pointers: *const *const u32 = bindings::copy_device_pointer_vec_from_host_to_device(
+                device_column_pointers_vector.as_ptr(), number_of_columns
+            );
+
+            let sample_points: Vec<CirclePointSecureField> = sample_batches.iter().map(|column_sample_batch|
+                column_sample_batch.point.into()
+            ).collect();
+
+            let device_sample_points = (sample_points );
+
+            bindings::accumulate_quotients(
+                domain_initial_point,
+                domain_step,
+                domain_size as u32,
+                device_column_pointers,
+                number_of_columns,
+                random_coeff.into(),
+                device_sample_points.as_ptr() as *const u32,
+                // device_sample_indexes,
+                // device_sample_coeffs,
+                result.values.columns[0].device_ptr,
+                result.values.columns[1].device_ptr,
+                result.values.columns[2].device_ptr,
+                result.values.columns[3].device_ptr,
+            );
         }
+
+        return result;
     }
 }
 
@@ -102,7 +130,7 @@ mod tests {
             &samples,
         ).values.to_vec();
 
-        let gpu_result  = CudaBackend::accumulate_quotients(
+        let gpu_result = CudaBackend::accumulate_quotients(
             domain,
             &columns.iter().collect_vec(),
             random_coeff,

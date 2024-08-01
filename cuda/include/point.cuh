@@ -8,6 +8,11 @@ typedef struct {
     m31 y;
 } point;
 
+typedef struct {
+    qm31 x;
+    qm31 y;
+} secure_field_point;
+
 const point m31_circle_gen = {2, 1268011823};
 
 /*##### Point ##### */
