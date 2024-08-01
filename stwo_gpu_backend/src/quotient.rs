@@ -68,7 +68,7 @@ impl QuotientOps for CudaBackend {
                 number_of_columns,
                 random_coeff.into(),
                 sample_points.as_ptr() as *const u32,
-                sample_column_indexes.as_ptr() as *const u32,
+                sample_column_indexes.as_ptr(),
                 // device_sample_coeffs,
                 result.values.columns[0].device_ptr,
                 result.values.columns[1].device_ptr,
