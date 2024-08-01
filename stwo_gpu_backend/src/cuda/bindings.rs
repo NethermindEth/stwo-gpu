@@ -1,9 +1,13 @@
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
+use stwo_prover::core::poly::circle::CircleDomain;
 use stwo_prover::core::{
     circle::CirclePoint,
     fields::{m31::BaseField, qm31::SecureField},
 };
+
+use super::column_sample_batch_vec::ColumnSampleBatch;
+use super::SecureFieldVec;
 
 #[link(name = "gpubackend")]
 extern "C" {
@@ -71,6 +75,36 @@ extern "C" {
     ) -> *const u32;
 }
 
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn copy_column_circle_evaluation_htd(from: *const u32, column_size: usize, row_size: usize) -> *const *const u32;
+    pub fn copy_column_sample_batch_htd(from: *const ColumnSampleBatch, size: usize) -> *const ColumnSampleBatch;
+
+    pub fn unified_malloc_dbl_ptr_uint32_t(size: usize) -> *const *const u32; 
+    pub fn unified_set_dbl_ptr_uint32_t(h_out_ptr: *const *const u32, d_in_ptr: *const u32, idx: usize);
+    pub fn copy_secure_field_vec_htd(host_ptr: *const QM31, size: usize) -> *const QM31; 
+    pub fn copy_size_t_vec_htd(host_ptr: *const usize, size: usize) -> *const usize; 
+    pub fn cuda_set_column_sample_batch(device_ptr: *const ColumnSampleBatch, point: CirclePointSecureField, columns: *const usize, values: *const QM31, size: usize, idx: usize);
+
+    pub fn cuda_set_dbl_ptr_uint32_t(h_out_ptr: *const *const u32, size: usize) -> *const *const u32;     
+    pub fn cuda_malloc_column_sample_batch(size: usize) -> *const ColumnSampleBatch; 
+}
+
+#[link(name = "gpubackend")]
+extern "C" {
+    pub fn accumulate_quotients(
+        domain_initial_index: usize,
+        domain_step_size: usize,
+        domain_log_size: u32, 
+        columns: *const *const u32, 
+        columns_size: usize, 
+        columns_row_size: usize, 
+        random_coeff: QM31,
+        // sample_batches: *const ColumnSampleBatch, // TODO: QM31 is "not safe" but is mapped properly, use custom struct [u32;4]
+        // sample_batches_size: usize
+    ) -> *const u32;
+}
+
 // This is needed since `CirclePoint<BaseField>` is not FFI safe.
 #[repr(C)]
 pub(crate) struct CirclePointBaseField {
@@ -80,6 +114,21 @@ pub(crate) struct CirclePointBaseField {
 
 impl From<CirclePoint<BaseField>> for CirclePointBaseField {
     fn from(value: CirclePoint<BaseField>) -> Self {
+        Self {
+            x: value.x,
+            y: value.y,
+        }
+    }
+}
+
+#[repr(C)]
+pub(crate) struct CirclePointSecureField {
+    x: QM31,
+    y: QM31,
+}
+
+impl From<CirclePoint<SecureField>> for CirclePointSecureField {
+    fn from(value: CirclePoint<SecureField>) -> Self {
         Self {
             x: value.x,
             y: value.y,

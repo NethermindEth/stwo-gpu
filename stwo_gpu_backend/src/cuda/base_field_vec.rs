@@ -74,6 +74,40 @@ impl Drop for BaseFieldVec {
     }
 }
 
+// TODO (Daniel):: Impl Free
+#[derive(Debug)]
+pub struct VecBaseFieldVec {
+    pub(crate) device_ptr: *const *const u32,
+    pub(crate) col_size: usize,
+    pub(crate) row_size: usize,
+}
+
+impl VecBaseFieldVec {
+    pub fn from_vec(host_array: Vec<&BaseFieldVec>) -> Self {
+        // Initialize host array
+        let host_ptr = unsafe {
+            bindings::unified_malloc_dbl_ptr_uint32_t(host_array.len())
+        };
+
+        // Set device pointers to host array
+        host_array.iter().enumerate().for_each(|(i, bf)| unsafe {
+            bindings::unified_set_dbl_ptr_uint32_t(host_ptr, bf.device_ptr, i)
+        });
+
+        // // Copy host array to device
+        // let device_ptr = unsafe {
+        //     bindings::cuda_set_dbl_ptr_uint32_t(host_ptr, host_array.len())
+        // };
+
+        Self {
+            device_ptr: host_ptr,     
+            col_size: host_array.len(),
+            row_size: host_array[0].size, 
+        }
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use stwo_prover::core::fields::m31::BaseField;
