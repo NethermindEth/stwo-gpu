@@ -3,15 +3,16 @@
 
 #include "fields.cuh"
 #include "point.cuh"
+#include "utils.cuh"
 
 const unsigned int BLOCK_SIZE = 1024;
 
 extern "C"
 void accumulate_quotients(
-        point domain_initial_point,
-        point domain_step,
+        uint32_t half_coset_initial_index,
+        uint32_t half_coset_step_size,
         uint32_t domain_size,
-        uint32_t **columns,
+        m31 **columns,
         uint32_t number_of_columns,
         qm31 random_coefficient,
         secure_field_point *sample_points,
@@ -23,9 +24,9 @@ void accumulate_quotients(
         uint32_t *result_column_1,
         uint32_t *result_column_2,
         uint32_t *result_column_3,
-        uint32_t *flattened_line_coeffs,
+        qm31 *flattened_line_coeffs,
         uint32_t *line_coeffs_sizes,
-        uint32_t *batch_random_coeffs
+        qm31 *batch_random_coeffs
 );
 
 #endif // QUOTIENTS_H

@@ -79,6 +79,11 @@ __host__ __device__ qm31 mul(qm31 x, qm31 y) {
     };
 }
 
+__host__ __device__ qm31 mul(qm31 x, cm31 y) {
+    return { mul(x.a, y), mul(x.b, y) };
+}
+
+
 __host__ __device__ qm31 add(qm31 x, qm31 y) {
     return {add(x.a, y.a), add(x.b, y.b)};
 }

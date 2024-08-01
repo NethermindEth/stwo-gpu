@@ -206,8 +206,8 @@ extern "C" {
     );
 
     pub fn accumulate_quotients(
-        domain_initial_point: CirclePointBaseField,
-        domain_step: CirclePointBaseField,
+        half_coset_initial_index: u32,
+        half_coset_step_size: u32,
         domain_size: u32,
         columns: *const *const u32,
         number_of_columns: usize,

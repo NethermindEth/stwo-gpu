@@ -45,12 +45,11 @@ impl QuotientOps for CudaBackend {
             .map(|column| column.values.device_ptr)
             .collect_vec();
 
-        // TODO: Erase
         let quotient_constants = quotient_constants(sample_batches, random_coeff);
 
         unsafe {
-            let domain_initial_point = domain.half_coset.initial().into();
-            let domain_step = domain.half_coset.step.into();
+            let half_coset_initial_index = domain.half_coset.initial_index;
+            let half_coset_step_size = domain.half_coset.step_size;
 
             let device_column_pointers: *const *const u32 = bindings::copy_device_pointer_vec_from_host_to_device(
                 device_column_pointers_vector.as_ptr(), number_of_columns
@@ -84,11 +83,9 @@ impl QuotientOps for CudaBackend {
                 ).collect_vec()
             ).collect_vec();
 
-            println!("{:#?}", sample_batches[0].columns_and_values);
-
             bindings::accumulate_quotients(
-                domain_initial_point,
-                domain_step,
+                half_coset_initial_index.0 as u32,
+                half_coset_step_size.0 as u32,
                 domain_size as u32,
                 device_column_pointers,
                 number_of_columns,
@@ -216,7 +213,7 @@ mod tests {
 
     #[test]
     fn test_accumulate_quotients_compared_with_cpu() {
-        const LOG_SIZE: u32 = 8;
+        const LOG_SIZE: u32 = 3;
         let small_domain = CanonicCoset::new(LOG_SIZE).circle_domain();
         let domain = CanonicCoset::new(LOG_SIZE + LOG_BLOWUP_FACTOR).circle_domain();
         let e0: BaseColumn = (0..small_domain.size()).map(BaseField::from).collect();

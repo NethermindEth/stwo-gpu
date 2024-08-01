@@ -50,6 +50,8 @@ __host__ __device__ cm31 mul_by_scalar(cm31 x, m31 scalar);
 
 __host__ __device__ qm31 mul(qm31 x, qm31 y);
 
+__host__ __device__ qm31 mul(qm31 x, cm31 y);
+
 __host__ __device__ qm31 add(qm31 x, qm31 y);
 
 __host__ __device__ qm31 sub(qm31 x, qm31 y);
