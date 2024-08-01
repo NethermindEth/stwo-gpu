@@ -52,7 +52,13 @@ impl QuotientOps for CudaBackend {
                 column_sample_batch.point.into()
             ).collect();
 
-            let device_sample_points = (sample_points );
+            let sample_column_indexes: Vec<u32> = sample_batches.iter().flat_map( |column_sample_batch|
+                column_sample_batch.columns_and_values.iter().map(|(column, _)|
+                    *column as u32
+                ).collect_vec()
+            ).collect_vec();
+
+            println!("{:#?}", sample_column_indexes);
 
             bindings::accumulate_quotients(
                 domain_initial_point,
@@ -61,8 +67,8 @@ impl QuotientOps for CudaBackend {
                 device_column_pointers,
                 number_of_columns,
                 random_coeff.into(),
-                device_sample_points.as_ptr() as *const u32,
-                // device_sample_indexes,
+                sample_points.as_ptr() as *const u32,
+                sample_column_indexes.as_ptr() as *const u32,
                 // device_sample_coeffs,
                 result.values.columns[0].device_ptr,
                 result.values.columns[1].device_ptr,

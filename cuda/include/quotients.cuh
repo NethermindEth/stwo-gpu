@@ -15,6 +15,7 @@ void accumulate_quotients(
         uint32_t number_of_columns,
         qm31 random_coeff,
         secure_field_point *sample_points,
+        uint32_t *sample_column_indexes,
         uint32_t *result_column_0,
         uint32_t *result_column_1,
         uint32_t *result_column_2,
