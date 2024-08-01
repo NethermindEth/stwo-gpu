@@ -29,14 +29,16 @@ impl CudaSecureColumn {
 impl<'a> From<&'a SecureColumnByCoords<CudaBackend>> for CudaSecureColumn {
     fn from(secure_column: &'a SecureColumnByCoords<CudaBackend>) -> Self {
         let columns = &secure_column.columns;
-        let columns_ptrs_as_vec = columns
+        let columns_ptrs_as_vec: Vec<*const u32> = columns
             .iter()
             .map(|column| column.device_ptr)
-            .collect::<Vec<*const u32>>();
-        let columns_ptrs_as_array: [*const u32; 4] = columns_ptrs_as_vec.try_into().unwrap();
+            .collect();
 
+        let columns_ptr = unsafe {
+            bindings::copy_device_pointer_vec_from_host_to_device(columns_ptrs_as_vec.as_ptr(), 4)
+        };
         Self {
-            columns: unsafe { bindings::copy_device_pointer_vec_from_host_to_device(columns_ptrs_as_array.as_ptr(), 4) }
+            columns: columns_ptr
         }
     }
 }
@@ -48,10 +50,13 @@ impl<'a> From<&'a mut SecureColumnByCoords<CudaBackend>> for CudaSecureColumn {
             .iter()
             .map(|column| column.device_ptr)
             .collect::<Vec<*const u32>>();
-        let columns_ptrs_as_array: [*const u32; 4] = columns_ptrs_as_vec.try_into().unwrap();
+        let columns_ptr = unsafe {
+            bindings::copy_device_pointer_vec_from_host_to_device(
+                columns_ptrs_as_vec.as_ptr(), 4)
+        };
 
         Self {
-            columns: unsafe { bindings::copy_device_pointer_vec_from_host_to_device(columns_ptrs_as_array.as_ptr(), 4) }
+            columns: columns_ptr
         }
     }
 }

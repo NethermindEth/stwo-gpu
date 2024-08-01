@@ -2,9 +2,6 @@
 #include "../include/utils.cuh"
 #include "../include/circle.cuh"
 
-void
-compute_all_g_values(const m31 *const *columns, uint32_t column_size, const qm31 *lambda, uint32_t *const *g_values);
-
 uint32_t num_blocks_for(const uint32_t size) {
     uint32_t block_dim = max_block_dim;
     return (uint32_t) (size + block_dim - 1) / block_dim;
