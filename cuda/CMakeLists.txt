@@ -17,6 +17,7 @@ add_library(gpubackend SHARED
         src/fields.cu
         src/blake2s.cu
         src/quotients.cu
+        src/example.cu
 )
 target_compile_options(gpubackend PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
         -arch=sm_50;

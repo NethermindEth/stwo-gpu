@@ -140,10 +140,20 @@ mod tests {
         assert_eq!(oods_value, composition_polynomial_poly.eval_at_point(point));
     }
 
-    #[test]
-    fn test_fib_prove() {
+    #[test_log::test]
+    fn test_fib_prove_small() {
         const FIB_LOG_SIZE: u32 = 5;
         let fib = Fibonacci::new(FIB_LOG_SIZE, BaseField::from(443693538));
+
+        let proof = fib.prove().unwrap();
+        fib.verify(proof).unwrap();
+    }
+
+
+    #[test_log::test]
+    fn test_fib_prove_big() {
+        const FIB_LOG_SIZE: u32 = 23;
+        let fib = Fibonacci::new(FIB_LOG_SIZE, BaseField::from(729665688));
 
         let proof = fib.prove().unwrap();
         fib.verify(proof).unwrap();

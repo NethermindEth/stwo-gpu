@@ -113,7 +113,7 @@ impl Column<Blake2sHash> for cuda::Blake2sHashVec {
 }
 
 impl FromIterator<Blake2sHash> for cuda::Blake2sHashVec {
-    fn from_iter<T: IntoIterator<Item=Blake2sHash>>(iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item=Blake2sHash>>(_iter: T) -> Self {
         todo!()
     }
 }

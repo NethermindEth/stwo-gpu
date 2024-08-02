@@ -143,25 +143,25 @@ extern "C" {
         gpu_domain: *const u32,
         twiddle_offset: usize,
         n: usize,
-        eval_values: *const*const u32,
+        eval_values: *const *const u32,
         alpha: CudaSecureField,
-        folded_values: *const*const u32,
+        folded_values: *const *const u32,
     );
 
     pub fn fold_circle_into_line(
         gpu_domain: *const u32,
         twiddle_offset: usize,
         n: usize,
-        eval_values: *const*const u32,
+        eval_values: *const *const u32,
         alpha: CudaSecureField,
-        folded_values: *const*const u32,
+        folded_values: *const *const u32,
     );
 
     pub fn decompose(
-        columns: *const*const u32,
+        columns: *const *const u32,
         column_size: u32,
         lambda: &CudaSecureField,
-        g_values: *const*const u32,
+        g_values: *const *const u32,
     );
 
     pub fn accumulate(
@@ -235,6 +235,20 @@ extern "C" {
         flattened_line_coeffs: *const u32,
         flattened_line_coeffs_size: u32,
         line_coeffs_sizes: *const u32,
-        batch_random_coeffs: *const u32
+        batch_random_coeffs: *const u32,
+    );
+
+    pub fn fibonacci_component_evaluate_constraint_quotients_on_domain(
+        evals: *const u32,
+        evals_size: u32,
+        output_column_0: *const u32,
+        output_column_1: *const u32,
+        output_column_2: *const u32,
+        output_column_3: *const u32,
+        claim_value: BaseField,
+        initial_point: CirclePointBaseField,
+        step_point: CirclePointBaseField,
+        random_coeff_0: CudaSecureField,
+        random_coeff_1: CudaSecureField,
     );
 }

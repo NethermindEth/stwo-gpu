@@ -2,6 +2,7 @@
 #define POINT_H
 
 #include "fields.cuh"
+#include "utils.cuh"
 
 typedef struct {
     m31 x;
@@ -40,6 +41,25 @@ __host__ __device__ __forceinline__ point point_pow(point p, int exponent) {
         }
         p = point_square(p);
         exponent >>= 1;
+    }
+    return result;
+}
+
+
+__host__ __device__ __forceinline__ point point_inv(point &p) {
+    return {p.x, neg(p.y)};
+}
+
+__host__ __device__ __forceinline__ point point_neg(point &p) {
+    return {p.x, neg(p.y)};
+}
+
+__host__ __forceinline__ point point_of_order(int n) {
+    point result = m31_circle_gen;
+    int log_exponent = 31 - log_2(n);
+    while (log_exponent > 0) {
+        result = point_square(result);
+        log_exponent--;
     }
     return result;
 }

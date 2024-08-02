@@ -49,6 +49,13 @@ __host__ __device__ cm31 add(cm31 x, cm31 y) {
     return {add(x.a, y.a), add(x.b, y.b)};
 }
 
+__host__ __device__ cm31 mul(m31 x, cm31 y) {
+    return {
+            mul(x, y.a),
+            mul(x, y.b),
+    };
+}
+
 __host__ __device__ cm31 sub(cm31 x, cm31 y) {
     return {sub(x.a, y.a), sub(x.b, y.b)};
 }
@@ -76,6 +83,13 @@ __host__ __device__ qm31 mul(qm31 x, qm31 y) {
     return {
             add(v0, mul(R, v1)),
             sub(v2, add(v0, v1))
+    };
+}
+
+__host__ __device__ qm31 mul(m31 x, qm31 y) {
+    return {
+            mul(x, y.a),
+            mul(x, y.b),
     };
 }
 

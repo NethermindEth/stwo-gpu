@@ -1,25 +1,19 @@
-use std::ops::Div;
-
 use stwo_prover::core::{ColumnVec, InteractionElements, LookupValues};
 use stwo_prover::core::air::{Component, ComponentProver, ComponentTrace};
 use stwo_prover::core::air::accumulation::{
-    ColumnAccumulator, DomainEvaluationAccumulator, PointEvaluationAccumulator,
+    DomainEvaluationAccumulator, PointEvaluationAccumulator,
 };
 use stwo_prover::core::air::mask::shifted_mask_points;
-use stwo_prover::core::backend::{Column, CpuBackend};
-use stwo_prover::core::backend::cpu::CpuCircleEvaluation;
+use stwo_prover::core::backend::Column;
 use stwo_prover::core::circle::{CirclePoint, Coset};
 use stwo_prover::core::constraints::{coset_vanishing, pair_vanishing};
 use stwo_prover::core::fields::{ExtensionOf, FieldExpOps};
 use stwo_prover::core::fields::m31::BaseField;
 use stwo_prover::core::fields::qm31::SecureField;
-use stwo_prover::core::fields::secure_column::SecureColumnByCoords;
 use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CanonicCoset;
-use stwo_prover::core::utils::bit_reverse_index;
-use stwo_prover::trace_generation::BASE_TRACE;
 
-use crate::cuda::BaseFieldVec;
+use crate::cuda::{self};
 use crate::CudaBackend;
 
 #[derive(Clone)]
@@ -52,6 +46,7 @@ impl FibonacciComponent {
                 .into_ef(),
             point,
         );
+
         let num = constraint_value * selector;
         let denom = coset_vanishing(constraint_zero_domain, point);
         num / denom
@@ -70,7 +65,6 @@ impl FibonacciComponent {
         // 1 + y * (self.claim - 1) * p.y^-1
         // TODO(spapini): Cache the constant.
         let linear = F::one() + point.y * (self.claim - BaseField::from(1)) * p.y.inverse();
-
         let num = mask[0] - linear;
         let denom = pair_vanishing(p.into_ef(), CirclePoint::zero(), point);
         num / denom
@@ -134,54 +128,30 @@ impl ComponentProver<CudaBackend> for FibonacciComponent {
         _interaction_elements: &InteractionElements,
         _lookup_values: &LookupValues,
     ) {
-        let poly = &trace.polys[BASE_TRACE][0];
         let trace_domain = CanonicCoset::new(self.log_size);
 
-        // `self.log_size + 1` porque el grado de las transiciones es 2.
         let trace_eval_domain = CanonicCoset::new(self.log_size + 1).circle_domain();
-        let lde_trace_eval = poly.evaluate(trace_eval_domain).bit_reverse();
-        let cpu_lde_trace_eval =
-            CpuCircleEvaluation::new(lde_trace_eval.domain, lde_trace_eval.values.to_cpu());
+        let large_eval = trace.evals.0[0][0].clone().bit_reverse();
+        assert_eq!(trace_domain.coset.step, trace_eval_domain.half_coset.initial().double().double());
 
-        // Step constraint.
         let constraint_log_degree_bound = trace_domain.log_size() + 1;
         let [accum] = evaluation_accumulator.columns([(constraint_log_degree_bound, 2)]);
-        let mut cpu_accum_col = accum.col.to_cpu();
-        let mut cpu_accum = ColumnAccumulator::<CpuBackend> {
-            random_coeff_powers: accum.random_coeff_powers.clone(),
-            col: &mut cpu_accum_col,
-        };
-        let constraint_eval_domain = trace_eval_domain;
 
-        for (off, point_coset) in [
-            (0, constraint_eval_domain.half_coset),
-            (
-                constraint_eval_domain.half_coset.size(),
-                constraint_eval_domain.half_coset.conjugate(),
-            ),
-        ] {
-            // eval se trae el cacho de eval que corresponde a la primera o la segunda parte
-            let eval =
-                cpu_lde_trace_eval.fetch_eval_on_coset(point_coset.shift(trace_domain.index_at(0)));
-            let mul = trace_domain.step_size().div(point_coset.step_size);
-            for (i, point) in point_coset.iter().enumerate() {
-                let mask = [eval[i], eval[i as isize + mul], eval[i as isize + 2 * mul]];
-                let mut res = self.boundary_constraint_eval_quotient_by_mask(point, &[mask[0]])
-                    * cpu_accum.random_coeff_powers[0];
-                res += self.step_constraint_eval_quotient_by_mask(point, &mask)
-                    * cpu_accum.random_coeff_powers[1];
-                cpu_accum.accumulate(bit_reverse_index(i + off, constraint_log_degree_bound), res);
-            }
+        unsafe {
+            cuda::bindings::fibonacci_component_evaluate_constraint_quotients_on_domain(
+                large_eval.device_ptr,
+                large_eval.len() as u32,
+                accum.col.columns[0].device_ptr,
+                accum.col.columns[1].device_ptr,
+                accum.col.columns[2].device_ptr,
+                accum.col.columns[3].device_ptr,
+                self.claim,
+                trace_eval_domain.half_coset.initial().into(),
+                trace_eval_domain.half_coset.step.into(),
+                accum.random_coeff_powers[0].into(),
+                accum.random_coeff_powers[1].into(),
+            );
         }
-
-        *accum.col = SecureColumnByCoords::<CudaBackend> {
-            columns: [
-                BaseFieldVec::from_vec(cpu_accum.col.columns[0].clone()),
-                BaseFieldVec::from_vec(cpu_accum.col.columns[1].clone()),
-                BaseFieldVec::from_vec(cpu_accum.col.columns[2].clone()),
-                BaseFieldVec::from_vec(cpu_accum.col.columns[3].clone()),
-            ],
-        };
     }
 
     fn lookup_values(&self, _trace: &ComponentTrace<'_, CudaBackend>) -> LookupValues {
