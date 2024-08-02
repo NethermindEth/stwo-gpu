@@ -1,9 +1,11 @@
+use std::fmt::{Debug, Formatter};
 use stwo_prover::core::{
     backend::{Column, ColumnOps},
     fields::{m31::BaseField, qm31::SecureField},
 };
-
+use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
 use crate::{backend::CudaBackend, cuda};
+use crate::cuda::{BaseFieldVec, Blake2sHashVec};
 
 impl ColumnOps<BaseField> for CudaBackend {
     type Column = cuda::BaseFieldVec;
@@ -84,6 +86,35 @@ impl Column<SecureField> for cuda::SecureFieldVec {
 
 impl FromIterator<SecureField> for cuda::SecureFieldVec {
     fn from_iter<T: IntoIterator<Item = SecureField>>(_iter: T) -> Self {
+        todo!()
+    }
+}
+
+impl Column<Blake2sHash> for cuda::Blake2sHashVec {
+    fn zeros(len: usize) -> Self {
+        Self::new_zeroes(len)
+    }
+
+    fn to_cpu(&self) -> Vec<Blake2sHash> {
+        self.to_vec()
+    }
+
+    fn len(&self) -> usize {
+        self.size
+    }
+
+    fn at(&self, index: usize) -> Blake2sHash {
+        // TODO: highly inefficient
+        self.to_cpu()[index]
+    }
+
+    fn set(&mut self, _index: usize, _value: Blake2sHash) {
+        todo!()
+    }
+}
+
+impl FromIterator<Blake2sHash> for cuda::Blake2sHashVec {
+    fn from_iter<T: IntoIterator<Item=Blake2sHash>>(iter: T) -> Self {
         todo!()
     }
 }

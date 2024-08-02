@@ -1,13 +1,13 @@
-use stwo_prover::core::backend::ColumnOps;
+use stwo_prover::core::backend::{Column, ColumnOps};
 use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleHasher;
 use stwo_prover::core::vcs::ops::MerkleOps;
 
-use crate::cuda::{BaseFieldVec, bindings};
+use crate::cuda::{BaseFieldVec, bindings, Blake2sHashVec};
 use crate::CudaBackend;
 
 impl ColumnOps<Blake2sHash> for CudaBackend {
-    type Column = Vec<Blake2sHash>;
+    type Column = Blake2sHashVec;
 
     fn bit_reverse_column(_column: &mut Self::Column) {
         unimplemented!()
@@ -18,9 +18,9 @@ impl ColumnOps<Blake2sHash> for CudaBackend {
 impl MerkleOps<Blake2sMerkleHasher> for CudaBackend {
     fn commit_on_layer(
         log_size: u32,
-        prev_layer: Option<&Vec<Blake2sHash>>,
+        prev_layer: Option<&Blake2sHashVec>,
         columns: &[&BaseFieldVec],
-    ) -> Vec<Blake2sHash> {
+    ) -> Blake2sHashVec {
         let size = 1 << log_size;
         let number_of_columns = columns.len();
 
@@ -31,12 +31,12 @@ impl MerkleOps<Blake2sMerkleHasher> for CudaBackend {
             Self::commit_on_layer_using_gpu(size, number_of_columns, columns, prev_layer, result_pointer);
         }
 
-        return result.to_vec();
+        return result;
     }
 }
 
 impl CudaBackend {
-    unsafe fn commit_on_layer_using_gpu(size: usize, number_of_columns: usize, columns: &[&BaseFieldVec], prev_layer: Option<&Vec<Blake2sHash>>, result_pointer: *const Blake2sHash) {
+    unsafe fn commit_on_layer_using_gpu(size: usize, number_of_columns: usize, columns: &[&BaseFieldVec], prev_layer: Option<&Blake2sHashVec>, result_pointer: *const Blake2sHash) {
         let device_column_pointers_vector: Vec<*const u32> = columns
             .iter()
             .map(|column| column.device_ptr)

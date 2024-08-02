@@ -3,7 +3,7 @@
 
 #include "fields.cuh"
 
-struct H {
+struct Blake2sHash {
     unsigned int s[8];
 };
 
@@ -29,28 +29,37 @@ extern "C"
 uint32_t* cuda_malloc_uint32_t(int);
 
 extern "C"
+Blake2sHash* cuda_malloc_blake_2s_hash(int);
+
+extern "C"
 uint32_t* cuda_alloc_zeroes_uint32_t(int);
+
+extern "C"
+Blake2sHash* cuda_alloc_zeroes_blake_2s_hash(int);
 
 extern "C"
 void free_uint32_t_vec(uint32_t*);
 
 extern "C"
-H* copy_blake_2s_hash_from_host_to_device(H *host_ptr);
+Blake2sHash* copy_blake_2s_hash_from_host_to_device(Blake2sHash *host_ptr);
 
 extern "C"
-void copy_blake_2s_hash_from_device_to_host(H *device_ptr, H *host_ptr);
+void copy_blake_2s_hash_from_device_to_host(Blake2sHash *device_ptr, Blake2sHash *host_ptr);
 
 extern "C"
-void free_blake_2s_hash(H* device_ptr);
+void free_blake_2s_hash(Blake2sHash* device_ptr);
 
 extern "C"
-H* copy_blake_2s_hash_vec_from_host_to_device(H *host_ptr, uint32_t size);
+Blake2sHash* copy_blake_2s_hash_vec_from_host_to_device(Blake2sHash *host_ptr, uint32_t size);
 
 extern "C"
-void copy_blake_2s_hash_vec_from_device_to_host(H *device_ptr, H *host_ptr, uint32_t size);
+void copy_blake_2s_hash_vec_from_device_to_host(Blake2sHash *device_ptr, Blake2sHash *host_ptr, uint32_t size);
 
 extern "C"
-void free_blake_2s_hash_vec(H* device_ptr);
+void copy_blake_2s_hash_vec_from_device_to_device(Blake2sHash *from, Blake2sHash *dst, int size);
+
+extern "C"
+void free_blake_2s_hash_vec(Blake2sHash* device_ptr);
 
 extern "C"
 uint32_t** copy_device_pointer_vec_from_host_to_device(uint32_t** host_ptr, uint32_t size);
