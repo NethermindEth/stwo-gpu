@@ -1,7 +1,5 @@
 use itertools::Itertools;
-use rand::seq::index::sample;
 use stwo_prover::core::{
-    backend::CpuBackend,
     fields::{m31::BaseField, qm31::SecureField, secure_column::SecureColumnByCoords},
     pcs::quotients::{ColumnSampleBatch, QuotientOps},
     poly::{
@@ -9,15 +7,14 @@ use stwo_prover::core::{
         circle::{CircleDomain, CircleEvaluation, SecureEvaluation},
     },
 };
-use stwo_prover::core::circle::CirclePoint;
 use stwo_prover::core::constraints::complex_conjugate_line_coeffs;
-use stwo_prover::core::fields::cm31::CM31;
 use stwo_prover::core::fields::FieldExpOps;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::pcs::quotients::PointSample;
+
 use crate::{backend::CudaBackend, cuda::BaseFieldVec};
 use crate::cuda::bindings;
-use crate::cuda::bindings::{CirclePointBaseField, CirclePointSecureField, CudaSecureField};
+use crate::cuda::bindings::{CirclePointSecureField, CudaSecureField};
 
 impl QuotientOps for CudaBackend {
     fn accumulate_quotients(
@@ -29,7 +26,7 @@ impl QuotientOps for CudaBackend {
         let domain_size = domain.size();
         let number_of_columns = columns.len();
 
-        let mut result: SecureEvaluation<CudaBackend> = SecureEvaluation {
+        let result: SecureEvaluation<CudaBackend> = SecureEvaluation {
             domain,
             values: SecureColumnByCoords {
                 columns: [
@@ -45,6 +42,7 @@ impl QuotientOps for CudaBackend {
             .map(|column| column.values.device_ptr)
             .collect_vec();
 
+        // TODO: move to cuda?
         let quotient_constants = quotient_constants(sample_batches, random_coeff);
 
         unsafe {
@@ -52,35 +50,35 @@ impl QuotientOps for CudaBackend {
             let half_coset_step_size = domain.half_coset.step_size;
 
             let device_column_pointers: *const *const u32 = bindings::copy_device_pointer_vec_from_host_to_device(
-                device_column_pointers_vector.as_ptr(), number_of_columns
+                device_column_pointers_vector.as_ptr(), number_of_columns,
             );
 
             let sample_points: Vec<CirclePointSecureField> = sample_batches.iter().map(|column_sample_batch|
-                column_sample_batch.point.into()
+            column_sample_batch.point.into()
             ).collect();
 
-            let sample_column_indexes: Vec<u32> = sample_batches.iter().flat_map( |column_sample_batch|
-                column_sample_batch.columns_and_values.iter().map(|(column, _)|
-                    *column as u32
-                ).collect_vec()
+            let sample_column_indexes: Vec<u32> = sample_batches.iter().flat_map(|column_sample_batch|
+            column_sample_batch.columns_and_values.iter().map(|(column, _)|
+            *column as u32
+            ).collect_vec()
             ).collect_vec();
 
-            let sample_column_and_values_sizes: Vec<u32> = sample_batches.iter().map( |column_sample_batch|
-                column_sample_batch.columns_and_values.len() as u32,
+            let sample_column_and_values_sizes: Vec<u32> = sample_batches.iter().map(|column_sample_batch|
+                                                                                     column_sample_batch.columns_and_values.len() as u32,
             ).collect_vec();
 
-            let sample_column_values: Vec<CudaSecureField> = sample_batches.iter().flat_map( |column_sample_batch|
-                column_sample_batch.columns_and_values.iter().map(|(_, value)|
-                    (*value).into()
-                ).collect_vec()
+            let sample_column_values: Vec<CudaSecureField> = sample_batches.iter().flat_map(|column_sample_batch|
+            column_sample_batch.columns_and_values.iter().map(|(_, value)|
+            (*value).into()
+            ).collect_vec()
             ).collect_vec();
 
-            let line_coeffs_sizes = quotient_constants.line_coeffs.iter().map( |vector| vector.len()).collect_vec();
+            let line_coeffs_sizes = quotient_constants.line_coeffs.iter().map(|vector| vector.len() as u32).collect_vec();
 
-            let flattened_line_coeffs = quotient_constants.line_coeffs.into_iter().flat_map( |vector: Vec<(SecureField, SecureField, SecureField)>|
-                vector.into_iter().flat_map( |(x, y, z)|
-                    vec![x, y, z]
-                ).collect_vec()
+            let flattened_line_coeffs = quotient_constants.line_coeffs.into_iter().flat_map(|vector: Vec<(SecureField, SecureField, SecureField)>|
+            vector.into_iter().flat_map(|(x, y, z)|
+            vec![x, y, z]
+            ).collect_vec()
             ).collect_vec();
 
             bindings::accumulate_quotients(
@@ -103,35 +101,12 @@ impl QuotientOps for CudaBackend {
                 flattened_line_coeffs.as_ptr() as *const u32,
                 flattened_line_coeffs.len() as u32,
                 line_coeffs_sizes.as_ptr() as *const u32,
-                quotient_constants.batch_random_coeffs.as_ptr() as *const u32
+                quotient_constants.batch_random_coeffs.as_ptr() as *const u32,
             );
         }
 
         return result;
     }
-}
-
-fn denominator_inverse(
-    sample_batches: &[ColumnSampleBatch],
-    domain_point: CirclePoint<BaseField>,
-) -> Vec<CM31> {
-    let mut flat_denominators = Vec::with_capacity(sample_batches.len());
-    // We want a P to be on a line that passes through a point Pr + uPi in QM31^2, and its conjugate
-    // Pr - uPi. Thus, Pr - P is parallel to Pi. Or, (Pr - P).x * Pi.y - (Pr - P).y * Pi.x = 0.
-    for sample_batch in sample_batches {
-        // Extract Pr, Pi.
-        let prx = sample_batch.point.x.0;
-        let pry = sample_batch.point.y.0;
-        let pix = sample_batch.point.x.1;
-        let piy = sample_batch.point.y.1;
-        flat_denominators.push(
-            (prx - domain_point.x) * piy - (pry - domain_point.y) * pix);
-    }
-
-    let mut flat_denominator_inverses = vec![CM31::default(); flat_denominators.len()];
-    CM31::batch_inverse(&flat_denominators, &mut flat_denominator_inverses);
-
-    flat_denominator_inverses
 }
 
 /// Holds the precomputed constant values used in each quotient evaluation.
@@ -232,10 +207,19 @@ mod tests {
         let random_coeff = QM31::from_m31(M31::from(1), M31::from(2), M31::from(3), M31::from(4));
         let a = polys[0].eval_at_point(SECURE_FIELD_CIRCLE_GEN);
         let b = polys[1].eval_at_point(SECURE_FIELD_CIRCLE_GEN);
-        let samples = vec![ColumnSampleBatch {
-            point: SECURE_FIELD_CIRCLE_GEN,
-            columns_and_values: vec![(0, a), (1, b)],
-        }];
+        let samples = vec![
+            ColumnSampleBatch {
+                point: SECURE_FIELD_CIRCLE_GEN,
+                columns_and_values: vec![(0, a), (1, b)],
+            },
+            ColumnSampleBatch {
+                point: SECURE_FIELD_CIRCLE_GEN,
+                columns_and_values: vec![(0, a), (1, b)],
+            },
+            ColumnSampleBatch {
+                point: SECURE_FIELD_CIRCLE_GEN,
+                columns_and_values: vec![(0, a), (1, b)],
+            }];
         let cpu_columns = columns
             .iter()
             .map(|c| {
