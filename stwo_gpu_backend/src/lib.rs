@@ -1,3 +1,5 @@
+#![feature(slice_flatten)]
+
 mod accumulation;
 pub mod backend;
 mod column;

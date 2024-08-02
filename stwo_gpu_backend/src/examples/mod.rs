@@ -16,6 +16,7 @@ use self::component::FibonacciComponent;
 
 pub mod air;
 mod component;
+mod poseidon;
 
 #[derive(Clone)]
 pub struct Fibonacci {
