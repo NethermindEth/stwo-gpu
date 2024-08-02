@@ -476,7 +476,7 @@ use stwo_prover::core::backend::simd::SimdBackend;
     use stwo_prover::core::vcs::hasher::Hasher;
     use stwo_prover::core::fields::IntoSlice;
     use stwo_prover::core::air::AirExt;
-
+    use crate::CudaBackend;
     use super::N_LOG_INSTANCES_PER_ROW;
     use crate::examples::poseidon::{
         apply_internal_round_matrix, apply_m4, gen_trace, PoseidonAir, PoseidonComponent,
@@ -552,7 +552,7 @@ use stwo_prover::core::backend::simd::SimdBackend;
 
         // Precompute twiddles.
         let span = span!(Level::INFO, "Precompute twiddles").entered();
-        let twiddles = SimdBackend::precompute_twiddles(
+        let twiddles = CudaBackend::precompute_twiddles(
             CanonicCoset::new(log_n_rows + LOG_EXPAND + LOG_BLOWUP_FACTOR)
                 .circle_domain()
                 .half_coset,
@@ -560,7 +560,8 @@ use stwo_prover::core::backend::simd::SimdBackend;
         span.exit();
 
         // Setup protocol.
-        let channel = &mut Blake2sChannel::new(Blake2sHasher::hash(BaseField::into_slice(&[])));
+        let channel = &mut Blake2sChannel::new(
+            Blake2sHasher::hash(BaseField::into_slice(&[])));
         let commitment_scheme = &mut CommitmentSchemeProver::new(LOG_BLOWUP_FACTOR, &twiddles);
 
         // Trace.
