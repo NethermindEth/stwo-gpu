@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
 use crate::cuda::bindings;
 

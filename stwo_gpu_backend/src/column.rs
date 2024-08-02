@@ -1,11 +1,10 @@
-use std::fmt::{Debug, Formatter};
 use stwo_prover::core::{
     backend::{Column, ColumnOps},
     fields::{m31::BaseField, qm31::SecureField},
 };
 use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
+
 use crate::{backend::CudaBackend, cuda};
-use crate::cuda::{BaseFieldVec, Blake2sHashVec};
 
 impl ColumnOps<BaseField> for CudaBackend {
     type Column = cuda::BaseFieldVec;
