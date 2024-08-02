@@ -213,7 +213,8 @@ extern "C" {
         number_of_columns: usize,
         random_coeff: CudaSecureField,
         sample_points: *const u32,
-        sample_columns: *const u32,
+        sample_columns_indexes: *const u32,
+        sample_columns_indexes_size: u32,
         sample_column_values: *const CudaSecureField,
         sample_column_and_values_sizes: *const u32,
         sample_size: u32,
@@ -222,6 +223,7 @@ extern "C" {
         result_column_2: *const u32,
         result_column_3: *const u32,
         flattened_line_coeffs: *const u32,
+        flattened_line_coeffs_size: u32,
         line_coeffs_sizes: *const u32,
         batch_random_coeffs: *const u32
     );

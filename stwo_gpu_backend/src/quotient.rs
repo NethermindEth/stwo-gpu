@@ -92,6 +92,7 @@ impl QuotientOps for CudaBackend {
                 random_coeff.into(),
                 sample_points.as_ptr() as *const u32,
                 sample_column_indexes.as_ptr(),
+                sample_column_indexes.len() as u32,
                 sample_column_values.as_ptr(),
                 sample_column_and_values_sizes.as_ptr(),
                 sample_points.len() as u32,
@@ -100,6 +101,7 @@ impl QuotientOps for CudaBackend {
                 result.values.columns[2].device_ptr,
                 result.values.columns[3].device_ptr,
                 flattened_line_coeffs.as_ptr() as *const u32,
+                flattened_line_coeffs.len() as u32,
                 line_coeffs_sizes.as_ptr() as *const u32,
                 quotient_constants.batch_random_coeffs.as_ptr() as *const u32
             );
@@ -213,7 +215,7 @@ mod tests {
 
     #[test]
     fn test_accumulate_quotients_compared_with_cpu() {
-        const LOG_SIZE: u32 = 3;
+        const LOG_SIZE: u32 = 15;
         let small_domain = CanonicCoset::new(LOG_SIZE).circle_domain();
         let domain = CanonicCoset::new(LOG_SIZE + LOG_BLOWUP_FACTOR).circle_domain();
         let e0: BaseColumn = (0..small_domain.size()).map(BaseField::from).collect();
@@ -242,7 +244,8 @@ mod tests {
                     c.values.to_cpu(),
                 )
             })
-            .collect::<Vec<_>>();
+            .collect_vec();
+
         let cpu_result = CpuBackend::accumulate_quotients(
             domain,
             &cpu_columns.iter().collect_vec(),
