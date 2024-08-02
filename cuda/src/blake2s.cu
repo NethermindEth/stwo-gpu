@@ -53,7 +53,7 @@ G(const int r, const int i, unsigned int &a, unsigned int &b, unsigned int &c, u
     b = rotr(b ^ c, 7);
 }
 
-__device__ void compress(H *state, unsigned int m[16]) {
+__device__ void compress(Blake2sHash *state, unsigned int m[16]) {
     unsigned int v[16] = {
             state->s[0],
             state->s[1],
@@ -95,7 +95,7 @@ __device__ void compress(H *state, unsigned int m[16]) {
 }
 
 __device__ void compress_cols(
-        H *state, unsigned int **columns, unsigned int number_of_columns, unsigned int index_in_column
+        Blake2sHash *state, unsigned int **columns, unsigned int number_of_columns, unsigned int index_in_column
 ) {
     int chunk_index;
     for (chunk_index = 0; chunk_index + 15 < number_of_columns; chunk_index += 16) {
@@ -119,26 +119,26 @@ __device__ void compress_cols(
 }
 
 __global__ void commit_on_first_layer_in_gpu(
-        uint32_t size, uint32_t number_of_columns, unsigned int **data, H *result
+        uint32_t size, uint32_t number_of_columns, unsigned int **data, Blake2sHash *result
 ) {
     unsigned int index = threadIdx.x + (blockIdx.x * blockDim.x);
     if (index >= size)
         return;
 
-    H state = {0};
+    Blake2sHash state = {0};
     compress_cols(&state, data, number_of_columns, index);
 
     result[index] = state;
 }
 
 __global__ void commit_on_layer_using_previous_in_gpu(
-        uint32_t size, uint32_t number_of_columns, unsigned int **data, H *previous_layer, H *result
+        uint32_t size, uint32_t number_of_columns, unsigned int **data, Blake2sHash *previous_layer, Blake2sHash *result
 ) {
     unsigned int index = threadIdx.x + (blockIdx.x * blockDim.x);
     if (index >= size)
         return;
 
-    H state = {0};
+    Blake2sHash state = {0};
     unsigned int msg[16] = {0};
     for (int j = 0; j < 8; j++) {
         msg[j] = previous_layer[index * 2].s[j];
@@ -154,15 +154,15 @@ uint32_t number_of_blocks_for(uint32_t size) {
     return (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 }
 
-void commit_on_first_layer(uint32_t size, uint32_t number_of_columns, uint32_t **columns, H *result) {
+void commit_on_first_layer(uint32_t size, uint32_t number_of_columns, uint32_t **columns, Blake2sHash *result) {
     commit_on_first_layer_in_gpu<<<number_of_blocks_for(size), min(size, BLOCK_SIZE)>>>(
             size, number_of_columns, columns, result
     );
     cudaDeviceSynchronize();
 }
 
-void commit_on_layer_with_previous(uint32_t size, uint32_t number_of_columns, uint32_t **columns, H *previous_layer,
-                                   H *result) {
+void commit_on_layer_with_previous(uint32_t size, uint32_t number_of_columns, uint32_t **columns, Blake2sHash *previous_layer,
+                                   Blake2sHash *result) {
     commit_on_layer_using_previous_in_gpu<<<number_of_blocks_for(size), min(size, BLOCK_SIZE)>>>(
             size, number_of_columns, columns, previous_layer, result
     );

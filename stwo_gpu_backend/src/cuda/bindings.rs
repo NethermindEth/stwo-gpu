@@ -89,7 +89,11 @@ extern "C" {
 
     pub fn cuda_malloc_uint32_t(size: u32) -> *const u32;
 
+    pub fn cuda_malloc_blake_2s_hash(size: usize) -> *const Blake2sHash;
+
     pub fn cuda_alloc_zeroes_uint32_t(size: u32) -> *const u32;
+
+    pub fn cuda_alloc_zeroes_blake_2s_hash(size: usize) -> *const Blake2sHash;
 
     pub fn free_uint32_t_vec(device_ptr: *const u32);
 
@@ -189,6 +193,12 @@ extern "C" {
     pub fn copy_blake_2s_hash_vec_from_device_to_host(
         from: *const Blake2sHash,
         to: *const Blake2sHash,
+        size: usize,
+    );
+
+    pub fn copy_blake_2s_hash_vec_from_device_to_device(
+        from: *const Blake2sHash,
+        dst: *const Blake2sHash,
         size: usize,
     );
 
