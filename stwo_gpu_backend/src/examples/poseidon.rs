@@ -3,30 +3,34 @@
 use std::array;
 use std::ops::{Add, AddAssign, Mul, Sub};
 
+use crate::cuda::BaseFieldVec;
+use crate::CudaBackend;
 use itertools::Itertools;
-use stwo_prover::constraint_framework::{EvalAtRow, PointEvaluator, SimdDomainEvaluator};
-use stwo_prover::core::air::{Air, AirProver, Component, ComponentProver, ComponentTrace};
-use stwo_prover::core::channel::Blake2sChannel;
-use stwo_prover::core::fields::m31::BaseField;
-use stwo_prover::core::{ColumnVec, InteractionElements, LookupValues};
-use stwo_prover::core::air::accumulation::{DomainEvaluationAccumulator, PointEvaluationAccumulator};
-use stwo_prover::core::air::mask::fixed_mask_points;
-use stwo_prover::core::backend::{Col, Column};
-use stwo_prover::core::backend::simd::m31::{LOG_N_LANES, PackedBaseField, PackedM31};
-use stwo_prover::core::backend::simd::SimdBackend;
-use stwo_prover::core::circle::CirclePoint;
-use stwo_prover::core::constraints::coset_vanishing;
-use stwo_prover::core::fields::FieldExpOps;
-use stwo_prover::core::fields::qm31::SecureField;
-use stwo_prover::core::pcs::TreeVec;
-use stwo_prover::core::poly::BitReversedOrder;
-use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation, PolyOps};
-use stwo_prover::core::prover::VerificationError;
-use stwo_prover::core::utils::bit_reverse;
-use stwo_prover::trace_generation;
-use stwo_prover::trace_generation::{AirTraceGenerator, AirTraceVerifier, ComponentTraceGenerator};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
+use stwo_prover::constraint_framework::{EvalAtRow, PointEvaluator, SimdDomainEvaluator};
+use stwo_prover::core::air::accumulation::{
+    DomainEvaluationAccumulator, PointEvaluationAccumulator,
+};
+use stwo_prover::core::air::mask::fixed_mask_points;
+use stwo_prover::core::air::{Air, AirProver, Component, ComponentProver, ComponentTrace};
+use stwo_prover::core::backend::simd::m31::{PackedBaseField, PackedM31, LOG_N_LANES};
+use stwo_prover::core::backend::simd::SimdBackend;
+use stwo_prover::core::backend::{Col, Column};
+use stwo_prover::core::channel::Blake2sChannel;
+use stwo_prover::core::circle::CirclePoint;
+use stwo_prover::core::constraints::coset_vanishing;
+use stwo_prover::core::fields::m31::BaseField;
+use stwo_prover::core::fields::qm31::SecureField;
+use stwo_prover::core::fields::FieldExpOps;
+use stwo_prover::core::pcs::TreeVec;
+use stwo_prover::core::poly::circle::{CanonicCoset, CircleDomain, CircleEvaluation, PolyOps};
+use stwo_prover::core::poly::BitReversedOrder;
+use stwo_prover::core::prover::VerificationError;
+use stwo_prover::core::utils::bit_reverse;
+use stwo_prover::core::{ColumnVec, InteractionElements, LookupValues};
+use stwo_prover::trace_generation;
+use stwo_prover::trace_generation::{AirTraceGenerator, AirTraceVerifier, ComponentTraceGenerator};
 use tracing::{span, Level};
 
 const N_LOG_INSTANCES_PER_ROW: usize = 3;
@@ -149,7 +153,7 @@ impl Component for PoseidonComponent {
 /// Applies the M4 MDS matrix described in <https://eprint.iacr.org/2023/323.pdf> 5.1.
 fn apply_m4<F>(x: [F; 4]) -> [F; 4]
 where
-    F: Copy + AddAssign<F> + Add<F, Output=F> + Sub<F, Output=F> + Mul<BaseField, Output=F>,
+    F: Copy + AddAssign<F> + Add<F, Output = F> + Sub<F, Output = F> + Mul<BaseField, Output = F>,
 {
     let t0 = x[0] + x[1];
     let t02 = t0 + t0;
@@ -168,7 +172,7 @@ where
 /// See <https://eprint.iacr.org/2023/323.pdf> 5.1 and Appendix B.
 fn apply_external_round_matrix<F>(state: &mut [F; 16])
 where
-    F: Copy + AddAssign<F> + Add<F, Output=F> + Sub<F, Output=F> + Mul<BaseField, Output=F>,
+    F: Copy + AddAssign<F> + Add<F, Output = F> + Sub<F, Output = F> + Mul<BaseField, Output = F>,
 {
     // Applies circ(2M4, M4, M4, M4).
     for i in 0..4 {
@@ -197,7 +201,7 @@ where
 // See <https://eprint.iacr.org/2023/323.pdf> 5.2.
 fn apply_internal_round_matrix<F>(state: &mut [F; 16])
 where
-    F: Copy + AddAssign<F> + Add<F, Output=F> + Sub<F, Output=F> + Mul<BaseField, Output=F>,
+    F: Copy + AddAssign<F> + Add<F, Output = F> + Sub<F, Output = F> + Mul<BaseField, Output = F>,
 {
     // TODO(spapini): Check that these coefficients are good according to section  5.3 of Poseidon2
     // paper.
@@ -270,7 +274,21 @@ impl AirProver<SimdBackend> for PoseidonAir {
 
 pub fn gen_trace(
     log_size: u32,
-) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
+) -> ColumnVec<CircleEvaluation<CudaBackend, BaseField, BitReversedOrder>> {
+    let (trace, domain) = _gen_trace_simd(log_size);
+
+    trace
+        .into_iter()
+        .map(|eval| {
+            CircleEvaluation::<CudaBackend, _, BitReversedOrder>::new(
+                domain,
+                BaseFieldVec::from_vec(eval),
+            )
+        })
+        .collect_vec()
+}
+
+fn _gen_trace_simd(log_size: u32) -> (Vec<Vec<BaseField>>, CircleDomain) {
     let _span = span!(Level::INFO, "Generation").entered();
     assert!(log_size >= LOG_N_LANES);
     let mut trace = (0..N_COLUMNS)
@@ -329,10 +347,7 @@ pub fn gen_trace(
         }
     }
     let domain = CanonicCoset::new(log_size).circle_domain();
-    trace
-        .into_iter()
-        .map(|eval| CircleEvaluation::<SimdBackend, _, BitReversedOrder>::new(domain, eval))
-        .collect_vec()
+    (trace, domain)
 }
 
 impl ComponentTraceGenerator<SimdBackend> for PoseidonComponent {
@@ -452,36 +467,36 @@ impl ComponentProver<SimdBackend> for PoseidonComponent {
 
 #[cfg(test)]
 mod tests {
-    use stwo_prover::constraint_framework::constant_columns::gen_is_first;
-use stwo_prover::core::backend::simd::SimdBackend;
-    use std::env;
-    use stwo_prover::core::channel::Blake2sChannel;
-    use stwo_prover::core::vcs::blake2_hash::Blake2sHasher;
-    use itertools::Itertools;
-    use num_traits::One;
-    use stwo_prover::constraint_framework::assert_constraints;
-    use stwo_prover::core::fields::m31::BaseField;
-    use stwo_prover::core::pcs::TreeVec;
-    use stwo_prover::core::poly::circle::CanonicCoset;
-    use stwo_prover::math::matrix::{RowMajorMatrix, SquareMatrix};
-    use stwo_prover::core::prover::LOG_BLOWUP_FACTOR;
-    use tracing::{span, Level};
-    use stwo_prover::core::pcs::CommitmentSchemeProver;
-    use stwo_prover::core::prover::prove;
-    use stwo_prover::core::InteractionElements;
-    use stwo_prover::core::pcs::CommitmentSchemeVerifier;
-    use stwo_prover::core::prover::verify;
-    use stwo_prover::core::poly::circle::PolyOps;
-    use stwo_prover::core::channel::Channel;
-    use stwo_prover::core::vcs::hasher::Hasher;
-    use stwo_prover::core::fields::IntoSlice;
-    use stwo_prover::core::air::AirExt;
-    use crate::CudaBackend;
     use super::N_LOG_INSTANCES_PER_ROW;
     use crate::examples::poseidon::{
         apply_internal_round_matrix, apply_m4, gen_trace, PoseidonAir, PoseidonComponent,
         PoseidonEval, LOG_EXPAND,
     };
+    use crate::CudaBackend;
+    use itertools::Itertools;
+    use num_traits::One;
+    use std::env;
+    use stwo_prover::constraint_framework::assert_constraints;
+    use stwo_prover::constraint_framework::constant_columns::gen_is_first;
+    use stwo_prover::core::air::AirExt;
+    use stwo_prover::core::backend::simd::SimdBackend;
+    use stwo_prover::core::channel::Blake2sChannel;
+    use stwo_prover::core::channel::Channel;
+    use stwo_prover::core::fields::m31::BaseField;
+    use stwo_prover::core::fields::IntoSlice;
+    use stwo_prover::core::pcs::CommitmentSchemeProver;
+    use stwo_prover::core::pcs::CommitmentSchemeVerifier;
+    use stwo_prover::core::pcs::TreeVec;
+    use stwo_prover::core::poly::circle::CanonicCoset;
+    use stwo_prover::core::poly::circle::PolyOps;
+    use stwo_prover::core::prover::prove;
+    use stwo_prover::core::prover::verify;
+    use stwo_prover::core::prover::LOG_BLOWUP_FACTOR;
+    use stwo_prover::core::vcs::blake2_hash::Blake2sHasher;
+    use stwo_prover::core::vcs::hasher::Hasher;
+    use stwo_prover::core::InteractionElements;
+    use stwo_prover::math::matrix::{RowMajorMatrix, SquareMatrix};
+    use tracing::{span, Level};
 
     #[test]
     fn test_apply_m4() {
@@ -560,8 +575,7 @@ use stwo_prover::core::backend::simd::SimdBackend;
         span.exit();
 
         // Setup protocol.
-        let channel = &mut Blake2sChannel::new(
-            Blake2sHasher::hash(BaseField::into_slice(&[])));
+        let channel = &mut Blake2sChannel::new(Blake2sHasher::hash(BaseField::into_slice(&[])));
         let commitment_scheme = &mut CommitmentSchemeProver::new(LOG_BLOWUP_FACTOR, &twiddles);
 
         // Trace.
@@ -588,7 +602,7 @@ use stwo_prover::core::backend::simd::SimdBackend;
             &InteractionElements::default(),
             commitment_scheme,
         )
-            .unwrap();
+        .unwrap();
 
         // Verify.
         let channel = &mut Blake2sChannel::new(Blake2sHasher::hash(BaseField::into_slice(&[])));
@@ -609,6 +623,6 @@ use stwo_prover::core::backend::simd::SimdBackend;
             commitment_scheme,
             proof,
         )
-            .unwrap();
+        .unwrap();
     }
 }

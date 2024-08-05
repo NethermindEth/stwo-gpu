@@ -1,8 +1,8 @@
+use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
 use stwo_prover::core::{
     backend::{Column, ColumnOps},
     fields::{m31::BaseField, qm31::SecureField},
 };
-use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
 
 use crate::{backend::CudaBackend, cuda};
 
@@ -113,7 +113,7 @@ impl Column<Blake2sHash> for cuda::Blake2sHashVec {
 }
 
 impl FromIterator<Blake2sHash> for cuda::Blake2sHashVec {
-    fn from_iter<T: IntoIterator<Item=Blake2sHash>>(iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = Blake2sHash>>(iter: T) -> Self {
         todo!()
     }
 }

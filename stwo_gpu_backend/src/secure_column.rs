@@ -17,11 +17,11 @@ impl CudaSecureColumn {
                 folded_values_column.clone(),
                 folded_values_column.clone(),
                 folded_values_column,
-            ]
+            ],
         }
     }
 
-    pub fn device_ptr(&self) -> *const*const u32 {
+    pub fn device_ptr(&self) -> *const *const u32 {
         self.columns.as_ptr()
     }
 }
@@ -36,7 +36,7 @@ impl<'a> From<&'a SecureColumnByCoords<CudaBackend>> for CudaSecureColumn {
         let columns_ptrs_as_array: [*const u32; 4] = columns_ptrs_as_vec.try_into().unwrap();
 
         Self {
-            columns: columns_ptrs_as_array
+            columns: columns_ptrs_as_array,
         }
     }
 }
@@ -51,7 +51,7 @@ impl<'a> From<&'a mut SecureColumnByCoords<CudaBackend>> for CudaSecureColumn {
         let columns_ptrs_as_array: [*const u32; 4] = columns_ptrs_as_vec.try_into().unwrap();
 
         Self {
-            columns: columns_ptrs_as_array
+            columns: columns_ptrs_as_array,
         }
     }
 }

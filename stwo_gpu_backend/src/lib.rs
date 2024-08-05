@@ -2,15 +2,15 @@
 
 mod accumulation;
 pub mod backend;
+mod blake2s;
 mod column;
 pub mod cuda;
+pub mod examples;
 mod field;
 mod fri;
 mod poly;
 mod quotient;
 mod secure_column;
-mod blake2s;
-pub mod examples;
 
 pub use backend::CudaBackend;
 

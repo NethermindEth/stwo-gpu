@@ -1,22 +1,22 @@
 use std::ops::Div;
 
-use stwo_prover::core::{ColumnVec, InteractionElements, LookupValues};
-use stwo_prover::core::air::{Component, ComponentProver, ComponentTrace};
 use stwo_prover::core::air::accumulation::{
     ColumnAccumulator, DomainEvaluationAccumulator, PointEvaluationAccumulator,
 };
 use stwo_prover::core::air::mask::shifted_mask_points;
-use stwo_prover::core::backend::{Column, CpuBackend};
+use stwo_prover::core::air::{Component, ComponentProver, ComponentTrace};
 use stwo_prover::core::backend::cpu::CpuCircleEvaluation;
+use stwo_prover::core::backend::{Column, CpuBackend};
 use stwo_prover::core::circle::{CirclePoint, Coset};
 use stwo_prover::core::constraints::{coset_vanishing, pair_vanishing};
-use stwo_prover::core::fields::{ExtensionOf, FieldExpOps};
 use stwo_prover::core::fields::m31::BaseField;
 use stwo_prover::core::fields::qm31::SecureField;
 use stwo_prover::core::fields::secure_column::SecureColumnByCoords;
+use stwo_prover::core::fields::{ExtensionOf, FieldExpOps};
 use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CanonicCoset;
 use stwo_prover::core::utils::bit_reverse_index;
+use stwo_prover::core::{ColumnVec, InteractionElements, LookupValues};
 use stwo_prover::trace_generation::BASE_TRACE;
 
 use crate::cuda::BaseFieldVec;

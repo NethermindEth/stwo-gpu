@@ -1,8 +1,8 @@
 use stwo_prover::core::channel::{Blake2sChannel, Channel};
-use stwo_prover::core::fields::{FieldExpOps, IntoSlice};
 use stwo_prover::core::fields::m31::BaseField;
-use stwo_prover::core::poly::BitReversedOrder;
+use stwo_prover::core::fields::{FieldExpOps, IntoSlice};
 use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation};
+use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::prover::{ProvingError, StarkProof, VerificationError};
 use stwo_prover::core::vcs::blake2_hash::Blake2sHasher;
 use stwo_prover::core::vcs::hasher::Hasher;
@@ -76,14 +76,14 @@ mod tests {
     use std::iter::zip;
 
     use itertools::Itertools;
-    use stwo_prover::core::{InteractionElements, LookupValues};
-    use stwo_prover::core::air::{AirExt, AirProverExt, Component, ComponentTrace};
     use stwo_prover::core::air::accumulation::PointEvaluationAccumulator;
+    use stwo_prover::core::air::{AirExt, AirProverExt, Component, ComponentTrace};
     use stwo_prover::core::circle::CirclePoint;
     use stwo_prover::core::fields::m31::BaseField;
     use stwo_prover::core::fields::qm31::SecureField;
     use stwo_prover::core::pcs::TreeVec;
     use stwo_prover::core::poly::circle::CanonicCoset;
+    use stwo_prover::core::{InteractionElements, LookupValues};
     use stwo_prover::trace_generation::BASE_TRACE;
 
     use crate::examples::Fibonacci;

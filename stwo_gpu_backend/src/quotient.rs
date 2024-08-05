@@ -1,20 +1,20 @@
 use itertools::Itertools;
+use stwo_prover::core::constraints::complex_conjugate_line_coeffs;
+use stwo_prover::core::fields::m31::M31;
+use stwo_prover::core::fields::FieldExpOps;
+use stwo_prover::core::pcs::quotients::PointSample;
 use stwo_prover::core::{
     fields::{m31::BaseField, qm31::SecureField, secure_column::SecureColumnByCoords},
     pcs::quotients::{ColumnSampleBatch, QuotientOps},
     poly::{
-        BitReversedOrder,
         circle::{CircleDomain, CircleEvaluation, SecureEvaluation},
+        BitReversedOrder,
     },
 };
-use stwo_prover::core::constraints::complex_conjugate_line_coeffs;
-use stwo_prover::core::fields::FieldExpOps;
-use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::pcs::quotients::PointSample;
 
-use crate::{backend::CudaBackend, cuda::BaseFieldVec};
 use crate::cuda::bindings;
 use crate::cuda::bindings::{CirclePointSecureField, CudaSecureField};
+use crate::{backend::CudaBackend, cuda::BaseFieldVec};
 
 impl QuotientOps for CudaBackend {
     fn accumulate_quotients(
@@ -38,7 +38,8 @@ impl QuotientOps for CudaBackend {
             },
         };
 
-        let device_column_pointers_vector = columns.iter()
+        let device_column_pointers_vector = columns
+            .iter()
             .map(|column| column.values.device_ptr)
             .collect_vec();
 
@@ -49,37 +50,60 @@ impl QuotientOps for CudaBackend {
             let half_coset_initial_index = domain.half_coset.initial_index;
             let half_coset_step_size = domain.half_coset.step_size;
 
-            let device_column_pointers: *const *const u32 = bindings::copy_device_pointer_vec_from_host_to_device(
-                device_column_pointers_vector.as_ptr(), number_of_columns,
-            );
+            let device_column_pointers: *const *const u32 =
+                bindings::copy_device_pointer_vec_from_host_to_device(
+                    device_column_pointers_vector.as_ptr(),
+                    number_of_columns,
+                );
 
-            let sample_points: Vec<CirclePointSecureField> = sample_batches.iter().map(|column_sample_batch|
-            column_sample_batch.point.into()
-            ).collect();
+            let sample_points: Vec<CirclePointSecureField> = sample_batches
+                .iter()
+                .map(|column_sample_batch| column_sample_batch.point.into())
+                .collect();
 
-            let sample_column_indexes: Vec<u32> = sample_batches.iter().flat_map(|column_sample_batch|
-            column_sample_batch.columns_and_values.iter().map(|(column, _)|
-            *column as u32
-            ).collect_vec()
-            ).collect_vec();
+            let sample_column_indexes: Vec<u32> = sample_batches
+                .iter()
+                .flat_map(|column_sample_batch| {
+                    column_sample_batch
+                        .columns_and_values
+                        .iter()
+                        .map(|(column, _)| *column as u32)
+                        .collect_vec()
+                })
+                .collect_vec();
 
-            let sample_column_and_values_sizes: Vec<u32> = sample_batches.iter().map(|column_sample_batch|
-                                                                                     column_sample_batch.columns_and_values.len() as u32,
-            ).collect_vec();
+            let sample_column_and_values_sizes: Vec<u32> = sample_batches
+                .iter()
+                .map(|column_sample_batch| column_sample_batch.columns_and_values.len() as u32)
+                .collect_vec();
 
-            let sample_column_values: Vec<CudaSecureField> = sample_batches.iter().flat_map(|column_sample_batch|
-            column_sample_batch.columns_and_values.iter().map(|(_, value)|
-            (*value).into()
-            ).collect_vec()
-            ).collect_vec();
+            let sample_column_values: Vec<CudaSecureField> = sample_batches
+                .iter()
+                .flat_map(|column_sample_batch| {
+                    column_sample_batch
+                        .columns_and_values
+                        .iter()
+                        .map(|(_, value)| (*value).into())
+                        .collect_vec()
+                })
+                .collect_vec();
 
-            let line_coeffs_sizes = quotient_constants.line_coeffs.iter().map(|vector| vector.len() as u32).collect_vec();
+            let line_coeffs_sizes = quotient_constants
+                .line_coeffs
+                .iter()
+                .map(|vector| vector.len() as u32)
+                .collect_vec();
 
-            let flattened_line_coeffs = quotient_constants.line_coeffs.into_iter().flat_map(|vector: Vec<(SecureField, SecureField, SecureField)>|
-            vector.into_iter().flat_map(|(x, y, z)|
-            vec![x, y, z]
-            ).collect_vec()
-            ).collect_vec();
+            let flattened_line_coeffs = quotient_constants
+                .line_coeffs
+                .into_iter()
+                .flat_map(|vector: Vec<(SecureField, SecureField, SecureField)>| {
+                    vector
+                        .into_iter()
+                        .flat_map(|(x, y, z)| vec![x, y, z])
+                        .collect_vec()
+                })
+                .collect_vec();
 
             bindings::accumulate_quotients(
                 half_coset_initial_index.0 as u32,
@@ -155,7 +179,8 @@ pub fn column_line_coeffs(
     sample_batches
         .iter()
         .map(|sample_batch| {
-            let mut alpha = SecureField::from_m31(M31::from(1), M31::from(0), M31::from(0), M31::from(0));
+            let mut alpha =
+                SecureField::from_m31(M31::from(1), M31::from(0), M31::from(0), M31::from(0));
             sample_batch
                 .columns_and_values
                 .iter()
@@ -175,14 +200,14 @@ pub fn column_line_coeffs(
 #[cfg(test)]
 mod tests {
     use itertools::Itertools;
-    use stwo_prover::core::backend::{Column, CpuBackend};
     use stwo_prover::core::backend::simd::column::BaseColumn;
+    use stwo_prover::core::backend::{Column, CpuBackend};
     use stwo_prover::core::circle::SECURE_FIELD_CIRCLE_GEN;
     use stwo_prover::core::fields::m31::{BaseField, M31};
     use stwo_prover::core::fields::qm31::QM31;
     use stwo_prover::core::pcs::quotients::{ColumnSampleBatch, QuotientOps};
-    use stwo_prover::core::poly::BitReversedOrder;
     use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation};
+    use stwo_prover::core::poly::BitReversedOrder;
     use stwo_prover::core::prover::LOG_BLOWUP_FACTOR;
 
     use crate::cuda::BaseFieldVec;
@@ -198,10 +223,16 @@ mod tests {
             .map(|i| BaseField::from(2 * i))
             .collect();
         let polys = vec![
-            CircleEvaluation::<CudaBackend, BaseField, BitReversedOrder>::new(small_domain, BaseFieldVec::from_vec(e0.to_cpu()))
-                .interpolate(),
-            CircleEvaluation::<CudaBackend, BaseField, BitReversedOrder>::new(small_domain, BaseFieldVec::from_vec(e1.to_cpu()))
-                .interpolate(),
+            CircleEvaluation::<CudaBackend, BaseField, BitReversedOrder>::new(
+                small_domain,
+                BaseFieldVec::from_vec(e0.to_cpu()),
+            )
+            .interpolate(),
+            CircleEvaluation::<CudaBackend, BaseField, BitReversedOrder>::new(
+                small_domain,
+                BaseFieldVec::from_vec(e1.to_cpu()),
+            )
+            .interpolate(),
         ];
         let columns = vec![polys[0].evaluate(domain), polys[1].evaluate(domain)];
         let random_coeff = QM31::from_m31(M31::from(1), M31::from(2), M31::from(3), M31::from(4));
@@ -219,7 +250,8 @@ mod tests {
             ColumnSampleBatch {
                 point: SECURE_FIELD_CIRCLE_GEN,
                 columns_and_values: vec![(0, a), (1, b)],
-            }];
+            },
+        ];
         let cpu_columns = columns
             .iter()
             .map(|c| {
@@ -235,14 +267,19 @@ mod tests {
             &cpu_columns.iter().collect_vec(),
             random_coeff,
             &samples,
-        ).values.to_vec();
+        )
+        .values
+        .to_vec();
 
         let gpu_result = CudaBackend::accumulate_quotients(
             domain,
             &columns.iter().collect_vec(),
             random_coeff,
             &samples,
-        ).values.to_cpu().to_vec();
+        )
+        .values
+        .to_cpu()
+        .to_vec();
 
         assert_eq!(gpu_result, cpu_result);
     }
