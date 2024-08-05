@@ -3,17 +3,12 @@
 use std::array;
 use std::ops::{Add, AddAssign, Mul, Sub};
 
-use crate::cuda::BaseFieldVec;
-use crate::CudaBackend;
 use itertools::Itertools;
-#[cfg(feature = "parallel")]
-use rayon::prelude::*;
 use stwo_prover::constraint_framework::{EvalAtRow, PointEvaluator, SimdDomainEvaluator};
-use stwo_prover::core::air::accumulation::{
-    DomainEvaluationAccumulator, PointEvaluationAccumulator,
-};
+use stwo_prover::core::air::accumulation::{ColumnAccumulator, DomainEvaluationAccumulator, PointEvaluationAccumulator};
 use stwo_prover::core::air::mask::fixed_mask_points;
 use stwo_prover::core::air::{Air, AirProver, Component, ComponentProver, ComponentTrace};
+use stwo_prover::core::backend::simd::column::{BaseColumn, SecureColumn};
 use stwo_prover::core::backend::simd::m31::{PackedBaseField, PackedM31, LOG_N_LANES};
 use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::{Col, Column};
@@ -24,14 +19,23 @@ use stwo_prover::core::fields::m31::BaseField;
 use stwo_prover::core::fields::qm31::SecureField;
 use stwo_prover::core::fields::FieldExpOps;
 use stwo_prover::core::pcs::TreeVec;
-use stwo_prover::core::poly::circle::{CanonicCoset, CircleDomain, CircleEvaluation, PolyOps};
+use stwo_prover::core::poly::circle::{
+    CanonicCoset, CircleDomain, CircleEvaluation, CirclePoly, PolyOps,
+};
 use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::prover::VerificationError;
 use stwo_prover::core::utils::bit_reverse;
 use stwo_prover::core::{ColumnVec, InteractionElements, LookupValues};
+use stwo_prover::core::fields::secure_column::SecureColumnByCoords;
 use stwo_prover::trace_generation;
 use stwo_prover::trace_generation::{AirTraceGenerator, AirTraceVerifier, ComponentTraceGenerator};
 use tracing::{span, Level};
+
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
+use crate::cuda::BaseFieldVec;
+use crate::CudaBackend;
 
 const N_LOG_INSTANCES_PER_ROW: usize = 3;
 const N_INSTANCES_PER_ROW: usize = 1 << N_LOG_INSTANCES_PER_ROW;
@@ -99,6 +103,24 @@ impl AirTraceGenerator<SimdBackend> for PoseidonAir {
 
     fn composition_log_degree_bound(&self) -> u32 {
         self.component.max_constraint_log_degree_bound()
+    }
+}
+
+impl AirTraceGenerator<CudaBackend> for PoseidonAir {
+    fn composition_log_degree_bound(&self) -> u32 {
+        self.component.max_constraint_log_degree_bound()
+    }
+
+    fn interact(
+        &self,
+        _trace: &ColumnVec<CircleEvaluation<CudaBackend, BaseField, BitReversedOrder>>,
+        _elements: &InteractionElements,
+    ) -> Vec<CircleEvaluation<CudaBackend, BaseField, BitReversedOrder>> {
+        vec![]
+    }
+
+    fn to_air_prover(&self) -> impl AirProver<CudaBackend> {
+        self.clone()
     }
 }
 
@@ -272,6 +294,12 @@ impl AirProver<SimdBackend> for PoseidonAir {
     }
 }
 
+impl AirProver<CudaBackend> for PoseidonAir {
+    fn prover_components(&self) -> Vec<&dyn ComponentProver<CudaBackend>> {
+        vec![&self.component]
+    }
+}
+
 pub fn gen_trace(
     log_size: u32,
 ) -> ColumnVec<CircleEvaluation<CudaBackend, BaseField, BitReversedOrder>> {
@@ -282,13 +310,13 @@ pub fn gen_trace(
         .map(|eval| {
             CircleEvaluation::<CudaBackend, _, BitReversedOrder>::new(
                 domain,
-                BaseFieldVec::from_vec(eval),
+                BaseFieldVec::from_vec(eval.into_cpu_vec()),
             )
         })
         .collect_vec()
 }
 
-fn _gen_trace_simd(log_size: u32) -> (Vec<Vec<BaseField>>, CircleDomain) {
+fn _gen_trace_simd(log_size: u32) -> (Vec<BaseColumn>, CircleDomain) {
     let _span = span!(Level::INFO, "Generation").entered();
     assert!(log_size >= LOG_N_LANES);
     let mut trace = (0..N_COLUMNS)
@@ -465,17 +493,149 @@ impl ComponentProver<SimdBackend> for PoseidonComponent {
     }
 }
 
+impl ComponentProver<CudaBackend> for PoseidonComponent {
+    fn evaluate_constraint_quotients_on_domain(
+        &self,
+        trace: &ComponentTrace<'_, CudaBackend>,
+        evaluation_accumulator: &mut DomainEvaluationAccumulator<CudaBackend>,
+        interaction_elements: &InteractionElements,
+        lookup_values: &LookupValues,
+    ) {
+        let simd_polys: TreeVec<ColumnVec<CirclePoly<SimdBackend>>> = TreeVec::new(
+            trace.polys.iter()
+                .map(|column_vec| {
+                    column_vec.iter().map(|poly| {
+                        CirclePoly::<SimdBackend>::new(BaseColumn::from_iter(
+                            poly.coeffs.to_cpu().into_iter().collect::<Vec<_>>(),
+                        ))
+                    }).collect()
+                }).collect::<Vec<_>>()
+        );
+
+        let simd_evals: TreeVec<ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>> = TreeVec::new(
+            trace
+            .evals.iter()
+            .map(|column_vec| {
+                column_vec
+                    .iter()
+                    .map(|circle_eval| {
+                        CircleEvaluation::<SimdBackend, _, BitReversedOrder>::new(
+                            circle_eval.domain,
+                            BaseColumn::from_iter(circle_eval.values.to_cpu().into_iter().collect::<Vec<_>>()),
+                        )
+                    })
+                    .collect()
+            }).collect::<Vec<_>>()
+        );
+
+        let trace = ComponentTrace::new(
+                TreeVec::new(simd_polys.iter().map(|c| c.iter().map(|x| x).collect::<Vec<_>>()).collect::<Vec<_>>()),
+                TreeVec::new(simd_evals.iter().map(|c| c.iter().map(|x| x).collect::<Vec<_>>()).collect::<Vec<_>>())
+        );
+
+        assert_eq!(trace.polys[0].len(), self.n_columns());
+        let eval_domain = CanonicCoset::new(self.log_column_size() + LOG_EXPAND).circle_domain();
+
+        // Create a new evaluation.
+        let span = span!(Level::INFO, "Deg4 eval").entered();
+        let twiddles = SimdBackend::precompute_twiddles(
+            CanonicCoset::new(self.max_constraint_log_degree_bound())
+                .circle_domain()
+                .half_coset,
+        );
+        let trace_eval = trace
+            .polys
+            .as_cols_ref()
+            .map_cols(|col| col.evaluate_with_twiddles(eval_domain, &twiddles));
+        let trace_eval_ref = trace_eval.as_ref().map(|t| t.iter().collect_vec());
+        span.exit();
+
+        // Denoms.
+        let span = span!(Level::INFO, "Constraint eval denominators").entered();
+        let zero_domain = CanonicCoset::new(self.log_column_size()).coset;
+        let denoms_inv: [BaseField; 1 << LOG_EXPAND] =
+            array::from_fn(|i| coset_vanishing(zero_domain, eval_domain.at(i)).inverse());
+        let mut packed_denoms_inv = denoms_inv.map(PackedM31::broadcast);
+        bit_reverse(&mut packed_denoms_inv);
+        span.exit();
+
+        let _span = span!(Level::INFO, "Constraint pointwise eval").entered();
+
+        let constraint_log_degree_bound = self.max_constraint_log_degree_bound();
+        let n_constraints = self.n_constraints();
+        let [mut cuda_accum] =
+            evaluation_accumulator.columns([(constraint_log_degree_bound, n_constraints)]);
+        let mut pows = cuda_accum.random_coeff_powers.clone();
+        pows.reverse();
+
+        let mut col = SecureColumnByCoords::from_iter(cuda_accum.col.to_cpu().into_iter().collect::<Vec<_>>());
+        let accum: ColumnAccumulator<SimdBackend> = ColumnAccumulator{
+          random_coeff_powers: cuda_accum.random_coeff_powers.clone(),
+            col: &mut col
+        };
+
+        const CHUNK_SIZE: usize = 16;
+        assert_eq!(accum.col.columns[0].length % (CHUNK_SIZE << LOG_N_LANES), 0);
+
+        #[cfg(not(feature = "parallel"))]
+        let iter = (0..(1 << (eval_domain.log_size() - LOG_N_LANES)))
+            .step_by(CHUNK_SIZE)
+            .zip(accum.col.chunks_mut(CHUNK_SIZE));
+
+        #[cfg(feature = "parallel")]
+        let iter = (0..(1 << (eval_domain.log_size() - LOG_N_LANES)))
+            .into_par_iter()
+            .step_by(CHUNK_SIZE)
+            .zip(accum.col.chunks_mut(CHUNK_SIZE));
+
+        iter.for_each(|(chunk_offset, mut col_chunk)| {
+            for offset in 0..CHUNK_SIZE {
+                let vec_row = chunk_offset + offset;
+                let mut evaluator = PoseidonEval {
+                    eval: SimdDomainEvaluator::new(
+                        &trace_eval_ref,
+                        vec_row,
+                        &pows,
+                        self.log_n_rows,
+                        self.log_n_rows + LOG_EXPAND,
+                    ),
+                };
+                for _ in 0..N_INSTANCES_PER_ROW {
+                    evaluator.eval();
+                }
+
+                let packed_denom_inv =
+                    packed_denoms_inv[vec_row >> (zero_domain.log_size() - LOG_N_LANES)];
+                let quotient = evaluator.eval.row_res * packed_denom_inv;
+                unsafe { col_chunk.set_packed(offset, col_chunk.packed_at(offset) + quotient) };
+                assert_eq!(evaluator.eval.constraint_index, n_constraints);
+            }
+        });
+
+        let columns = accum.col.to_cpu().columns;
+        let columns_ptrs_as_vec: Vec<BaseFieldVec> = columns
+            .into_iter()
+            .map(|column| BaseFieldVec::from_vec(column))
+            .collect();
+        let columns_ptrs_as_array: [BaseFieldVec; 4] = columns_ptrs_as_vec.try_into().unwrap();
+
+        *cuda_accum.col = SecureColumnByCoords {
+            columns: columns_ptrs_as_array,
+        }
+
+    }
+
+    fn lookup_values(&self, _trace: &ComponentTrace<'_, CudaBackend>) -> LookupValues {
+        LookupValues::default()
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::N_LOG_INSTANCES_PER_ROW;
-    use crate::examples::poseidon::{
-        apply_internal_round_matrix, apply_m4, gen_trace, PoseidonAir, PoseidonComponent,
-        PoseidonEval, LOG_EXPAND,
-    };
-    use crate::CudaBackend;
+    use std::env;
+
     use itertools::Itertools;
     use num_traits::One;
-    use std::env;
     use stwo_prover::constraint_framework::assert_constraints;
     use stwo_prover::constraint_framework::constant_columns::gen_is_first;
     use stwo_prover::core::air::AirExt;
@@ -497,6 +657,14 @@ mod tests {
     use stwo_prover::core::InteractionElements;
     use stwo_prover::math::matrix::{RowMajorMatrix, SquareMatrix};
     use tracing::{span, Level};
+
+    use crate::examples::poseidon::{
+        apply_internal_round_matrix, apply_m4, gen_trace, PoseidonAir, PoseidonComponent,
+        PoseidonEval, LOG_EXPAND,
+    };
+    use crate::CudaBackend;
+
+    use super::N_LOG_INSTANCES_PER_ROW;
 
     #[test]
     fn test_apply_m4() {
@@ -596,7 +764,7 @@ mod tests {
         // Prove constraints.
         let component = PoseidonComponent { log_n_rows };
         let air = PoseidonAir { component };
-        let proof = prove::<SimdBackend>(
+        let proof = prove::<CudaBackend>(
             &air,
             channel,
             &InteractionElements::default(),
@@ -623,6 +791,6 @@ mod tests {
             commitment_scheme,
             proof,
         )
-        .unwrap();
+        .expect("Y voló");
     }
 }

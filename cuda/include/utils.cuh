@@ -67,4 +67,7 @@ uint32_t** copy_device_pointer_vec_from_host_to_device(uint32_t** host_ptr, uint
 extern "C"
 void free_device_pointer_vec(unsigned int **device_ptr);
 
+extern "C"
+void uint32_t_vec_set(uint32_t *device_ptr, int index, uint32_t value);
+
 #endif // UTILS_H

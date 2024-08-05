@@ -229,4 +229,10 @@ extern "C" {
         line_coeffs_sizes: *const u32,
         batch_random_coeffs: *const u32,
     );
+
+    pub fn uint32_t_vec_set(
+        device_ptr: *const u32,
+        index: u32,
+        value: u32
+    );
 }

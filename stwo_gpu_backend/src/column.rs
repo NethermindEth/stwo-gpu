@@ -50,8 +50,8 @@ impl Column<BaseField> for cuda::BaseFieldVec {
         self.to_cpu()[index]
     }
 
-    fn set(&mut self, _index: usize, _value: BaseField) {
-        todo!()
+    fn set(&mut self, index: usize, value: BaseField) {
+        unsafe{cuda::bindings::uint32_t_vec_set(self.device_ptr, index as u32, value.0)}
     }
 }
 
