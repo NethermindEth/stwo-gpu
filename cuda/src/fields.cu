@@ -137,6 +137,10 @@ __device__  M31 M31::operator*(const M31& rhs) const {
 
     uint32_t out = prod_lows + prod_highs; 
     return M31((uint32_t) min(out, out - MODULUS));
+    // uint64_t v = ((uint64_t) f * (uint64_t) rhs.f);
+    // uint64_t w = v + (v >> 31);
+    // uint64_t u = v + (w >> 31);
+    // return M31(u & P);
 }
 
 __device__ CM31::CM31() : a(0), b(0) {}
@@ -148,15 +152,13 @@ __device__ CM31 CM31::zero() {
 }
 
 __device__ CM31 CM31::one() {
-    return CM31(M31::one(), M31::one()); 
+    return CM31(M31::one(), M31::zero()); 
 }
 __device__ CM31 CM31::operator*(const CM31& rhs) const {
-    uint32_t ac = a.f * rhs.a.f;
-    uint32_t bd = b.f * rhs.b.f;
-
-    uint32_t ab_t_cd = (a.f + b.f) * (rhs.a.f + rhs.b.f);
-    
-    return CM31(ac - bd, ab_t_cd - (ac + bd));
+    return CM31(
+        a * rhs.a - b * rhs.b,
+        a * rhs.b + b * rhs.a 
+    );
 }
 
 __device__ CM31 CM31::operator+(const CM31& rhs) const {
@@ -183,7 +185,7 @@ __device__ QM31 QM31::zero() {
 }
 
 __device__ QM31 QM31::one() {
-    return QM31(CM31::one(), CM31::one()); 
+    return QM31(CM31::one(), CM31::zero()); 
 }
 
 __device__ QM31 QM31::operator+(const M31& rhs) const {
@@ -191,22 +193,40 @@ __device__ QM31 QM31::operator+(const M31& rhs) const {
 }
 
 __device__ QM31 QM31::operator*(const QM31& rhs) const {
-    CM31 ac, bd, bd_times_1_plus_i, ac_p_bd, ad_p_bc, l; 
-
-    ac = a * rhs.b;
-    bd = b * rhs.b; 
-
-    bd_times_1_plus_i = CM31(bd.a - bd.b, bd.a + bd.b); 
-
-    ac_p_bd = ac + bd; 
-    ad_p_bc = ((a + b) * (rhs.a + rhs.b)) - ac_p_bd;
-
-    l = CM31(ac_p_bd.a + bd_times_1_plus_i.a, ac_p_bd.b + bd_times_1_plus_i.b);
-    return QM31(l, ad_p_bc);
+    return QM31(
+        a * rhs.a + CM31(M31(2), M31(1)) * b * rhs.b,
+        a * rhs.b + b * rhs.a
+    );
 }
 
  __device__ QM31 QM31::operator-() const {
      return QM31(-a, -b);
+ }
+
+ __device__ QM31 QM31::operator+(const QM31& rhs) const {
+     return QM31(a + rhs.a, b + rhs.b);
+ }
+
+ __device__ QM31 QM31::operator-(const QM31& rhs) const {
+     return QM31(a - rhs.a, b - rhs.b);
+ }
+
+ __device__ QM31 square(const QM31& self) {
+    return self * self;
+ }
+
+// u128?
+ __device__ QM31 pow(const QM31& self, uint64_t exp) {
+    QM31 res = QM31::one();
+    QM31 base = self;
+    while (exp > 0) {
+            if (exp & 1) {
+                res = res * base;
+            }
+            base = square(base);
+            exp >>= 1;
+        }
+    return res; 
  }
 
 // Acc row quotients helper

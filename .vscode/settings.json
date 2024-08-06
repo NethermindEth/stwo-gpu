@@ -4,6 +4,7 @@
         "string_view": "cpp",
         "initializer_list": "cpp",
         "utility": "cpp",
-        "cstdio": "cpp"
+        "cstdio": "cpp",
+        "cmath": "cpp"
     }
 }

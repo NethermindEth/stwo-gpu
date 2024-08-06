@@ -373,53 +373,60 @@ __host__ __device__
 CirclePoint<F>::CirclePoint(F x, F y) : x(x), y(y) {}
 
 template<typename F>
-__host__ __device__ constexpr 
-CirclePoint<F> CirclePoint<F>::from_f(F x, F y) {
-    return CirclePoint<F>(x, y);
-}
-
-template<typename F>
-__host__ __device__ 
+__device__ 
 CirclePoint<F> CirclePoint<F>::conjugate() const {
     return CirclePoint(x, -y); 
 }
 
 template<typename F>
-__host__ __device__ 
+__device__ 
 CirclePoint<F> CirclePoint<F>::antipode() const {
     return CirclePoint(-x, -y); 
 }
 
 template<typename F>
-__host__ __device__ 
+__device__ 
 CirclePoint<F> CirclePoint<F>::zero() const {
     return CirclePoint(F::one(), F::zero());
 }
 
 template<typename F>
-__host__ __device__ 
+__device__ 
 CirclePoint<F> CirclePoint<F>::double_val() const {
     return *this + *this;
 }
 
 template<typename F>
-__host__ __device__ inline 
+__device__  
 CirclePoint<F> CirclePoint<F>::operator+(const CirclePoint<F>& rhs) const {
-    F x = x * rhs.x - y * rhs.y;
-    F y = x * rhs.y + y * rhs.x;
-    return CirclePoint(x, y);
+    F _x = x * rhs.x - y * rhs.y;
+    F _y = x * rhs.y + y * rhs.x;
+    return CirclePoint(_x, _y);
+}
+// 1565057600
+
+// __device__  inline
+// CirclePoint<QM31> circle_point_sub(const CirclePoint<QM31>& lhs, const CirclePoint<QM31>& rhs) {
+//     return lhs + (-rhs);
+// }
+
+
+template<typename F>
+__device__ 
+CirclePoint<F> circle_point_sub(const CirclePoint<F>& lhs, const CirclePoint<F>& rhs) {
+    return lhs + (-rhs);
 }
 
 template<typename F>
-__host__ __device__ inline 
+__device__  
 CirclePoint<F> CirclePoint<F>::operator-() const {
     return this->conjugate();
 }
 
 template<typename F>
-__device__ CirclePoint<F> CirclePoint<F>::mul(unsigned long long scalar) const {
-    CirclePoint res = CirclePoint::zero();
-    CirclePoint cur = *this;  
+ __device__ CirclePoint<F> CirclePoint<F>::mul(unsigned long long scalar) const {
+    CirclePoint<F> res = CirclePoint<F>::zero();
+    CirclePoint<F> cur = *this;  
     while (scalar > 0) {
         if (scalar & 1) {
             res = res + cur;
@@ -431,66 +438,66 @@ __device__ CirclePoint<F> CirclePoint<F>::mul(unsigned long long scalar) const {
 }
 
 // CirclePointIndex
-#define M31_CIRCLE_LOG_ORDER 31u
+const uint32_t M31_CIRCLE_LOG_ORDER = 31; 
 
 __host__ __device__ 
 CirclePointIndex::CirclePointIndex(size_t idx) : idx(idx) {}
 
-__host__ __device__ 
+__device__ 
 CirclePointIndex CirclePointIndex::zero() {
     return CirclePointIndex(0);
 }
 
-__host__ __device__ 
+__device__ 
 CirclePointIndex CirclePointIndex::generator() {
     return CirclePointIndex(1);
 }
 
-__device__ 
+ __device__ 
 CirclePointIndex CirclePointIndex::reduce() const {
     return CirclePointIndex(idx & ((1 << M31_CIRCLE_LOG_ORDER) - 1));
 }
 
-__host__ __device__ 
+__device__ 
 CirclePointIndex CirclePointIndex::subgroup_gen(uint32_t log_size) {
     assert(log_size <= M31_CIRCLE_LOG_ORDER);
     return CirclePointIndex(1 << (M31_CIRCLE_LOG_ORDER - log_size));
 }
 
 // Move const away
-__host__ __device__ 
+__device__ 
 CirclePoint<M31> CirclePointIndex::to_point() const {
     const CirclePoint<M31> M31_CIRCLE_GEN = CirclePoint<M31>(M31(2), M31(1268011823));
     return M31_CIRCLE_GEN.mul(static_cast<unsigned long long>(idx));
 }
 
-__host__ __device__ 
+__device__ 
 CirclePointIndex CirclePointIndex::half() const {
     assert((idx & 1) == 0);
     return CirclePointIndex(idx >> 1);
 }
 
-__host__ __device__
+__device__
 CirclePointIndex CirclePointIndex::operator+(const CirclePointIndex& rhs) const {
     return CirclePointIndex(idx + rhs.idx).reduce();
 }
 
-__host__ __device__ 
+__device__ 
 CirclePointIndex CirclePointIndex::operator-(const CirclePointIndex& rhs) const {
     return CirclePointIndex(idx + (1 << M31_CIRCLE_LOG_ORDER) - rhs.idx).reduce();
 }
 
-__host__ __device__ 
+__device__ 
 CirclePointIndex CirclePointIndex::operator*(size_t rhs) const {
     return CirclePointIndex(idx * rhs).reduce();
 }
 
-__host__ __device__ 
+__device__ 
 CirclePointIndex CirclePointIndex::operator-() const {
     return CirclePointIndex((1 << M31_CIRCLE_LOG_ORDER) - idx).reduce();
 }
 
-__host__ __device__ 
+__device__ 
 CirclePointIndex CirclePointIndex::mul(size_t rhs) const {
     return CirclePointIndex(idx * rhs).reduce(); 
 }
@@ -499,12 +506,12 @@ CirclePointIndex CirclePointIndex::mul(size_t rhs) const {
 __host__ __device__ 
 Coset::Coset(const CirclePointIndex& initial, const CirclePointIndex& step, uint32_t size) : initial_index(initial), step_size(step), log_size(size) {}
 
-__host__ __device__ 
+__device__ 
 size_t Coset::size() const {
     return 1u << log_size;
 }
 
-__host__ __device__ 
+__device__ 
 CirclePointIndex Coset::index_at(size_t i) const {
     return initial_index + step_size.mul(i);
 }
@@ -512,17 +519,21 @@ CirclePointIndex Coset::index_at(size_t i) const {
 // Circle Domain
 __host__ __device__ CircleDomain::CircleDomain(const Coset& half_coset) : half_coset(half_coset) {}
 
-__host__ __device__ 
+__device__ size_t CircleDomain::size() {
+    return 1 << log_size();
+}
+
+__device__ 
 uint32_t CircleDomain::log_size() {
     return half_coset.log_size + 1; 
 }
  
-__host__ __device__ 
+__device__ 
 CirclePoint<M31> CircleDomain::at(size_t i) {
-    return half_coset.index_at(i).to_point(); 
+    return index_at(i).to_point(); 
 }
 
-__host__ __device__ 
+__device__ 
 CirclePointIndex CircleDomain::index_at(size_t i) {
     if (i < half_coset.size()) {
         return half_coset.index_at(i);
@@ -531,3 +542,6 @@ CirclePointIndex CircleDomain::index_at(size_t i) {
         return -half_coset.index_at(i - half_coset.size());
     }
 }
+
+template struct CirclePoint<QM31>;
+template __device__ CirclePoint<QM31> circle_point_sub(const CirclePoint<QM31>&, const CirclePoint<QM31>&);

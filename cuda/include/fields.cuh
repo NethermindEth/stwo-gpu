@@ -110,4 +110,8 @@ struct QM31 {
 
     __device__ QM31 operator+(const M31& rhs) const; 
 };
+
+__device__ QM31 pow(const QM31& self, uint64_t exp);
+__device__ QM31 sub_from_m31(const M31& lhs, const QM31& rhs);
+
 #endif // FIELDS_H

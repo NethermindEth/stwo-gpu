@@ -93,15 +93,20 @@ extern "C" {
 #[link(name = "gpubackend")]
 extern "C" {
     pub fn accumulate_quotients(
+        value_columns1: *const  u32,
+        value_columns2: *const u32,
+        value_columns3: *const u32,
+        value_columns4: *const u32,
         domain_initial_index: usize,
         domain_step_size: usize,
         domain_log_size: u32, 
+        domain_size: usize,
         columns: *const *const u32, 
         columns_size: usize, 
         columns_row_size: usize, 
         random_coeff: QM31,
-        // sample_batches: *const ColumnSampleBatch, // TODO: QM31 is "not safe" but is mapped properly, use custom struct [u32;4]
-        // sample_batches_size: usize
+        sample_batches: *const ColumnSampleBatch, // TODO: QM31 is "not safe" but is mapped properly, use custom struct [u32;4]
+        sample_batches_size: usize
     ) -> *const u32;
 }
 

@@ -25,41 +25,43 @@ template<typename F>
 struct CirclePoint {
     F x;
     F y;
-
+    
     __host__ __device__ CirclePoint();
     __host__ __device__ CirclePoint(F x, F y);
 
-    __host__ __device__ constexpr CirclePoint<F> from_f(F x, F y); 
+    __device__ CirclePoint<F> conjugate() const;
+    __device__ CirclePoint<F> antipode() const;
+    __device__ CirclePoint<F> zero() const;
+    __device__ CirclePoint<F> double_val() const;
 
-    __host__ __device__ CirclePoint<F> conjugate() const;
-    __host__ __device__ CirclePoint<F> antipode() const;
-    __host__ __device__ CirclePoint<F> zero() const;
-    __host__ __device__ CirclePoint<F> double_val() const;
+    __device__  CirclePoint<F> operator+(const CirclePoint<F>& rhs) const;
+    __device__  CirclePoint<F> operator-() const;
 
-    __host__ __device__ inline CirclePoint<F> operator+(const CirclePoint<F>& rhs) const;
-    __host__ __device__ inline CirclePoint<F> operator-() const;
-
-    __host__ __device__ CirclePoint<F> mul(unsigned long long scalar) const;
+    __device__ CirclePoint<F> mul(unsigned long long scalar) const;
 };
 
+template<typename F>
+__device__ 
+CirclePoint<F> circle_point_sub(const CirclePoint<F>& lhs, const CirclePoint<F>& rhs);
+
 struct CirclePointIndex {
-    size_t idx;
+    uint32_t idx;
     
     __host__ __device__ CirclePointIndex(size_t idx);
 
-    __host__ __device__ static CirclePointIndex zero();
-    __host__ __device__ static CirclePointIndex generator();
-    __host__ __device__ CirclePointIndex reduce() const;
-    __host__ __device__ static CirclePointIndex subgroup_gen(unsigned int log_size);
-    __host__ __device__ CirclePoint<M31> to_point() const;
-    __host__ __device__ CirclePointIndex half() const;
+    __device__ static CirclePointIndex zero();
+    __device__ static CirclePointIndex generator();
+    __device__ CirclePointIndex reduce() const;
+    __device__ static CirclePointIndex subgroup_gen(unsigned int log_size);
+    __device__ CirclePoint<M31> to_point() const;
+    __device__ CirclePointIndex half() const;
     
-    __host__ __device__ CirclePointIndex operator+(const CirclePointIndex& rhs) const;
-    __host__ __device__ CirclePointIndex operator-(const CirclePointIndex& rhs) const;
-    __host__ __device__ CirclePointIndex operator*(size_t rhs) const;
-    __host__ __device__ CirclePointIndex operator-() const;
+    __device__ CirclePointIndex operator+(const CirclePointIndex& rhs) const;
+    __device__ CirclePointIndex operator-(const CirclePointIndex& rhs) const;
+    __device__ CirclePointIndex operator*(size_t rhs) const;
+    __device__ CirclePointIndex operator-() const;
     
-    __host__ __device__ CirclePointIndex mul(size_t rhs) const;
+    __device__ CirclePointIndex mul(size_t rhs) const;
 };
 
 
@@ -72,8 +74,8 @@ struct Coset {
 
     __host__ __device__ Coset(const CirclePointIndex& initial, const CirclePointIndex& step, uint32_t size);
 
-    __host__ __device__ size_t size() const;
-    __host__ __device__ CirclePointIndex index_at(size_t i) const;
+    __device__ size_t size() const;
+    __device__ CirclePointIndex index_at(size_t i) const;
 };
 
 struct CircleDomain {
@@ -81,10 +83,10 @@ struct CircleDomain {
 
     __host__ __device__ CircleDomain(const Coset& half_coset); 
 
-    __host__ __device__ uint32_t log_size(); 
-    __host__ __device__ size_t size();
-    __host__ __device__ CirclePoint<M31> at(size_t i);
-    __host__ __device__ CirclePointIndex index_at(size_t i); 
+    __device__ uint32_t log_size(); 
+    __device__ size_t size();
+    __device__ CirclePoint<M31> at(size_t i);
+    __device__ CirclePointIndex index_at(size_t i); 
 };
 
 struct CircleEvaluation {

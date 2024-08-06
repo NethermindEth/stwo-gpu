@@ -41,7 +41,7 @@ void free_uint32_t_vec(uint32_t *device_ptr) {
     cudaFree(device_ptr);
 }
 
-// Unified memory for device pointers
+// Unified memory for device pointers (Marginally faster to device pointer)
 uint32_t** unified_malloc_dbl_ptr_uint32_t(size_t size) {
     uint32_t** unified_ptr;
     cudaMallocManaged(&unified_ptr, size * sizeof(uint32_t*));
@@ -61,19 +61,30 @@ ColumnSampleBatch* cuda_malloc_column_sample_batch(size_t size) {
 
 QM31* copy_secure_field_vec_htd(QM31* host_ptr, int size) {
     QM31* device_ptr;
-    cudaMemcpy(host_ptr, device_ptr, size * sizeof(QM31), cudaMemcpyHostToDevice);
+    cudaMalloc((void**)&device_ptr, size * sizeof(QM31));
+    cudaMemcpy(device_ptr, host_ptr , size * sizeof(QM31), cudaMemcpyHostToDevice);
     return device_ptr; 
 }
 
 size_t* copy_size_t_vec_htd(size_t* host_ptr, int size) {
     size_t* device_ptr; 
-    cudaMemcpy(host_ptr, device_ptr, size * sizeof(size_t), cudaMemcpyHostToDevice);
+    cudaMalloc((void**)&device_ptr, size * sizeof(size_t));
+    cudaMemcpy(device_ptr, host_ptr, size * sizeof(size_t), cudaMemcpyHostToDevice);
     return device_ptr; 
 }
 
+__global__ void set_column_sample_batch_kernel(ColumnSampleBatch* device_ptr, CirclePoint<QM31> point, size_t* columns, QM31* values, size_t size, size_t idx) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {
+        device_ptr[idx].point = point;
+        device_ptr[idx].columns = columns;
+        device_ptr[idx].values = values;
+        device_ptr[idx].size = size;
+    }
+}
+
+// TODO: paralleize this launch by passing non-pointer hosts as vec<T> as ptrs
 void cuda_set_column_sample_batch(ColumnSampleBatch* device_ptr, CirclePoint<QM31> point, size_t* columns, QM31* values, size_t size, size_t idx) {
-    ColumnSampleBatch csb = ColumnSampleBatch{point, columns, values, size};
-    device_ptr[idx] = csb; 
+    set_column_sample_batch_kernel<<<1, 1>>>(device_ptr, point, columns, values, size, idx);
 }
 
 uint32_t** cuda_set_dbl_ptr_uint32_t(uint32_t** h_out_ptr, size_t size) {

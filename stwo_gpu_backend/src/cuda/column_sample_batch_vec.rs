@@ -18,6 +18,7 @@ pub struct ColumnSampleBatchVec {
     pub(crate) size: usize
 }
 
+// TODO: Impl Free
 impl ColumnSampleBatchVec {
     pub fn from(host_array: &[quotients::ColumnSampleBatch]) -> Self{
         let vec_len = host_array.len(); 
@@ -33,8 +34,8 @@ impl ColumnSampleBatchVec {
             let value = unsafe {bindings::copy_secure_field_vec_htd(v.as_ptr(), csb.columns_and_values.len())};
             let point = CirclePointSecureField::from(csb.point); 
             unsafe {
-                bindings::cuda_set_column_sample_batch(device_ptr, point, columns, value, csb.columns_and_values.len(), i); 
-            }
+                bindings::cuda_set_column_sample_batch(device_ptr, point, columns, value, csb.columns_and_values.len(), i)
+            };
         }
 
         return Self{device_ptr, size: vec_len}
