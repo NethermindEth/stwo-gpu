@@ -45,7 +45,6 @@ void column_sample_batches_for(
     }
 };
 
-
 __device__ void complex_conjugate_line_coeffs(secure_field_point point, qm31 value, qm31 alpha, qm31* a_out, qm31* b_out, qm31* c_out) {
     qm31 a = sub(qm31{value.a, neg(value.b)}, value); 
     qm31 c = sub(qm31{point.y.a, neg(point.y.b)}, point.y);
@@ -110,7 +109,6 @@ __device__ void denominator_inverse(
         flat_denominators[i] = inv(result);
     }
 }
-
 
 __global__ void accumulate_quotients_in_gpu(
         uint32_t half_coset_initial_index,

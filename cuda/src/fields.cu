@@ -118,7 +118,6 @@ __host__ __device__ qm31 inv(qm31 t) {
     return {mul(t.a, denom_inverse), neg(mul(t.b, denom_inverse))};
 }
 
-
 __host__ __device__ qm31 square(qm31 x) {
     return mul(x, x); 
 }
