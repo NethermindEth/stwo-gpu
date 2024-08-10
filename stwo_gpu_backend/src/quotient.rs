@@ -7,10 +7,6 @@ use stwo_prover::core::{
         circle::{CircleDomain, CircleEvaluation, SecureEvaluation},
     },
 };
-use stwo_prover::core::constraints::complex_conjugate_line_coeffs;
-use stwo_prover::core::fields::FieldExpOps;
-use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::pcs::quotients::PointSample;
 
 use crate::{backend::CudaBackend, cuda::BaseFieldVec};
 use crate::cuda::bindings;
@@ -42,9 +38,6 @@ impl QuotientOps for CudaBackend {
             .map(|column| column.values.device_ptr)
             .collect_vec();
 
-        // TODO: move to cuda?
-        let quotient_constants = quotient_constants(sample_batches, random_coeff);
-
         unsafe {
             let half_coset_initial_index = domain.half_coset.initial_index;
             let half_coset_step_size = domain.half_coset.step_size;
@@ -73,14 +66,8 @@ impl QuotientOps for CudaBackend {
             ).collect_vec()
             ).collect_vec();
 
-            let line_coeffs_sizes = quotient_constants.line_coeffs.iter().map(|vector| vector.len() as u32).collect_vec();
-
-            let flattened_line_coeffs = quotient_constants.line_coeffs.into_iter().flat_map(|vector: Vec<(SecureField, SecureField, SecureField)>|
-            vector.into_iter().flat_map(|(x, y, z)|
-            vec![x, y, z]
-            ).collect_vec()
-            ).collect_vec();
-
+            let flattened_line_coeffs_size = number_of_columns * sample_column_and_values_sizes.len() * 3;
+  
             bindings::accumulate_quotients(
                 half_coset_initial_index.0 as u32,
                 half_coset_step_size.0 as u32,
@@ -98,78 +85,12 @@ impl QuotientOps for CudaBackend {
                 result.values.columns[1].device_ptr,
                 result.values.columns[2].device_ptr,
                 result.values.columns[3].device_ptr,
-                flattened_line_coeffs.as_ptr() as *const u32,
-                flattened_line_coeffs.len() as u32,
-                line_coeffs_sizes.as_ptr() as *const u32,
-                quotient_constants.batch_random_coeffs.as_ptr() as *const u32,
+                flattened_line_coeffs_size as u32,
             );
         }
 
         return result;
     }
-}
-
-/// Holds the precomputed constant values used in each quotient evaluation.
-pub struct QuotientConstants {
-    /// The line coefficients for each quotient numerator term. For more details see
-    /// [self::column_line_coeffs].
-    pub line_coeffs: Vec<Vec<(SecureField, SecureField, SecureField)>>,
-    /// The random coefficients used to linearly combine the batched quotients For more details see
-    /// [self::batch_random_coeffs].
-    pub batch_random_coeffs: Vec<SecureField>,
-}
-
-pub fn quotient_constants(
-    sample_batches: &[ColumnSampleBatch],
-    random_coeff: SecureField,
-) -> QuotientConstants {
-    let line_coeffs = column_line_coeffs(sample_batches, random_coeff);
-    let batch_random_coeffs = batch_random_coeffs(sample_batches, random_coeff);
-    QuotientConstants {
-        line_coeffs,
-        batch_random_coeffs,
-    }
-}
-
-/// Precompute the random coefficients used to linearly combine the batched quotients.
-/// Specifically, for each sample batch we compute random_coeff^(number of columns in the batch),
-/// which is used to linearly combine the batch with the next one.
-pub fn batch_random_coeffs(
-    sample_batches: &[ColumnSampleBatch],
-    random_coeff: SecureField,
-) -> Vec<SecureField> {
-    sample_batches
-        .iter()
-        .map(|sb| random_coeff.pow(sb.columns_and_values.len() as u128))
-        .collect()
-}
-
-/// Precompute the complex conjugate line coefficients for each column in each sample batch.
-/// Specifically, for the i-th (in a sample batch) column's numerator term
-/// `alpha^i * (c * F(p) - (a * p.y + b))`, we precompute and return the constants:
-/// (`alpha^i * a`, `alpha^i * b`, `alpha^i * c`).
-pub fn column_line_coeffs(
-    sample_batches: &[ColumnSampleBatch],
-    random_coeff: SecureField,
-) -> Vec<Vec<(SecureField, SecureField, SecureField)>> {
-    sample_batches
-        .iter()
-        .map(|sample_batch| {
-            let mut alpha = SecureField::from_m31(M31::from(1), M31::from(0), M31::from(0), M31::from(0));
-            sample_batch
-                .columns_and_values
-                .iter()
-                .map(|(_, sampled_value)| {
-                    alpha *= random_coeff;
-                    let sample = PointSample {
-                        point: sample_batch.point,
-                        value: *sampled_value,
-                    };
-                    complex_conjugate_line_coeffs(&sample, alpha)
-                })
-                .collect()
-        })
-        .collect()
 }
 
 #[cfg(test)]

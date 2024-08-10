@@ -45,6 +45,48 @@ void column_sample_batches_for(
     }
 };
 
+
+__device__ void complex_conjugate_line_coeffs(secure_field_point point, qm31 value, qm31 alpha, qm31* a_out, qm31* b_out, qm31* c_out) {
+    qm31 a = sub(qm31{value.a, neg(value.b)}, value); 
+    qm31 c = sub(qm31{point.y.a, neg(point.y.b)}, point.y);
+    qm31 b = sub(mul(value, c), mul(a, point.y));  
+
+    *a_out = mul(alpha, a);
+    *b_out = mul(alpha, b);
+    *c_out = mul(alpha, c);
+}
+
+__global__ void column_line_and_batch_random_coeffs(
+    column_sample_batch *sample_batches,
+    uint32_t sample_size,
+    qm31 random_coefficient,
+    qm31 *flattened_line_coeffs,
+    uint32_t *line_coeffs_sizes,
+    qm31 *batch_random_coeffs
+) {
+    int tid = threadIdx.x + blockDim.x * blockIdx.x;
+    if(tid < sample_size) {
+        // Calculate Batch Random Coeffs
+        batch_random_coeffs[tid] = pow(random_coefficient, sample_batches[tid].size); 
+
+        // Calculate Column Line Coeffs
+        line_coeffs_sizes[tid] = sample_batches[tid].size;
+        size_t sample_batches_offset = tid * line_coeffs_sizes[tid] * 3; 
+
+        qm31 alpha = qm31{cm31{m31{1}, m31{0}}, cm31{m31{0}, m31{0}}};
+
+        for(size_t j = 0; j < sample_batches[tid].size; ++j) {
+            qm31 sampled_value = sample_batches[tid].values[j];
+            alpha = mul(alpha, random_coefficient); 
+            secure_field_point point = sample_batches[tid].point;
+            qm31 value = sampled_value; 
+
+            size_t sampled_offset = sample_batches_offset + (j * 3);
+            complex_conjugate_line_coeffs(point, value, alpha, &flattened_line_coeffs[sampled_offset], &flattened_line_coeffs[sampled_offset + 1], &flattened_line_coeffs[sampled_offset + 2]); 
+        }
+    }
+}
+
 // __device__ void denominator_inverse(point domain_point, column_sample_batch *sample_batches, cm31 *result) {
 //     result[0] = {1234450342, 2089936180}; // Result of denominator_inverse(sample_batches, domain.at(0))
 // }
@@ -91,6 +133,7 @@ __global__ void accumulate_quotients_in_gpu(
 ) {
     int row = threadIdx.x + blockDim.x * blockIdx.x;
     denominator_inverses = &denominator_inverses[row * sample_size];
+
     if (row < domain_size) {
         uint32_t domain_index = bit_reverse(row, domain_log_size);
         point domain_point = domain_at_index(half_coset_initial_index, half_coset_step_size, domain_index, domain_size);
@@ -155,10 +198,7 @@ void accumulate_quotients(
         uint32_t *result_column_1,
         uint32_t *result_column_2,
         uint32_t *result_column_3,
-        qm31 *flattened_line_coeffs,
-        uint32_t flattened_line_coeffs_size,
-        uint32_t *line_coeffs_sizes,
-        qm31 *batch_random_coeffs
+        uint32_t flattened_line_coeffs_size
 ) {
     int domain_log_size = log_2((int)domain_size);
 
@@ -191,19 +231,28 @@ void accumulate_quotients(
 
     qm31 *batch_random_coeffs_device;
     cudaMalloc((void**)&batch_random_coeffs_device, sizeof(qm31) * sample_size);
-    cudaMemcpy(batch_random_coeffs_device, batch_random_coeffs, sizeof(qm31) * sample_size, cudaMemcpyHostToDevice);
 
     uint32_t *line_coeffs_sizes_device;
     cudaMalloc((void**)&line_coeffs_sizes_device, sizeof(uint32_t) * sample_size);
-    cudaMemcpy(line_coeffs_sizes_device, line_coeffs_sizes, sizeof(uint32_t) * sample_size, cudaMemcpyHostToDevice);
 
     qm31 *flattened_line_coeffs_device;
     cudaMalloc((void**)&flattened_line_coeffs_device, sizeof(qm31) * flattened_line_coeffs_size);
-    cudaMemcpy(flattened_line_coeffs_device, flattened_line_coeffs, sizeof(qm31) * flattened_line_coeffs_size, cudaMemcpyHostToDevice);
+
+    // Accumulate Quotient Constants
+    int block_dim = 512;
+    int num_blocks = (sample_size + block_dim - 1) / block_dim;
+    column_line_and_batch_random_coeffs<<<num_blocks, block_dim>>>(
+            sample_batches_device, 
+            sample_size, 
+            random_coefficient,
+            flattened_line_coeffs_device, 
+            line_coeffs_sizes_device,
+            batch_random_coeffs_device
+    );
 
     // TODO: set to 1024
-    int block_dim = 512;
-    int num_blocks = (domain_size + block_dim - 1) / block_dim;
+    block_dim = 512;
+    num_blocks = (domain_size + block_dim - 1) / block_dim;
     accumulate_quotients_in_gpu<<<num_blocks, block_dim>>>(
             half_coset_initial_index,
             half_coset_step_size,
