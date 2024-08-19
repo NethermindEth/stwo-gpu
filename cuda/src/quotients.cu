@@ -2,6 +2,8 @@
 
 #include <cstdio>
 
+#define THREAD_MAX_COUNT 1024 
+
 typedef struct {
     secure_field_point point;
     uint32_t *columns;
@@ -237,8 +239,8 @@ void accumulate_quotients(
     cudaMalloc((void**)&flattened_line_coeffs_device, sizeof(qm31) * flattened_line_coeffs_size);
 
     // Accumulate Quotient Constants
-    int block_dim = 512;
-    int num_blocks = (sample_size + block_dim - 1) / block_dim;
+    int block_dim = sample_size < THREAD_MAX_COUNT ? sample_size : THREAD_MAX_COUNT; 
+    int num_blocks = block_dim < THREAD_MAX_COUNT ? 1 : (sample_size + block_dim - 1) / block_dim;
     column_line_and_batch_random_coeffs<<<num_blocks, block_dim>>>(
             sample_batches_device, 
             sample_size, 
