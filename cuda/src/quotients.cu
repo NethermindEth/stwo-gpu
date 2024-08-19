@@ -2,7 +2,7 @@
 
 #include <cstdio>
 
-#define THREAD_MAX_COUNT 1024 
+#define THREAD_COUNT_MAX 1024 
 
 typedef struct {
     secure_field_point point;
