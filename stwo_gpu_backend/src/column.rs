@@ -4,7 +4,7 @@ use stwo_prover::core::{
 };
 use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
 
-use crate::{backend::CudaBackend, cuda};
+use crate::{backend::CudaBackend, cuda::{self, BaseFieldVec}};
 
 impl ColumnOps<BaseField> for CudaBackend {
     type Column = cuda::BaseFieldVec;
@@ -56,8 +56,9 @@ impl Column<BaseField> for cuda::BaseFieldVec {
 }
 
 impl FromIterator<BaseField> for cuda::BaseFieldVec {
-    fn from_iter<T: IntoIterator<Item = BaseField>>(_iter: T) -> Self {
-        todo!()
+    fn from_iter<T: IntoIterator<Item = BaseField>>(iter: T) -> Self {
+        let vec: Vec<BaseField> = iter.into_iter().collect();
+        BaseFieldVec::from_vec(vec)
     }
 }
 
