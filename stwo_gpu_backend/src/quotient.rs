@@ -18,6 +18,7 @@ impl QuotientOps for CudaBackend {
         columns: &[&CircleEvaluation<Self, BaseField, BitReversedOrder>],
         random_coeff: SecureField,
         sample_batches: &[ColumnSampleBatch],
+        _log_blowup_factor: u32
     ) -> SecureEvaluation<Self> {
         let domain_size = domain.size();
         let number_of_columns = columns.len();
@@ -104,7 +105,6 @@ mod tests {
     use stwo_prover::core::pcs::quotients::{ColumnSampleBatch, QuotientOps};
     use stwo_prover::core::poly::BitReversedOrder;
     use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation};
-    use stwo_prover::core::prover::LOG_BLOWUP_FACTOR;
 
     use crate::cuda::BaseFieldVec;
     use crate::CudaBackend;
@@ -112,6 +112,7 @@ mod tests {
     #[test]
     fn test_accumulate_quotients_compared_with_cpu() {
         const LOG_SIZE: u32 = 15;
+        const LOG_BLOWUP_FACTOR: u32 = 1;
         let small_domain = CanonicCoset::new(LOG_SIZE).circle_domain();
         let domain = CanonicCoset::new(LOG_SIZE + LOG_BLOWUP_FACTOR).circle_domain();
         let e0: BaseColumn = (0..small_domain.size()).map(BaseField::from).collect();
@@ -156,6 +157,7 @@ mod tests {
             &cpu_columns.iter().collect_vec(),
             random_coeff,
             &samples,
+            LOG_BLOWUP_FACTOR
         ).values.to_vec();
 
         let gpu_result = CudaBackend::accumulate_quotients(
@@ -163,6 +165,7 @@ mod tests {
             &columns.iter().collect_vec(),
             random_coeff,
             &samples,
+            LOG_BLOWUP_FACTOR
         ).values.to_cpu().to_vec();
 
         assert_eq!(gpu_result, cpu_result);

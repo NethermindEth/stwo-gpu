@@ -234,18 +234,4 @@ extern "C" {
         result_column_3: *const u32,
         flattened_line_coeffs_size: u32,
     );
-
-    pub fn fibonacci_component_evaluate_constraint_quotients_on_domain(
-        evals: *const u32,
-        evals_size: u32,
-        output_column_0: *const u32,
-        output_column_1: *const u32,
-        output_column_2: *const u32,
-        output_column_3: *const u32,
-        claim_value: BaseField,
-        initial_point: CirclePointBaseField,
-        step_point: CirclePointBaseField,
-        random_coeff_0: CudaSecureField,
-        random_coeff_1: CudaSecureField,
-    );
 }

@@ -5,6 +5,7 @@ use stwo_prover::core::{
 use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
 
 use crate::{backend::CudaBackend, cuda};
+use crate::cuda::bindings;
 
 impl ColumnOps<BaseField> for CudaBackend {
     type Column = cuda::BaseFieldVec;
@@ -53,6 +54,13 @@ impl Column<BaseField> for cuda::BaseFieldVec {
     fn set(&mut self, _index: usize, _value: BaseField) {
         todo!()
     }
+
+    unsafe fn uninitialized(len: usize) -> Self {
+        Self {
+            device_ptr: bindings::cuda_malloc_uint32_t(len as u32),
+            size: len
+        }
+    }
 }
 
 impl FromIterator<BaseField> for cuda::BaseFieldVec {
@@ -80,6 +88,13 @@ impl Column<SecureField> for cuda::SecureFieldVec {
 
     fn set(&mut self, _index: usize, _value: SecureField) {
         todo!()
+    }
+
+    unsafe fn uninitialized(len: usize) -> Self {
+        Self {
+            device_ptr: bindings::cuda_malloc_uint32_t(4 * len as u32),
+            size: len
+        }
     }
 }
 
@@ -109,6 +124,13 @@ impl Column<Blake2sHash> for cuda::Blake2sHashVec {
 
     fn set(&mut self, _index: usize, _value: Blake2sHash) {
         todo!()
+    }
+
+    unsafe fn uninitialized(len: usize) -> Self {
+        Self {
+            device_ptr: bindings::cuda_malloc_blake_2s_hash(len),
+            size: len
+        }
     }
 }
 
