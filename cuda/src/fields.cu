@@ -117,3 +117,19 @@ __host__ __device__ qm31 inv(qm31 t) {
     cm31 denom_inverse = inv(denom);
     return {mul(t.a, denom_inverse), neg(mul(t.b, denom_inverse))};
 }
+
+__host__ __device__ qm31 square(qm31 x) {
+    return mul(x, x); 
+}
+
+__host__ __device__ qm31 pow(qm31 x, uint64_t exp) {
+    qm31 res = qm31{cm31{m31{1}, m31{0}}, cm31{m31{0}, m31{0}}};
+    while (exp > 0) {
+        if (exp & 1 == 1) {
+            res = mul(res, x);
+        }
+        x = square(x); 
+        exp >>= 1; 
+    }
+    return res; 
+}

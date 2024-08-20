@@ -66,4 +66,8 @@ __host__ __device__ qm31 mul_by_scalar(qm31 x, m31 scalar);
 
 __host__ __device__ qm31 mul(m31 x, qm31 y);
 
+__host__ __device__ qm31 pow(qm31 x, uint64_t exp);
+
+__host__ __device__ qm31 square(qm31 x);
+
 #endif // FIELDS_H

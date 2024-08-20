@@ -25,10 +25,7 @@ void accumulate_quotients(
         uint32_t *result_column_1,
         uint32_t *result_column_2,
         uint32_t *result_column_3,
-        qm31 *flattened_line_coeffs,
-        uint32_t flattened_line_coeffs_size,
-        uint32_t *line_coeffs_sizes,
-        qm31 *batch_random_coeffs
+        uint32_t flattened_line_coeffs_size
 );
 
 #endif // QUOTIENTS_H
