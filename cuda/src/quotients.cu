@@ -112,6 +112,44 @@ __device__ void denominator_inverse(
     }
 }
 
+// __global__ void accumulate_quotients_helper(
+//     qm31* row_accumulator, 
+//     int line_coeffs_offset,
+//     point domain_point, 
+//     column_sample_batch *sample_batches,
+//     uint32_t sample_size,
+//     qm31 *flattened_line_coeffs,
+//     uint32_t *line_coeffs_sizes,
+//     qm31 *batch_random_coeffs,
+//     cm31 *denominator_inverses,
+//     int row
+// ) {
+//     int i = 0;
+//         while (i < sample_size) {
+//             column_sample_batch sample_batch = sample_batches[i];
+//             qm31 *line_coeffs = &flattened_line_coeffs[line_coeffs_offset * 3];
+//             qm31 batch_coeff = batch_random_coeffs[i];
+//             int line_coeffs_size = line_coeffs_sizes[i];
+
+//             qm31 numerator = qm31{cm31{0, 0}, cm31{0, 0}};
+//             for(int j = 0; j < line_coeffs_size; j++) {
+//                 qm31 a = line_coeffs[3 * j + 0];
+//                 qm31 b = line_coeffs[3 * j + 1];
+//                 qm31 c = line_coeffs[3 * j + 2];
+
+//                 int column_index = sample_batches[i].columns[j];
+//                 qm31 linear_term = add(mul_by_scalar(a, domain_point.y), b);
+//                 qm31 value = mul_by_scalar(c, columns[column_index][row]);
+
+//                 numerator = add(numerator, sub(value, linear_term));
+//             }
+
+//             row_accumulator = add(mul(row_accumulator, batch_coeff), mul(numerator, denominator_inverses[i]));
+//             line_coeffs_offset += line_coeffs_size;
+//             i++;
+//         }
+// }
+
 __global__ void accumulate_quotients_in_gpu(
         uint32_t half_coset_initial_index,
         uint32_t half_coset_step_size,
@@ -145,10 +183,10 @@ __global__ void accumulate_quotients_in_gpu(
             denominator_inverses
         );
 
-        int i = 0;
-
         qm31 row_accumulator = qm31{cm31{0, 0}, cm31{0, 0}};
         int line_coeffs_offset = 0;
+        
+        int i = 0;
         while (i < sample_size) {
             column_sample_batch sample_batch = sample_batches[i];
             qm31 *line_coeffs = &flattened_line_coeffs[line_coeffs_offset * 3];

@@ -6,9 +6,11 @@
 template<typename T>
 __global__ void bit_reverse_generic(T *array, int size, int bits) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= size) return; 
+
     unsigned int rev_idx = bit_reverse(idx, bits);
 
-    if (rev_idx > idx && idx < size) {
+    if (rev_idx > idx) {
         T temp = array[idx];
         array[idx] = array[rev_idx];
         array[rev_idx] = temp;
