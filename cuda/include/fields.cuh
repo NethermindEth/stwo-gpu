@@ -70,4 +70,60 @@ __host__ __device__ qm31 pow(qm31 x, uint64_t exp);
 
 __host__ __device__ qm31 square(qm31 x);
 
+
+struct M31 {
+    uint32_t f; // field
+
+    __host__ __device__ M31() : f(0) {}
+    __host__ __device__ explicit M31(uint32_t value) : f(value) {}
+
+    __device__ static M31 zero();
+    __device__ static M31 one();
+
+    __device__ M31 operator+(const M31& rhs) const;
+    __device__ M31 operator-(const M31& rhs) const;
+    __device__ M31 operator-() const;
+    __device__ M31 operator*(const M31& rhs) const;
+};
+
+struct CM31 {
+    M31 a;
+    M31 b;
+
+    __host__ __device__ CM31();
+    __host__ __device__ CM31(M31 a, M31 b);
+    __host__ __device__ CM31(uint32_t a, uint32_t b); 
+
+    __device__ static CM31 zero();
+    __device__ static CM31 one();
+
+    __device__ CM31 operator*(const CM31& rhs) const;
+    __device__ CM31 operator+(const CM31& rhs) const;
+    __device__ CM31 operator-(const CM31& rhs) const;
+    __device__ CM31 operator-() const;
+
+    __device__ CM31 operator+(const M31& rhs) const;
+};
+
+struct QM31 {
+    CM31 a;
+    CM31 b;
+
+    __host__ __device__ QM31();
+    __host__ __device__ QM31(CM31 a, CM31 b);
+
+    __device__ static QM31 zero();
+    __device__ static QM31 one();
+
+    __device__ QM31 operator+(const QM31& rhs) const;
+    __device__ QM31 operator-(const QM31& rhs) const;
+    __device__ QM31 operator-() const;
+    __device__ QM31 operator*(const QM31& rhs) const;
+
+    __device__ QM31 operator+(const M31& rhs) const; 
+};
+
+__device__ QM31 pow(const QM31& self, uint64_t exp);
+__device__ QM31 sub_from_m31(const M31& lhs, const QM31& rhs);
+
 #endif // FIELDS_H
