@@ -133,3 +133,138 @@ __host__ __device__ qm31 pow(qm31 x, uint64_t exp) {
     }
     return res; 
 }
+
+
+const uint32_t MODULUS = (1 << 31) - 1; 
+
+__device__ M31 M31::zero() {
+    return M31(); 
+}
+
+__device__ M31 M31::one() {
+    return M31(1); 
+}
+
+__device__  M31 M31::operator+(const M31& rhs) const {
+    uint32_t out = f + rhs.f; 
+    return M31((uint32_t)min(out, out - MODULUS));
+}
+
+__device__  M31 M31::operator-(const M31& rhs) const {
+    uint32_t out = f - rhs.f;
+    return M31((uint32_t)min(out, out + MODULUS));
+}
+
+__device__  M31 M31::operator-() const {
+    return M31(MODULUS - f);
+}
+
+__device__  M31 M31::operator*(const M31& rhs) const {
+    unsigned long long int a_e, b_e, prod_e;
+    uint32_t prod_lows, prod_highs;
+
+    a_e = (unsigned long long int) f;
+    b_e = (unsigned long long int) rhs.f;
+
+    prod_e = a_e * b_e;
+    prod_lows = (unsigned long long int) prod_e & 0x7FFFFFFF;
+    prod_highs = (unsigned long long int) prod_e >> 31;
+
+    uint32_t out = prod_lows + prod_highs; 
+    return M31((uint32_t) min(out, out - MODULUS));
+    // uint64_t v = ((uint64_t) f * (uint64_t) rhs.f);
+    // uint64_t w = v + (v >> 31);
+    // uint64_t u = v + (w >> 31);
+    // return M31(u & P);
+}
+
+__device__ CM31::CM31() : a(0), b(0) {}
+__device__ CM31::CM31(M31 a, M31 b) : a(a), b(b) {}
+__device__ CM31::CM31(uint32_t a, uint32_t b) : a(M31(a)), b(M31(b)) {} 
+
+__device__ CM31 CM31::zero() {
+    return CM31(); 
+}
+
+__device__ CM31 CM31::one() {
+    return CM31(M31::one(), M31::zero()); 
+}
+__device__ CM31 CM31::operator*(const CM31& rhs) const {
+    return CM31(
+        a * rhs.a - b * rhs.b,
+        a * rhs.b + b * rhs.a 
+    );
+}
+
+__device__ CM31 CM31::operator+(const CM31& rhs) const {
+    return CM31(a + rhs.a, b + rhs.b);
+}
+
+__device__ CM31 CM31::operator-(const CM31& rhs) const {
+    return CM31(a - rhs.a, b - rhs.b);
+}
+
+__device__ CM31 CM31::operator-() const {
+    return CM31(-a, -b);
+}
+
+__device__ CM31 CM31::operator+(const M31& rhs) const {
+    return CM31(a + rhs, b); 
+}
+
+__device__ QM31::QM31() : a(CM31()), b(CM31()) {}
+__device__ QM31::QM31(CM31 a, CM31 b) : a(a), b(b) {}
+
+__device__ QM31 QM31::zero() {
+    return QM31();
+}
+
+__device__ QM31 QM31::one() {
+    return QM31(CM31::one(), CM31::zero()); 
+}
+
+__device__ QM31 QM31::operator+(const M31& rhs) const {
+    return QM31(a + rhs, b); 
+}
+
+__device__ QM31 QM31::operator*(const QM31& rhs) const {
+    return QM31(
+        a * rhs.a + CM31(M31(2), M31(1)) * b * rhs.b,
+        a * rhs.b + b * rhs.a
+    );
+}
+
+ __device__ QM31 QM31::operator-() const {
+     return QM31(-a, -b);
+ }
+
+ __device__ QM31 QM31::operator+(const QM31& rhs) const {
+     return QM31(a + rhs.a, b + rhs.b);
+ }
+
+ __device__ QM31 QM31::operator-(const QM31& rhs) const {
+     return QM31(a - rhs.a, b - rhs.b);
+ }
+
+ __device__ QM31 square(const QM31& self) {
+    return self * self;
+ }
+
+// u128?
+ __device__ QM31 pow(const QM31& self, uint64_t exp) {
+    QM31 res = QM31::one();
+    QM31 base = self;
+    while (exp > 0) {
+            if (exp & 1) {
+                res = res * base;
+            }
+            base = square(base);
+            exp >>= 1;
+        }
+    return res; 
+ }
+
+// Acc row quotients helper
+ __device__ QM31 sub_from_m31(const M31& lhs, const QM31& rhs) {
+     return -rhs + lhs;
+ }
