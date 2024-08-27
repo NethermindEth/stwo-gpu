@@ -26,3 +26,11 @@ harness = false
 [[bench]]
 name = "batch_inverse"
 harness = false
+
+[[bench]]
+name = "eval_at_point"
+harness = false
+
+[[bench]]
+name = "quotients"
+harness = false

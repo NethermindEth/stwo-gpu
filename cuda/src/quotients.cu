@@ -112,6 +112,49 @@ __device__ void denominator_inverse(
     }
 }
 
+__global__ void accumulate_quotients_helper(
+    qm31 *row_accumulator, 
+    uint32_t *prefix_sum_line_coeffs_sizes_device,
+    point domain_point, 
+    m31 **columns,
+    column_sample_batch *sample_batches,
+    uint32_t sample_size,
+    qm31 *flattened_line_coeffs,
+    uint32_t *line_coeffs_sizes,
+    qm31 *batch_random_coeffs,
+    cm31 *denominator_inverses,
+    int row
+) {
+    int i = threadIdx.x + blockDim.x * blockIdx.x;
+    if (i < sample_size) {
+            
+
+            printf("sdfsadfdsfdsf\n\n\n");
+
+            column_sample_batch sample_batch = sample_batches[i];
+            qm31 *line_coeffs = &flattened_line_coeffs[prefix_sum_line_coeffs_sizes_device[i] * 3];
+            qm31 batch_coeff = batch_random_coeffs[i];
+            int line_coeffs_size = line_coeffs_sizes[i];
+            
+            qm31 numerator = qm31{cm31{0, 0}, cm31{0, 0}};
+            for(int j = 0; j < line_coeffs_size; j++) {
+                qm31 a = line_coeffs[3 * j + 0];
+                qm31 b = line_coeffs[3 * j + 1];
+                qm31 c = line_coeffs[3 * j + 2];
+
+                int column_index = sample_batches[i].columns[j];
+                qm31 linear_term = add(mul_by_scalar(a, domain_point.y), b);
+                qm31 value = mul_by_scalar(c, columns[column_index][row]);
+
+                numerator = add(numerator, sub(value, linear_term));
+            }
+
+            *row_accumulator = add(mul(*row_accumulator, batch_coeff), mul(numerator, denominator_inverses[i]));
+
+            printf("%d", row_accumulator->a.a); 
+    }
+}
+
 __global__ void accumulate_quotients_in_gpu(
         uint32_t half_coset_initial_index,
         uint32_t half_coset_step_size,
@@ -128,10 +171,21 @@ __global__ void accumulate_quotients_in_gpu(
         uint32_t *result_column_3,
         qm31 *flattened_line_coeffs,
         uint32_t *line_coeffs_sizes,
+        uint32_t *prefix_sum_line_coeffs_sizes_device, 
         qm31 *batch_random_coeffs,
         cm31 *denominator_inverses
 ) {
     int row = threadIdx.x + blockDim.x * blockIdx.x;
+
+    // Initialize prefix sum array 
+    if (row == 0) {
+        prefix_sum_line_coeffs_sizes_device[0] = 0; 
+        for(size_t i = 1; i < sample_size; ++i) {
+            prefix_sum_line_coeffs_sizes_device[i] = prefix_sum_line_coeffs_sizes_device[i - 1] + line_coeffs_sizes[i]; 
+        }
+    }
+    __syncthreads(); 
+
     denominator_inverses = &denominator_inverses[row * sample_size];
 
     if (row < domain_size) {
@@ -145,13 +199,35 @@ __global__ void accumulate_quotients_in_gpu(
             denominator_inverses
         );
 
-        int i = 0;
-
         qm31 row_accumulator = qm31{cm31{0, 0}, cm31{0, 0}};
         int line_coeffs_offset = 0;
+        
+        int block_dim = 1024;
+        int num_blocks = (sample_size + block_dim - 1) / block_dim;
+        accumulate_quotients_helper<<<block_dim, num_blocks>>>(
+            &row_accumulator, 
+            prefix_sum_line_coeffs_sizes_device,
+            domain_point, 
+            columns,
+            sample_batches,
+            sample_size,
+            flattened_line_coeffs,
+            line_coeffs_sizes,
+            batch_random_coeffs,
+            denominator_inverses,
+            row
+        );
+
+        //__syncthreads(); 
+        // for(int z = 0; z < sample_size; z++) {
+        //     printf("%d ", prefix_sum_line_coeffs_sizes_device[z]); 
+        // }
+        // printf("\n\n");
+        int i = 0;
         while (i < sample_size) {
             column_sample_batch sample_batch = sample_batches[i];
             qm31 *line_coeffs = &flattened_line_coeffs[line_coeffs_offset * 3];
+            //printf("%d == %d\n", prefix_sum_line_coeffs_sizes_device[i], line_coeffs_offset);
             qm31 batch_coeff = batch_random_coeffs[i];
             int line_coeffs_size = line_coeffs_sizes[i];
 
@@ -172,6 +248,7 @@ __global__ void accumulate_quotients_in_gpu(
             line_coeffs_offset += line_coeffs_size;
             i++;
         }
+        //printf("%d ", row_accumulator.a.a); 
 
         result_column_0[row] = row_accumulator.a.a;
         result_column_1[row] = row_accumulator.a.b;
@@ -205,17 +282,17 @@ void accumulate_quotients(
     auto sample_batches = (column_sample_batch *)malloc(sizeof(column_sample_batch) * sample_size);
 
     column_sample_batch *sample_batches_device;
-    cudaMalloc((void**)&sample_batches_device, sizeof(column_sample_batch) * sample_size);
+    cudaMalloc((void **)&sample_batches_device, sizeof(column_sample_batch) * sample_size);
     cm31* denominator_inverses;
 
-    cudaMalloc((void**)&denominator_inverses, sizeof(cm31) * sample_size * domain_size);
+    cudaMalloc((void **)&denominator_inverses, sizeof(cm31) * sample_size * domain_size);
 
     uint32_t *sample_column_indexes_device;
-    cudaMalloc((void**)&sample_column_indexes_device, sizeof(uint32_t) * sample_column_indexes_size);
+    cudaMalloc((void **)&sample_column_indexes_device, sizeof(uint32_t) * sample_column_indexes_size);
     cudaMemcpy(sample_column_indexes_device, sample_column_indexes, sizeof(uint32_t) * sample_column_indexes_size, cudaMemcpyHostToDevice);
 
     qm31 *sample_column_values_device;
-    cudaMalloc((void**)&sample_column_values_device, sizeof(qm31) * sample_column_indexes_size);
+    cudaMalloc((void **)&sample_column_values_device, sizeof(qm31) * sample_column_indexes_size);
     cudaMemcpy(sample_column_values_device, sample_column_values, sizeof(qm31) * sample_column_indexes_size, cudaMemcpyHostToDevice);
 
     column_sample_batches_for(
@@ -230,13 +307,13 @@ void accumulate_quotients(
     cudaMemcpy(sample_batches_device, sample_batches, sizeof(column_sample_batch) * sample_size, cudaMemcpyHostToDevice);
 
     qm31 *batch_random_coeffs_device;
-    cudaMalloc((void**)&batch_random_coeffs_device, sizeof(qm31) * sample_size);
+    cudaMalloc((void **)&batch_random_coeffs_device, sizeof(qm31) * sample_size);
 
     uint32_t *line_coeffs_sizes_device;
-    cudaMalloc((void**)&line_coeffs_sizes_device, sizeof(uint32_t) * sample_size);
+    cudaMalloc((void **)&line_coeffs_sizes_device, sizeof(uint32_t) * sample_size);
 
     qm31 *flattened_line_coeffs_device;
-    cudaMalloc((void**)&flattened_line_coeffs_device, sizeof(qm31) * flattened_line_coeffs_size);
+    cudaMalloc((void **)&flattened_line_coeffs_device, sizeof(qm31) * flattened_line_coeffs_size);
 
     // Accumulate Quotient Constants
     int block_dim = sample_size < THREAD_COUNT_MAX ? sample_size : THREAD_COUNT_MAX; 
@@ -250,8 +327,11 @@ void accumulate_quotients(
             batch_random_coeffs_device
     );
 
+    uint32_t *prefix_sum_line_coeffs_sizes_device; 
+    cudaMalloc((void **)&prefix_sum_line_coeffs_sizes_device, sample_size * sizeof(uint32_t)); 
+
     // TODO: set to 1024
-    block_dim = 512;
+    block_dim = 896;
     num_blocks = (domain_size + block_dim - 1) / block_dim;
     accumulate_quotients_in_gpu<<<num_blocks, block_dim>>>(
             half_coset_initial_index,
@@ -269,6 +349,7 @@ void accumulate_quotients(
             result_column_3,
             flattened_line_coeffs_device,
             line_coeffs_sizes_device,
+            prefix_sum_line_coeffs_sizes_device,
             batch_random_coeffs_device,
             denominator_inverses
     );
@@ -281,5 +362,6 @@ void accumulate_quotients(
     cudaFree(sample_column_values_device);
     cudaFree(batch_random_coeffs_device);
     cudaFree(line_coeffs_sizes_device);
+    cudaFree(prefix_sum_line_coeffs_sizes_device);
     cudaFree(flattened_line_coeffs_device);
 }
