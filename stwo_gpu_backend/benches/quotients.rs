@@ -44,9 +44,9 @@ fn bench_quotients<B: QuotientOps, const LOG_N_ROWS: u32, const LOG_N_COLS: u32>
 }
 
 fn quotients_benches(c: &mut Criterion) {
-    bench_quotients::<SimdBackend, 20, 8>(c, "simd");
-    bench_quotients::<CpuBackend, 20, 8>(c, "cpu");
-    bench_quotients::<CudaBackend, 20, 8>(c, "cuda");
+   //bench_quotients::<SimdBackend, 20, 8>(c, "simd");
+    //bench_quotients::<CpuBackend, 20, 8>(c, "cpu");
+    bench_quotients::<CudaBackend, 28, 16>(c, "cuda");
 }
 
 criterion_group!(
