@@ -331,7 +331,7 @@ void accumulate_quotients(
     cudaMalloc((void **)&prefix_sum_line_coeffs_sizes_device, sample_size * sizeof(uint32_t)); 
 
     // TODO: set to 1024
-    block_dim = 512;
+    block_dim = 896;
     num_blocks = (domain_size + block_dim - 1) / block_dim;
     accumulate_quotients_in_gpu<<<num_blocks, block_dim>>>(
             half_coset_initial_index,
