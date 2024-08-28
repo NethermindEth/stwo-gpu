@@ -1,9 +1,8 @@
 #ifndef FIELDS_H
 #define FIELDS_H
+#include <stdint.h>
 
-typedef unsigned int uint32_t;
 typedef uint32_t m31;
-typedef unsigned long long uint64_t;
 
 typedef struct {
     m31 a;

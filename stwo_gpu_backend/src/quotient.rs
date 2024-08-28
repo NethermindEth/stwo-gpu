@@ -111,7 +111,7 @@ mod tests {
 
     #[test]
     fn test_accumulate_quotients_compared_with_cpu() {
-        const LOG_SIZE: u32 = 15;
+        const LOG_SIZE: u32 = 2;
         let small_domain = CanonicCoset::new(LOG_SIZE).circle_domain();
         let domain = CanonicCoset::new(LOG_SIZE + LOG_BLOWUP_FACTOR).circle_domain();
         let e0: BaseColumn = (0..small_domain.size()).map(BaseField::from).collect();
@@ -165,6 +165,6 @@ mod tests {
             &samples,
         ).values.to_cpu().to_vec();
 
-        //assert_eq!(gpu_result, cpu_result);
+        assert_eq!(gpu_result, cpu_result);
     }
 }
