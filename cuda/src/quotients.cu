@@ -199,9 +199,11 @@ __global__ void accumulate_quotients_in_gpu(
 
                 int column_index = sample_batches[i].columns[j];
                 qm31 linear_term = add(mul_by_scalar(a, domain_point.y), b);
-                qm31 value = mul_by_scalar(c, columns[column_index][row]);
+                m31 temp = columns[column_index][row]; 
+                // qm31 value = qm31{{cm31{c * }}}
+                // qm31 value = mul_by_scalar(c, columns[column_index][row]);
                
-                numerator = add(numerator, sub(value, linear_term));
+                numerator = add(numerator, sub(linear_term, linear_term));
             }
 
             row_accumulator = add(mul(row_accumulator, batch_coeff), mul(numerator, denominator_inverses[i]));
@@ -212,7 +214,6 @@ __global__ void accumulate_quotients_in_gpu(
         result_column_1[row] = row_accumulator.a.b;
         result_column_2[row] = row_accumulator.b.a;
         result_column_3[row] = row_accumulator.b.b;
-
     }
 }
 
