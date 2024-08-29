@@ -149,6 +149,52 @@ __global__ void launch_denominator_inverses(
         }
     }
 
+__global__ void calculate_numerator(        
+        uint32_t half_coset_initial_index,
+        uint32_t half_coset_step_size,
+        uint32_t domain_size,
+        int domain_log_size,
+        m31 **columns,
+        uint32_t number_of_columns,
+        qm31 random_coefficient,
+        column_sample_batch *sample_batches,
+        uint32_t sample_size,
+        qm31 *flattened_line_coeffs,
+        uint32_t *line_coeffs_sizes,
+        uint32_t *prefix_sum_line_coeffs_sizes_device, 
+        qm31 *batch_random_coeffs,
+        cm31 *denominator_inverses,
+        m31 domain_point_y, 
+        qm31 *line_coeffs, 
+        qm31 *numerator,
+        int line_coeffs_size,
+        int row
+        ) {
+    
+    int tid = threadIdx.x + blockDim.x * blockIdx.x;
+    
+    __global__ int numerator_temp; 
+    if (tid == 0) {
+        numerator_temp = 0;
+    }
+    __syncthreads();
+    
+    if (tid < line_coeffs_size) {
+        qm31 a = line_coeffs[3 * tid + 0];
+        qm31 b = line_coeffs[3 * tid + 1];
+        qm31 c = line_coeffs[3 * tid + 2];
+
+        int column_index = sample_batches[0].columns[j];
+        qm31 linear_term = add(mul_by_scalar(a, domain_point_y), b);
+        // m31 temp = columns[column_index][row]; 
+        // qm31 value = qm31{cm31{c.a.a * temp, c.a.b * temp}, cm31{c.b.a * temp, c.b.b * temp}};
+        qm31 value = mul_by_scalar(c, columns[column_index][row]);
+        
+        numerator = add(numerator, sub(value, linear_term));
+    }
+
+}
+
 __global__ void accumulate_quotients_in_gpu(
         uint32_t half_coset_initial_index,
         uint32_t half_coset_step_size,
@@ -199,9 +245,9 @@ __global__ void accumulate_quotients_in_gpu(
 
                 int column_index = sample_batches[i].columns[j];
                 qm31 linear_term = add(mul_by_scalar(a, domain_point.y), b);
-                m31 temp = columns[column_index][row]; 
-                qm31 value = qm31{cm31{c.a.a * temp, c.a.b * temp}, cm31{c.b.a * temp, c.b.b * temp}};
-                // qm31 value = mul_by_scalar(c, columns[column_index][row]);
+                // m31 temp = columns[column_index][row]; 
+                // qm31 value = qm31{cm31{c.a.a * temp, c.a.b * temp}, cm31{c.b.a * temp, c.b.b * temp}};
+                qm31 value = mul_by_scalar(c, columns[column_index][row]);
                
                 numerator = add(numerator, sub(value, linear_term));
             }
