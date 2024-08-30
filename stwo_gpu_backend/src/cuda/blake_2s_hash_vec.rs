@@ -1,6 +1,6 @@
+use crate::cuda::bindings;
 use std::fmt::Debug;
 use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
-use crate::cuda::bindings;
 
 #[derive(Debug)]
 pub struct Blake2sHashVec {

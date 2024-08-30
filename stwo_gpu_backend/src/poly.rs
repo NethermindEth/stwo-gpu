@@ -3,17 +3,17 @@ use stwo_prover::core::{
     circle::{CirclePoint, Coset},
     fields::{m31::BaseField, qm31::SecureField},
     poly::{
-        BitReversedOrder,
         circle::{CanonicCoset, CircleDomain, CircleEvaluation, CirclePoly, PolyOps},
         twiddles::TwiddleTree,
+        BitReversedOrder,
     },
 };
 
+use crate::cuda::bindings::CudaSecureField;
 use crate::{
     backend::CudaBackend,
     cuda::{self},
 };
-use crate::cuda::bindings::CudaSecureField;
 
 impl PolyOps for CudaBackend {
     type Twiddles = cuda::BaseFieldVec;
@@ -59,7 +59,8 @@ impl PolyOps for CudaBackend {
                 poly.coeffs.len() as u32,
                 CudaSecureField::from(point.x),
                 CudaSecureField::from(point.y),
-            ).into()
+            )
+            .into()
         }
     }
 
@@ -122,21 +123,21 @@ impl PolyOps for CudaBackend {
 
 #[cfg(test)]
 mod tests {
+    use stwo_prover::core::poly::circle::{
+        CanonicCoset, CircleDomain, CircleEvaluation, CirclePoly, PolyOps,
+    };
+    use stwo_prover::core::poly::twiddles::TwiddleTree;
     use stwo_prover::core::{
         backend::{Column, CpuBackend},
         circle::{CirclePoint, CirclePointIndex, Coset, SECURE_FIELD_CIRCLE_GEN},
         fields::m31::BaseField,
     };
-    use stwo_prover::core::poly::circle::{CanonicCoset, CircleDomain, CircleEvaluation, CirclePoly, PolyOps};
-    use stwo_prover::core::poly::twiddles::TwiddleTree;
     use test_log::test;
 
     use crate::{
         backend::CudaBackend,
         cuda::{self, BaseFieldVec},
-        poly::{
-            BitReversedOrder,
-        },
+        poly::BitReversedOrder,
     };
 
     #[test]

@@ -1,11 +1,11 @@
+use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
 use stwo_prover::core::{
     backend::{Column, ColumnOps},
     fields::{m31::BaseField, qm31::SecureField},
 };
-use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
 
-use crate::{backend::CudaBackend, cuda};
 use crate::cuda::bindings;
+use crate::{backend::CudaBackend, cuda};
 
 impl ColumnOps<BaseField> for CudaBackend {
     type Column = cuda::BaseFieldVec;
@@ -58,7 +58,7 @@ impl Column<BaseField> for cuda::BaseFieldVec {
     unsafe fn uninitialized(len: usize) -> Self {
         Self {
             device_ptr: bindings::cuda_malloc_uint32_t(len as u32),
-            size: len
+            size: len,
         }
     }
 }
@@ -93,7 +93,7 @@ impl Column<SecureField> for cuda::SecureFieldVec {
     unsafe fn uninitialized(len: usize) -> Self {
         Self {
             device_ptr: bindings::cuda_malloc_uint32_t(4 * len as u32),
-            size: len
+            size: len,
         }
     }
 }
@@ -129,13 +129,13 @@ impl Column<Blake2sHash> for cuda::Blake2sHashVec {
     unsafe fn uninitialized(len: usize) -> Self {
         Self {
             device_ptr: bindings::cuda_malloc_blake_2s_hash(len),
-            size: len
+            size: len,
         }
     }
 }
 
 impl FromIterator<Blake2sHash> for cuda::Blake2sHashVec {
-    fn from_iter<T: IntoIterator<Item=Blake2sHash>>(_iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = Blake2sHash>>(_iter: T) -> Self {
         todo!()
     }
 }
