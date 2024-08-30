@@ -167,6 +167,10 @@ __global__ void calculate_numerator(
         m31 domain_point_y, 
         qm31 *line_coeffs, 
         qm31 *numerator,
+        uint64_t *numerator_a_a, 
+        uint64_t *numerator_a_b, 
+        uint64_t *numerator_b_a, 
+        uint64_t *numerator_b_b,
         int line_coeffs_size,
         int row
         ) {
@@ -205,24 +209,25 @@ __global__ void calculate_numerator(
     }
 
      __syncthreads();
-
-    if (tid == 0) {
+    
+    // reduce again after call with cuda device synchronize
+    if(tid == 0) {
         numerator_temp_a_a = numerator_temp_a_a % 2147483647; 
- 
+        *numerator_a_a = atomicAdd((unsigned long long *)numerator_a_a, numerator_temp_a_a);
     }
-    else if (tid == 1) {
+    else if(tid == 1) {
         numerator_temp_a_b = numerator_temp_a_b % 2147483647;
-     
+        *numerator_a_b = atomicAdd((unsigned long long *)numerator_a_b, numerator_temp_a_b);
     }
-    else if (tid == 2) {
+    else if(tid == 2) {
         numerator_temp_b_a = numerator_temp_b_a % 2147483647; 
+        *numerator_b_a = atomicAdd((unsigned long long *)numerator_b_a, numerator_temp_b_a);
+
     }
-    else if (tid == 3) {
-     
+    else if(tid == 3) {
         numerator_temp_b_b = numerator_temp_b_b % 2147483647; 
+        *numerator_b_b = atomicAdd((unsigned long long *)numerator_b_b, numerator_temp_b_b);
     }
-
-
 }
 
 __global__ void accumulate_quotients_in_gpu(
@@ -268,19 +273,33 @@ __global__ void accumulate_quotients_in_gpu(
             int line_coeffs_size = line_coeffs_sizes[i];
 
             qm31 numerator = {{0, 0}, {0, 0}};
-            for(int j = 0; j < line_coeffs_size; j++) {
-                qm31 a = line_coeffs[3 * j + 0];
-                qm31 b = line_coeffs[3 * j + 1];
-                qm31 c = line_coeffs[3 * j + 2];
+            uint64_t numerator_a_a = 0; 
+            uint64_t numerator_a_b = 0; 
+            uint64_t numerator_b_a = 0; 
+            uint64_t numerator_b_b = 0; 
 
-                int column_index = sample_batches[i].columns[j];
-                qm31 linear_term = add(mul_by_scalar(a, domain_point.y), b);
-                // m31 temp = columns[column_index][row]; 
-                // qm31 value = qm31{cm31{c.a.a * temp, c.a.b * temp}, cm31{c.b.a * temp, c.b.b * temp}};
-                qm31 value = mul_by_scalar(c, columns[column_index][row]);
+            cudaStream_t stream;
+            cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+
+            int block_dim = 1024;
+            int num_blocks = (line_coeffs_size + block_dim - 1) / block_dim;
+            <<<block_dim, num_blocks, 0, stream>>>(); 
+
+
+            
+            // for(int j = 0; j < line_coeffs_size; j++) {
+            //     qm31 a = line_coeffs[3 * j + 0];
+            //     qm31 b = line_coeffs[3 * j + 1];
+            //     qm31 c = line_coeffs[3 * j + 2];
+
+            //     int column_index = sample_batches[i].columns[j];
+            //     qm31 linear_term = add(mul_by_scalar(a, domain_point.y), b);
+            //     // m31 temp = columns[column_index][row]; 
+            //     // qm31 value = qm31{cm31{c.a.a * temp, c.a.b * temp}, cm31{c.b.a * temp, c.b.b * temp}};
+            //     qm31 value = mul_by_scalar(c, columns[column_index][row]);
                
-                numerator = add(numerator, sub(value, linear_term));
-            }
+            //     numerator = add(numerator, sub(value, linear_term));
+            // }
 
             row_accumulator = add(mul(row_accumulator, batch_coeff), mul(numerator, denominator_inverses[i]));
             line_coeffs_offset += line_coeffs_size;
