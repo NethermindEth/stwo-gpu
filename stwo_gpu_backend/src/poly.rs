@@ -1,19 +1,15 @@
-use stwo_prover::core::{
-    backend::{Col, Column},
-    circle::{CirclePoint, Coset},
-    fields::{m31::BaseField, qm31::SecureField},
-    poly::{
-        circle::{CanonicCoset, CircleDomain, CircleEvaluation, CirclePoly, PolyOps},
-        twiddles::TwiddleTree,
-        BitReversedOrder,
-    },
-};
+use stwo_prover::core::{backend::{Col, Column}, circle::{CirclePoint, Coset}, ColumnVec, fields::{m31::BaseField, qm31::SecureField}, poly::{
+    circle::{CanonicCoset, CircleDomain, CircleEvaluation, CirclePoly, PolyOps},
+    twiddles::TwiddleTree,
+    BitReversedOrder,
+}};
 
 use crate::cuda::bindings::CudaSecureField;
 use crate::{
     backend::CudaBackend,
     cuda::{self},
 };
+use crate::cuda::BaseFieldVec;
 
 impl PolyOps for CudaBackend {
     type Twiddles = cuda::BaseFieldVec;
@@ -52,6 +48,33 @@ impl PolyOps for CudaBackend {
         CirclePoly::new(values)
     }
 
+    fn interpolate_columns(
+        columns: &ColumnVec<CircleEvaluation<Self, BaseField, BitReversedOrder>>,
+        twiddles: &TwiddleTree<Self>,
+    ) -> Vec<CirclePoly<Self>> {
+        columns
+            .into_iter()
+            .map(|eval| {
+                let values = eval.clone().values;
+                assert!(eval
+                    .domain
+                    .half_coset
+                    .is_doubling_of(twiddles.root_coset));
+                unsafe {
+                    cuda::bindings::interpolate(
+                        eval.domain.half_coset.size() as u32,
+                        values.device_ptr,
+                        twiddles.itwiddles.device_ptr,
+                        twiddles.itwiddles.len() as u32,
+                        values.len() as u32,
+                    );
+                }
+
+                CirclePoly::new(values)
+            })
+            .collect()
+    }
+
     fn eval_at_point(poly: &CirclePoly<Self>, point: CirclePoint<SecureField>) -> SecureField {
         unsafe {
             cuda::bindings::eval_at_point(
@@ -60,7 +83,7 @@ impl PolyOps for CudaBackend {
                 CudaSecureField::from(point.x),
                 CudaSecureField::from(point.y),
             )
-            .into()
+                .into()
         }
     }
 
@@ -123,15 +146,12 @@ impl PolyOps for CudaBackend {
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
     use stwo_prover::core::poly::circle::{
         CanonicCoset, CircleDomain, CircleEvaluation, CirclePoly, PolyOps,
     };
     use stwo_prover::core::poly::twiddles::TwiddleTree;
-    use stwo_prover::core::{
-        backend::{Column, CpuBackend},
-        circle::{CirclePoint, CirclePointIndex, Coset, SECURE_FIELD_CIRCLE_GEN},
-        fields::m31::BaseField,
-    };
+    use stwo_prover::core::{backend::{Column, CpuBackend}, circle::{CirclePoint, CirclePointIndex, Coset, SECURE_FIELD_CIRCLE_GEN}, fields::m31::BaseField, ColumnVec};
     use test_log::test;
 
     use crate::{
@@ -538,5 +558,41 @@ mod tests {
         let expected_result = CpuBackend::interpolate(cpu_evaluation, &cpu_twiddle_tree);
         let result = CudaBackend::interpolate(eval, &twiddle_tree);
         assert_eq!(expected_result.coeffs, result.coeffs.to_cpu());
+    }
+
+    #[test]
+    fn test_interpolate_columns() {
+        let log_size = 5;
+        let log_number_of_columns = 5;
+
+        let size = 1 << log_size;
+        let number_of_columns = 1 << log_number_of_columns;
+
+        let cpu_values = (1..(size + 1) as u32)
+            .map(BaseField::from)
+            .collect_vec();
+        let gpu_values = cuda::BaseFieldVec::from_vec(cpu_values.clone());
+
+        let coset = CanonicCoset::new(log_size);
+        let cpu_evaluations = CpuBackend::new_canonical_ordered(coset, cpu_values);
+        let gpu_evaluations = CudaBackend::new_canonical_ordered(coset, gpu_values);
+
+        let cpu_twiddles = CpuBackend::precompute_twiddles(coset.half_coset());
+        let gpu_twiddles = CudaBackend::precompute_twiddles(coset.half_coset());
+
+        let cpu_columns = (0..number_of_columns).map( |_index|
+            cpu_evaluations.clone()
+        ).collect_vec();
+        let gpu_columns = (0..number_of_columns).map( |_index|
+            gpu_evaluations.clone()
+        ).collect_vec();
+
+        let expected_result = CpuBackend::interpolate_columns(&cpu_columns, &cpu_twiddles);
+        let result = CudaBackend::interpolate_columns(&gpu_columns, &gpu_twiddles);
+
+        let expected_coeffs = expected_result.iter().map(|poly| poly.coeffs.clone()).collect_vec();
+        let coeffs = result.iter().map(|poly| poly.coeffs.clone().to_cpu()).collect_vec();
+
+        assert_eq!(coeffs, expected_coeffs);
     }
 }
