@@ -172,10 +172,16 @@ __global__ void calculate_numerator(
         ) {
     
     int tid = threadIdx.x + blockDim.x * blockIdx.x;
-    
-    __global__ int numerator_temp; 
+    __global__ unsigned long long numerator_temp_a_a; 
+    __global__ unsigned long long numerator_temp_a_b;
+    __global__ unsigned long long numerator_temp_b_a;
+    __global__ unsigned long long numerator_temp_b_b;
+
     if (tid == 0) {
-        numerator_temp = 0;
+        numerator_temp_a_a = 0;
+        numerator_temp_a_b = 0; 
+        numerator_temp_b_a = 0; 
+        numerator_temp_b_b = 0; 
     }
     __syncthreads();
     
@@ -189,9 +195,33 @@ __global__ void calculate_numerator(
         // m31 temp = columns[column_index][row]; 
         // qm31 value = qm31{cm31{c.a.a * temp, c.a.b * temp}, cm31{c.b.a * temp, c.b.b * temp}};
         qm31 value = mul_by_scalar(c, columns[column_index][row]);
-        
-        numerator = add(numerator, sub(value, linear_term));
+        qm31 linear_sub_value = sub(value, linear_term);
+
+        // custom add (thread count < [(2^64 - 1)/(2^32 - 1)] = 2^32 + 1) so we can keep everything in a u64 and then reduce 1 one time
+        numerator_temp_a_a = atomicAdd(&numerator_temp_a_a, linear_sub_value.a.a); 
+        numerator_temp_a_b = atomicAdd(&numerator_temp_a_b, linear_sub_value.a.b); 
+        numerator_temp_b_a = atomicAdd(&numerator_temp_b_a, linear_sub_value.b.a); 
+        numerator_temp_b_b = atomicAdd(&numerator_temp_b_b, linear_sub_value.b.b); 
     }
+
+     __syncthreads();
+
+    if (tid == 0) {
+        numerator_temp_a_a = numerator_temp_a_a % 2147483647; 
+ 
+    }
+    else if (tid == 1) {
+        numerator_temp_a_b = numerator_temp_a_b % 2147483647;
+     
+    }
+    else if (tid == 2) {
+        numerator_temp_b_a = numerator_temp_b_a % 2147483647; 
+    }
+    else if (tid == 3) {
+     
+        numerator_temp_b_b = numerator_temp_b_b % 2147483647; 
+    }
+
 
 }
 
