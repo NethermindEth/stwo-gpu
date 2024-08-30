@@ -38,7 +38,7 @@ void column_sample_batches_for(
         column_sample_batch *result
 ) {
     unsigned int offset = 0;
-    for (unsigned int index = 0; index < sample_size; index++) {
+    for (size_t index = 0; index < sample_size; ++index) {
         result[index].point = sample_points[index];
         result[index].columns = &sample_column_indexes[offset];
         result[index].values = &sample_column_values[offset];
@@ -98,7 +98,7 @@ __device__ void denominator_inverse(
         const point domain_point,
         cm31 *flat_denominators) {
 
-    for (unsigned int i = 0; i < sample_size; i++) {
+    for (size_t i = 0; i < sample_size; ++i) {
         cm31 prx = sample_batches[i].point.x.a;
         cm31 pry = sample_batches[i].point.y.a;
         cm31 pix = sample_batches[i].point.x.b;
@@ -147,13 +147,13 @@ __global__ void accumulate_quotients_in_gpu(
 
         qm31 row_accumulator = {{0, 0}, {0, 0}};
         int line_coeffs_offset = 0;
-        
-        for(int i = 0; i < sample_size; ++i) {
+
+        for(size_t i = 0; i < sample_size; ++i) {
             qm31 *line_coeffs = &flattened_line_coeffs[line_coeffs_offset * 3];
             int line_coeffs_size = line_coeffs_sizes[i];
             qm31 numerator = {{0, 0}, {0, 0}};
 
-            for(int j = 0; j < line_coeffs_size; j++) {
+            for(size_t j = 0; j < line_coeffs_size; ++j) {
                 qm31 a = line_coeffs[3 * j + 0];
                 qm31 b = line_coeffs[3 * j + 1];
                 qm31 c = line_coeffs[3 * j + 2];
