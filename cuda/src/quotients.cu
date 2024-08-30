@@ -74,7 +74,7 @@ __global__ void column_line_and_batch_random_coeffs(
         line_coeffs_sizes[tid] = sample_batches[tid].size;
         size_t sample_batches_offset = tid * line_coeffs_sizes[tid] * 3; 
 
-        qm31 alpha = qm31{cm31{m31{1}, m31{0}}, cm31{m31{0}, m31{0}}};
+        qm31 alpha = {{1, 0}, {0, 0}};
 
         for(size_t j = 0; j < sample_batches[tid].size; ++j) {
             qm31 sampled_value = sample_batches[tid].values[j];
@@ -145,17 +145,14 @@ __global__ void accumulate_quotients_in_gpu(
             denominator_inverses
         );
 
-        int i = 0;
-
-        qm31 row_accumulator = qm31{cm31{0, 0}, cm31{0, 0}};
+        qm31 row_accumulator = {{0, 0}, {0, 0}};
         int line_coeffs_offset = 0;
-        while (i < sample_size) {
-            column_sample_batch sample_batch = sample_batches[i];
+        
+        for(int i = 0; i < sample_size; ++i) {
             qm31 *line_coeffs = &flattened_line_coeffs[line_coeffs_offset * 3];
-            qm31 batch_coeff = batch_random_coeffs[i];
             int line_coeffs_size = line_coeffs_sizes[i];
+            qm31 numerator = {{0, 0}, {0, 0}};
 
-            qm31 numerator = qm31{cm31{0, 0}, cm31{0, 0}};
             for(int j = 0; j < line_coeffs_size; j++) {
                 qm31 a = line_coeffs[3 * j + 0];
                 qm31 b = line_coeffs[3 * j + 1];
@@ -168,16 +165,14 @@ __global__ void accumulate_quotients_in_gpu(
                 numerator = add(numerator, sub(value, linear_term));
             }
 
-            row_accumulator = add(mul(row_accumulator, batch_coeff), mul(numerator, denominator_inverses[i]));
+            row_accumulator = add(mul(row_accumulator, batch_random_coeffs[i]), mul(numerator, denominator_inverses[i]));
             line_coeffs_offset += line_coeffs_size;
-            i++;
         }
 
         result_column_0[row] = row_accumulator.a.a;
         result_column_1[row] = row_accumulator.a.b;
         result_column_2[row] = row_accumulator.b.a;
         result_column_3[row] = row_accumulator.b.b;
-
     }
 }
 
@@ -250,9 +245,8 @@ void accumulate_quotients(
             batch_random_coeffs_device
     );
 
-    // TODO: set to 1024
-    block_dim = 512;
-    num_blocks = (domain_size + block_dim - 1) / block_dim;
+    block_dim = domain_size < THREAD_COUNT_MAX ? domain_size : THREAD_COUNT_MAX; 
+    num_blocks = block_dim < THREAD_COUNT_MAX ? 1 : (domain_size + block_dim - 1) / block_dim;
     accumulate_quotients_in_gpu<<<num_blocks, block_dim>>>(
             half_coset_initial_index,
             half_coset_step_size,
