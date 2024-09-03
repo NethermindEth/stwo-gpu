@@ -127,9 +127,6 @@ __global__ void accumulate_quotients_helper(
 ) {
     int i = threadIdx.x + blockDim.x * blockIdx.x;
     if (i < sample_size) {
-            
-
-            printf("sdfsadfdsfdsf\n\n\n");
 
             column_sample_batch sample_batch = sample_batches[i];
             qm31 *line_coeffs = &flattened_line_coeffs[prefix_sum_line_coeffs_sizes_device[i] * 3];
@@ -202,27 +199,22 @@ __global__ void accumulate_quotients_in_gpu(
         qm31 row_accumulator = qm31{cm31{0, 0}, cm31{0, 0}};
         int line_coeffs_offset = 0;
         
-        int block_dim = 1024;
-        int num_blocks = (sample_size + block_dim - 1) / block_dim;
-        accumulate_quotients_helper<<<block_dim, num_blocks>>>(
-            &row_accumulator, 
-            prefix_sum_line_coeffs_sizes_device,
-            domain_point, 
-            columns,
-            sample_batches,
-            sample_size,
-            flattened_line_coeffs,
-            line_coeffs_sizes,
-            batch_random_coeffs,
-            denominator_inverses,
-            row
-        );
+        // int block_dim = 1024;
+        // int num_blocks = (sample_size + block_dim - 1) / block_dim;
+        // accumulate_quotients_helper<<<block_dim, num_blocks>>>(
+        //     &row_accumulator, 
+        //     prefix_sum_line_coeffs_sizes_device,
+        //     domain_point, 
+        //     columns,
+        //     sample_batches,
+        //     sample_size,
+        //     flattened_line_coeffs,
+        //     line_coeffs_sizes,
+        //     batch_random_coeffs,
+        //     denominator_inverses,
+        //     row
+        // );
 
-        //__syncthreads(); 
-        // for(int z = 0; z < sample_size; z++) {
-        //     printf("%d ", prefix_sum_line_coeffs_sizes_device[z]); 
-        // }
-        // printf("\n\n");
         int i = 0;
         while (i < sample_size) {
             column_sample_batch sample_batch = sample_batches[i];
@@ -331,7 +323,7 @@ void accumulate_quotients(
     cudaMalloc((void **)&prefix_sum_line_coeffs_sizes_device, sample_size * sizeof(uint32_t)); 
 
     // TODO: set to 1024
-    block_dim = 896;
+    block_dim = 512;
     num_blocks = (domain_size + block_dim - 1) / block_dim;
     accumulate_quotients_in_gpu<<<num_blocks, block_dim>>>(
             half_coset_initial_index,
