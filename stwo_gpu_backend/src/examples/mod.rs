@@ -44,7 +44,6 @@ mod tests {
             fri_config: FriConfig::new(5, 1, 64),
         };
 
-        let simd_span = span!(Level::INFO, "Test SIMD interpolation").entered();
         let simd_columns: ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> =
             (0..number_of_columns).map(|_index|
                 CircleEvaluation::<SimdBackend, BaseField, BitReversedOrder>::new(
@@ -54,10 +53,10 @@ mod tests {
         let simd_twiddles = SimdBackend::precompute_twiddles(domain.half_coset);
         let mut simd_commitment_scheme_prover: CommitmentSchemeProver<'_, SimdBackend, Blake2sMerkleChannel> =
             CommitmentSchemeProver::new(config, &simd_twiddles);
+        let simd_span = span!(Level::INFO, "Test SIMD interpolation").entered();
         simd_commitment_scheme_prover.tree_builder().extend_evals(simd_columns);
         simd_span.exit();
 
-        let gpu_span = span!(Level::INFO, "Test GPU interpolation").entered();
         let gpu_columns: ColumnVec<CircleEvaluation<CudaBackend, BaseField, BitReversedOrder>> =
             (0..number_of_columns).map(|_index|
                 CircleEvaluation::<CudaBackend, BaseField, BitReversedOrder>::new(
@@ -67,6 +66,7 @@ mod tests {
         let gpu_twiddles = CudaBackend::precompute_twiddles(domain.half_coset);
         let mut gpu_commitment_scheme_prover: CommitmentSchemeProver<'_, CudaBackend, Blake2sMerkleChannel> =
             CommitmentSchemeProver::new(config, &gpu_twiddles);
+        let gpu_span = span!(Level::INFO, "Test GPU interpolation").entered();
         gpu_commitment_scheme_prover.tree_builder().extend_evals(gpu_columns);
         gpu_span.exit();
     }

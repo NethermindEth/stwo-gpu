@@ -1,15 +1,14 @@
+use itertools::Itertools;
 use stwo_prover::core::{backend::{Col, Column}, circle::{CirclePoint, Coset}, ColumnVec, fields::{m31::BaseField, qm31::SecureField}, poly::{
     circle::{CanonicCoset, CircleDomain, CircleEvaluation, CirclePoly, PolyOps},
     twiddles::TwiddleTree,
     BitReversedOrder,
 }};
-
 use crate::cuda::bindings::CudaSecureField;
 use crate::{
     backend::CudaBackend,
     cuda::{self},
 };
-use crate::cuda::BaseFieldVec;
 
 impl PolyOps for CudaBackend {
     type Twiddles = cuda::BaseFieldVec;
@@ -52,27 +51,19 @@ impl PolyOps for CudaBackend {
         columns: &ColumnVec<CircleEvaluation<Self, BaseField, BitReversedOrder>>,
         twiddles: &TwiddleTree<Self>,
     ) -> Vec<CirclePoly<Self>> {
-        columns
-            .into_iter()
-            .map(|eval| {
-                let values = eval.clone().values;
-                assert!(eval
-                    .domain
-                    .half_coset
-                    .is_doubling_of(twiddles.root_coset));
-                unsafe {
-                    cuda::bindings::interpolate(
-                        eval.domain.half_coset.size() as u32,
-                        values.device_ptr,
-                        twiddles.itwiddles.device_ptr,
-                        twiddles.itwiddles.len() as u32,
-                        values.len() as u32,
-                    );
-                }
-
-                CirclePoly::new(values)
-            })
-            .collect()
+        let values = columns.iter().map(|column| column.values.device_ptr).collect_vec();
+        let number_of_rows = columns[0].len();
+        unsafe  {
+            cuda::bindings::interpolate_columns(
+                columns[0].domain.half_coset.size() as u32,
+                values.as_ptr(),
+                twiddles.itwiddles.device_ptr,
+                twiddles.itwiddles.len() as u32,
+                columns.len() as u32,
+                number_of_rows as u32,
+            );
+        }
+        values.iter().map(|ptr| CirclePoly::new(cuda::BaseFieldVec::new(*ptr, number_of_rows))).collect_vec()
     }
 
     fn eval_at_point(poly: &CirclePoly<Self>, point: CirclePoint<SecureField>) -> SecureField {
