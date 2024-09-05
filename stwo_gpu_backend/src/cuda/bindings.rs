@@ -226,4 +226,6 @@ extern "C" {
         result_column_3: *const u32,
         flattened_line_coeffs_size: u32,
     );
+
+    pub fn fix_first_variable(evals: *const u32 , evals_size: usize, assignment: SecureField, output_evals: *const u32);
 }
