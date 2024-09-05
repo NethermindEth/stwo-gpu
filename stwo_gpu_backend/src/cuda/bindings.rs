@@ -1,8 +1,8 @@
+use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
 use stwo_prover::core::{
     circle::CirclePoint,
     fields::{m31::BaseField, qm31::SecureField},
 };
-use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
 
 #[repr(C)]
 pub struct CudaSecureField {
@@ -26,10 +26,10 @@ impl CudaSecureField {
 impl From<SecureField> for CudaSecureField {
     fn from(value: SecureField) -> Self {
         Self {
-            a: value.0.0,
-            b: value.0.1,
-            c: value.1.0,
-            d: value.1.1,
+            a: value.0 .0,
+            b: value.0 .1,
+            c: value.1 .0,
+            d: value.1 .1,
         }
     }
 }
@@ -164,11 +164,7 @@ extern "C" {
         g_values: *const *const u32,
     );
 
-    pub fn accumulate(
-        size: u32,
-        left_columns: *const *const u32,
-        right_columns: *const *const u32,
-    );
+    pub fn accumulate(size: u32, left_columns: *const *const u32, right_columns: *const *const u32);
 
     pub fn commit_on_first_layer(
         size: usize,
@@ -202,18 +198,14 @@ extern "C" {
         size: usize,
     );
 
-    pub fn free_blake_2s_hash_vec(
-        device_pointer: *const Blake2sHash,
-    );
+    pub fn free_blake_2s_hash_vec(device_pointer: *const Blake2sHash);
 
     pub fn copy_device_pointer_vec_from_host_to_device(
         from: *const *const u32,
         size: usize,
     ) -> *const *const u32;
 
-    pub fn free_device_pointer_vec(
-        device_pointer: *const *const u32,
-    );
+    pub fn free_device_pointer_vec(device_pointer: *const *const u32);
 
     pub fn accumulate_quotients(
         half_coset_initial_index: u32,

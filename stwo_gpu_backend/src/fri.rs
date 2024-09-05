@@ -1,7 +1,7 @@
 use stwo_prover::core::{
     fields::qm31::SecureField,
     fri::FriOps,
-    poly::{circle::SecureEvaluation, line::LineEvaluation, twiddles::TwiddleTree},
+    poly::{circle::SecureEvaluation, line::LineEvaluation, twiddles::TwiddleTree, BitReversedOrder},
 };
 use stwo_prover::core::fri::CIRCLE_TO_LINE_FOLD_STEP;
 
@@ -45,7 +45,7 @@ impl FriOps for CudaBackend {
 
     fn fold_circle_into_line(
         dst: &mut LineEvaluation<Self>,
-        src: &SecureEvaluation<Self>,
+        src: &SecureEvaluation<Self, BitReversedOrder>,
         alpha: SecureField,
         twiddles: &TwiddleTree<Self>,
     ) {
@@ -66,7 +66,7 @@ impl FriOps for CudaBackend {
         }
     }
 
-    fn decompose(eval: &SecureEvaluation<Self>) -> (SecureEvaluation<Self>, SecureField) {
+    fn decompose(eval: &SecureEvaluation<Self, BitReversedOrder>) -> (SecureEvaluation<Self, BitReversedOrder>, SecureField) {
         let size = eval.len();
         unsafe {
             let g_values = CudaSecureColumn::new_with_size(size);
@@ -79,10 +79,10 @@ impl FriOps for CudaBackend {
                 CudaSecureColumn::from(&g_values).device_ptr(),
             );
 
-            let g = SecureEvaluation {
-                domain: eval.domain,
-                values: g_values,
-            };
+            let g = SecureEvaluation::new(
+                eval.domain,
+                g_values,
+            );
             (g, lambda.into())
         }
     }
@@ -105,6 +105,7 @@ mod tests {
     use stwo_prover::core::poly::circle::{CanonicCoset, CircleDomain, PolyOps, SecureEvaluation};
     use stwo_prover::core::poly::line::{LineDomain, LineEvaluation, LinePoly};
     use stwo_prover::core::poly::twiddles::TwiddleTree;
+    use stwo_prover::core::poly::BitReversedOrder;
 
     use crate::backend::CudaBackend;
     use crate::cuda::BaseFieldVec;
@@ -124,12 +125,12 @@ mod tests {
             vec[3].push(M31::from_u32_unchecked(a[3]));
         });
 
-        let cpu_secure_evaluation = SecureEvaluation {
-            domain: domain,
-            values: SecureColumnByCoords {
+        let cpu_secure_evaluation = SecureEvaluation::new(
+            domain,
+            SecureColumnByCoords {
                 columns: vec.clone(),
             },
-        };
+        );
 
         let columns = [
             BaseFieldVec::from_vec(vec[0].clone()),
@@ -137,10 +138,10 @@ mod tests {
             BaseFieldVec::from_vec(vec[2].clone()),
             BaseFieldVec::from_vec(vec[3].clone()),
         ];
-        let gpu_secure_evaluation = SecureEvaluation {
-            domain: domain,
-            values: SecureColumnByCoords { columns },
-        };
+        let gpu_secure_evaluation = SecureEvaluation::new(
+            domain,
+            SecureColumnByCoords { columns },
+        );
 
         let (expected_g_values, expected_lambda) = CpuBackend::decompose(&cpu_secure_evaluation);
         let (g_values, lambda) = CudaBackend::decompose(&gpu_secure_evaluation);
@@ -378,12 +379,12 @@ mod tests {
         ];
         CpuBackend::fold_circle_into_line(
             &mut cpu_fold,
-            &SecureEvaluation {
-                domain: circle_domain,
-                values: SecureColumnByCoords {
+            &SecureEvaluation::new(
+                circle_domain,
+                SecureColumnByCoords {
                     columns: vec.clone(),
                 },
-            },
+            ),
             alpha,
             &CpuBackend::precompute_twiddles(line_domain.coset()),
         );
@@ -394,10 +395,10 @@ mod tests {
         );
         CudaBackend::fold_circle_into_line(
             &mut cuda_fold,
-            &SecureEvaluation {
-                domain: circle_domain,
-                values: SecureColumnByCoords { columns: vecs },
-            },
+            &SecureEvaluation::new(
+                circle_domain,
+                SecureColumnByCoords { columns: vecs },
+            ),
             alpha,
             &CudaBackend::precompute_twiddles(line_domain.coset()),
         );
@@ -434,10 +435,10 @@ mod tests {
             ]
         };
         let src_domain = CircleDomain::new(Coset { initial_index: CirclePointIndex(16777216), initial: CirclePoint { x: M31(838195206), y: M31(1774253895) }, step_size: CirclePointIndex(67108864), step: CirclePoint { x: M31(1179735656), y: M31(1241207368) }, log_size: 5 });
-        let src = SecureEvaluation::<CpuBackend> {
-            domain: src_domain,
-            values: src_values,
-        };
+        let src = SecureEvaluation::<CpuBackend, BitReversedOrder>::new(
+            src_domain,
+            src_values,
+        );
         let alpha = QM31::from_m31(M31(1882064794), M31(2043041752), M31(1688786630), M31(1409241156));
         let root_coset = Coset { initial_index: CirclePointIndex(8388608), initial: CirclePoint { x: M31(785043271), y: M31(1260750973) }, step_size: CirclePointIndex(33554432), step: CirclePoint { x: M31(579625837), y: M31(1690787918) }, log_size: 6 };
         let twiddles = vec![M31(785043271), M31(1260750973), M31(736262640), M31(1553669210), M31(479120236), M31(225856549), M31(197700101), M31(1079800039), M31(1911378744), M31(1577470940), M31(1334497267), M31(2085743640), M31(477953613), M31(125103457), M31(1977033713), M31(2005527287), M31(251924953), M31(636875771), M31(48903418), M31(1896945393), M31(1514613395), M31(870936612), M31(1297878576), M31(583555490), M31(640817200), M31(1702126977), M31(1054411686), M31(648593218), M31(1014093253), M31(2137011181), M31(81378258), M31(789857006), M31(838195206), M31(1774253895), M31(1739004854), M31(262191051), M31(206059115), M31(212443077), M31(1796741361), M31(883753057), M31(2140339328), M31(404685994), M31(9803698), M31(68458636), M31(14530030), M31(228509164), M31(1038945916), M31(134155457), M31(579625837), M31(1690787918), M31(1641940819), M31(2121318970), M31(1952787376), M31(1580223790), M31(1013961365), M31(280947147), M31(1179735656), M31(1241207368), M31(1415090252), M31(2112881577), M31(590768354), M31(978592373), M31(32768), M31(1)];
@@ -475,10 +476,10 @@ mod tests {
                 BaseFieldVec::from_vec(src.columns[3].clone()),
             ]
         };
-        let src_cuda = SecureEvaluation::<CudaBackend> {
-            domain: src.domain,
-            values: src_cuda_values,
-        };
+        let src_cuda = SecureEvaluation::<CudaBackend, BitReversedOrder>::new(
+            src.domain,
+            src_cuda_values,
+        );
 
         let twiddle_tree_cuda = TwiddleTree::<CudaBackend> {
             root_coset: twiddle_tree.root_coset,
