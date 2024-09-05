@@ -1,8 +1,6 @@
 use stwo_prover::core::{
     fields::qm31::SecureField,
-    lookups::{
-        gkr_prover::GkrOps, mle::Mle,
-    },
+    lookups::{gkr_prover::GkrOps, mle::Mle},
 };
 
 use crate::CudaBackend;
