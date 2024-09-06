@@ -42,9 +42,9 @@ impl GkrOps for CudaBackend {
         unsafe {
             bindings::gen_eq_evals(
                 CudaSecureField::from(v),
-                device_y.device_ptr,
+                device_y.device_ptr as *const CudaSecureField,
                 y_size as u32,
-                evals.device_ptr,
+                evals.device_ptr as *const CudaSecureField,
                 evals.size as u32,
             );
         }

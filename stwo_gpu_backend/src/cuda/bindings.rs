@@ -229,9 +229,9 @@ extern "C" {
 
     pub fn gen_eq_evals(
         v: CudaSecureField,
-        y: *const u32,
+        y: *const CudaSecureField,
         y_size: u32,
-        evals: *const u32,
+        evals: *const CudaSecureField,
         evals_size: u32,
     );
 }
