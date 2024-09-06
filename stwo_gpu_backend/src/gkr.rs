@@ -80,9 +80,9 @@ mod tests {
             SecureField::from_u32_unchecked(a[0], a[1], a[2], a[3])
         ).collect_vec();
 
-        let eq_evals_cpu = CpuBackend::gen_eq_evals(&y, two);
-        let eq_evals_gpu = CudaBackend::gen_eq_evals(&y, two);
+        let cpu_eq_evals = CpuBackend::gen_eq_evals(&y, two);
+        let gpu_eq_evals = CudaBackend::gen_eq_evals(&y, two);
 
-        assert_eq!(eq_evals_gpu.to_cpu(), *eq_evals_cpu);
+        assert_eq!(gpu_eq_evals.to_cpu(), *cpu_eq_evals);
     }
 }
