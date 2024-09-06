@@ -6,7 +6,8 @@ use stwo_prover::core::{
         mle::{Mle, MleOps},
     },
 };
-use crate::cuda::SecureFieldVec;
+use crate::cuda::{bindings, SecureFieldVec};
+use crate::cuda::bindings::CudaSecureField;
 
 impl MleOps<BaseField> for CudaBackend {
     fn fix_first_variable(
@@ -34,19 +35,21 @@ impl MleOps<SecureField> for CudaBackend {
 
 impl GkrOps for CudaBackend {
     fn gen_eq_evals(y: &[SecureField], v: SecureField) -> Mle<Self, SecureField> {
-        let mut evals = Vec::with_capacity(1 << y.len());
-        evals.push(v);
+        let y_size = y.len();
+        let mut evals = SecureFieldVec::new_uninitialized(1 << y_size);
+        let mut device_y = SecureFieldVec::from_vec(Vec::from(y));
 
-        for &y_i in y.iter().rev() {
-            for j in 0..evals.len() {
-                // `lhs[j] = eq(0, y_i) * c[i]`
-                // `rhs[j] = eq(1, y_i) * c[i]`
-                let tmp = evals[j] * y_i;
-                evals.push(tmp);
-                evals[j] -= tmp;
-            }
+        unsafe {
+            bindings::gen_eq_evals(
+                CudaSecureField::from(v),
+                device_y.device_ptr,
+                y_size as u32,
+                evals.device_ptr,
+                evals.size as u32,
+            );
         }
-        Mle::new(SecureFieldVec::from_vec(evals))
+
+        Mle::new(evals)
     }
 
     fn next_layer(

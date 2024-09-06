@@ -226,4 +226,12 @@ extern "C" {
         result_column_3: *const u32,
         flattened_line_coeffs_size: u32,
     );
+
+    pub fn gen_eq_evals(
+        v: CudaSecureField,
+        y: *const u32,
+        y_size: u32,
+        evals: *const u32,
+        evals_size: u32,
+    );
 }
