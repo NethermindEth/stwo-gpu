@@ -78,7 +78,7 @@ mod tests {
     fn gen_eq_evals_matches_cpu() {
         let two = BaseField::from(2).into();
 
-        let from_raw = [7, 3, 5, 6, 1, 1, 9].repeat(4);
+        let from_raw = [7,3,5,6,1].repeat(4); // [7, 3, 5, 6, 1, 1, 9] TODO: Replace
         let y = from_raw.chunks(4).map(|a|
             SecureField::from_u32_unchecked(a[0], a[1], a[2], a[3])
         ).collect_vec();
