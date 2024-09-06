@@ -34,9 +34,9 @@ impl From<SecureField> for CudaSecureField {
     }
 }
 
-impl Into<SecureField> for CudaSecureField {
-    fn into(self) -> SecureField {
-        SecureField::from_m31(self.a, self.b, self.c, self.d)
+impl From<CudaSecureField> for SecureField{
+    fn from(value: CudaSecureField) -> Self {
+        SecureField::from_m31(value.a, value.b, value.c, value.d)
     }
 }
 
