@@ -34,7 +34,19 @@ impl MleOps<SecureField> for CudaBackend {
 
 impl GkrOps for CudaBackend {
     fn gen_eq_evals(y: &[SecureField], v: SecureField) -> Mle<Self, SecureField> {
-        todo!()
+        let mut evals = Vec::with_capacity(1 << y.len());
+        evals.push(v);
+
+        for &y_i in y.iter().rev() {
+            for j in 0..evals.len() {
+                // `lhs[j] = eq(0, y_i) * c[i]`
+                // `rhs[j] = eq(1, y_i) * c[i]`
+                let tmp = evals[j] * y_i;
+                evals.push(tmp);
+                evals[j] -= tmp;
+            }
+        }
+        Mle::new(SecureFieldVec::from_vec(evals))
     }
 
     fn next_layer(
