@@ -6,12 +6,14 @@ __global__ void gen_eq_evals_kernel(qm31 v, qm31 *y, uint32_t y_size, qm31 *eval
     qm31 qm31_identity = qm31{cm31{m31{1}, m31{0}}, cm31{m31{0}, m31{0}}};
 
     qm31 eq_eval = v;
+    unsigned int shifted_thread_index = thread_index;
     for (unsigned int x_coordinate_index = 0; x_coordinate_index < y_size; x_coordinate_index++) {
-        m31 x_coordinate_value = m31{thread_index >> x_coordinate_index & 1};
+        m31 x_coordinate_value = m31{shifted_thread_index & 1};
         qm31 &y_value = y[x_coordinate_index];
         qm31 left_summand = mul_by_scalar(y_value, x_coordinate_value);
         qm31 right_summand = mul_by_scalar(sub(qm31_identity, y_value), m31{1} - x_coordinate_value);
         eq_eval = mul(eq_eval, add(left_summand, right_summand));
+        shifted_thread_index >>= 1;
     }
 
     evals[thread_index] = eq_eval;
