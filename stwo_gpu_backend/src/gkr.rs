@@ -1,3 +1,4 @@
+use crate::CudaBackend;
 use stwo_prover::core::{
     fields::{m31::BaseField, qm31::SecureField},
     lookups::{
@@ -5,8 +6,7 @@ use stwo_prover::core::{
         mle::{Mle, MleOps},
     },
 };
-
-use crate::CudaBackend;
+use crate::cuda::SecureFieldVec;
 
 impl MleOps<BaseField> for CudaBackend {
     fn fix_first_variable(
@@ -48,5 +48,23 @@ impl GkrOps for CudaBackend {
         claim: SecureField,
     ) -> stwo_prover::core::lookups::utils::UnivariatePoly<SecureField> {
         todo!()
+    }
+}
+
+mod tests {
+    use crate::CudaBackend;
+    use stwo_prover::core::backend::{Column, CpuBackend};
+    use stwo_prover::core::fields::m31::BaseField;
+    use stwo_prover::core::lookups::gkr_prover::GkrOps;
+
+    #[test]
+    fn gen_eq_evals_matches_cpu() {
+        let two = BaseField::from(2).into();
+        let y = [7, 3, 5, 6, 1, 1, 9].map(|v| BaseField::from(v).into());
+        let eq_evals_cpu = CpuBackend::gen_eq_evals(&y, two);
+
+        let eq_evals_gpu = CudaBackend::gen_eq_evals(&y, two);
+
+        assert_eq!(eq_evals_gpu.to_cpu(), *eq_evals_cpu);
     }
 }
