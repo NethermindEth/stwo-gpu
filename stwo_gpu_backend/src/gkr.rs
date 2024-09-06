@@ -64,17 +64,23 @@ impl GkrOps for CudaBackend {
 }
 
 mod tests {
+    use itertools::Itertools;
     use crate::CudaBackend;
     use stwo_prover::core::backend::{Column, CpuBackend};
-    use stwo_prover::core::fields::m31::BaseField;
+    use stwo_prover::core::fields::m31::{BaseField, M31};
+    use stwo_prover::core::fields::qm31::SecureField;
     use stwo_prover::core::lookups::gkr_prover::GkrOps;
 
     #[test]
     fn gen_eq_evals_matches_cpu() {
         let two = BaseField::from(2).into();
-        let y = [7, 3, 5, 6, 1, 1, 9].map(|v| BaseField::from(v).into());
-        let eq_evals_cpu = CpuBackend::gen_eq_evals(&y, two);
 
+        let from_raw = [7, 3, 5, 6, 1, 1, 9].repeat(4);
+        let y = from_raw.chunks(4).map(|a|
+            SecureField::from_u32_unchecked(a[0], a[1], a[2], a[3])
+        ).collect_vec();
+
+        let eq_evals_cpu = CpuBackend::gen_eq_evals(&y, two);
         let eq_evals_gpu = CudaBackend::gen_eq_evals(&y, two);
 
         assert_eq!(eq_evals_gpu.to_cpu(), *eq_evals_cpu);
