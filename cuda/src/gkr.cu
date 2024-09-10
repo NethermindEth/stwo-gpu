@@ -1,5 +1,4 @@
 #include "../include/utils.cuh"
-#include <cstdio>  // TODO: Remove
 
 __global__ void gen_eq_evals_kernel(qm31 v, qm31 *y, uint32_t y_size, qm31 *evals) {
     // TODO: See if shared memory speeds this up
