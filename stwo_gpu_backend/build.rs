@@ -1,5 +1,3 @@
-use cmake;
-
 fn main() {
     // Build cuda code
     println!("cargo:rerun-if-changed=../cuda/CMakeLists.txt");
