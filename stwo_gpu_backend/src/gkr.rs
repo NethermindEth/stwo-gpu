@@ -36,20 +36,19 @@ impl MleOps<SecureField> for CudaBackend {
 impl GkrOps for CudaBackend {
     fn gen_eq_evals(y: &[SecureField], v: SecureField) -> Mle<Self, SecureField> {
         let y_size = y.len();
-        let mut evals = SecureFieldVec::new_uninitialized(1 << y_size);
-        let mut device_y = SecureFieldVec::from_vec(Vec::from(y));
+        let mut result_evals = SecureFieldVec::new_uninitialized(1 << y_size);
 
         unsafe {
             bindings::gen_eq_evals(
-                CudaSecureField::from(v),
-                device_y.device_ptr as *const CudaSecureField,
+                v.into(),
+                y.as_ptr() as *const CudaSecureField,
                 y_size as u32,
-                evals.device_ptr as *const CudaSecureField,
-                evals.size as u32,
+                result_evals.device_ptr as *const CudaSecureField,
+                result_evals.size as u32,
             );
         }
 
-        Mle::new(evals)
+        Mle::new(result_evals)
     }
 
     fn next_layer(
