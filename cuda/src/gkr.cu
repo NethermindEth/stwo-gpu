@@ -21,16 +21,16 @@ void gen_eq_evals(qm31 v, qm31 *y, uint32_t y_size, qm31 *evals, uint32_t evals_
     const unsigned int BLOCK_SIZE = 1024;
     const unsigned int NUMBER_OF_BLOCKS = (evals_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
-    int precomputed_table_byte_length = sizeof(qm31) * y_size * 2;
-    qm31 *factors = (qm31*)malloc(precomputed_table_byte_length);
+    int factors_byte_length = sizeof(qm31) * y_size * 2;
+    qm31 *factors = (qm31*)malloc(factors_byte_length);
     for(int i = 0; i < y_size; i++) {
         factors[2 * i] = sub(m31{1}, y[i]);
         factors[2 * i + 1] = y[i];
     }
 
     qm31 *factors_device;
-    cudaMalloc((void**)&factors_device, precomputed_table_byte_length);
-    cudaMemcpy(factors_device, factors, precomputed_table_byte_length, cudaMemcpyHostToDevice);
+    cudaMalloc((void**)&factors_device, factors_byte_length);
+    cudaMemcpy(factors_device, factors, factors_byte_length, cudaMemcpyHostToDevice);
     free(factors);
 
     gen_eq_evals_kernel<<<NUMBER_OF_BLOCKS, min(evals_size, BLOCK_SIZE)>>>(v, factors_device, y_size, evals);
