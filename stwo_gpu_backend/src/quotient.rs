@@ -106,7 +106,7 @@ impl QuotientOps for CudaBackend {
             );
         }
 
-        return result;
+        result
     }
 }
 

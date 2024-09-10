@@ -46,7 +46,7 @@ impl Blake2sHashVec {
     pub fn to_vec(&self) -> Vec<Blake2sHash> {
         let mut host_data: Vec<Blake2sHash> = Vec::with_capacity(self.size);
         unsafe {
-            host_data.set_len(self.size.try_into().unwrap());
+            host_data.set_len(self.size);
             bindings::copy_blake_2s_hash_vec_from_device_to_host(
                 self.device_ptr,
                 host_data.as_mut_ptr(),

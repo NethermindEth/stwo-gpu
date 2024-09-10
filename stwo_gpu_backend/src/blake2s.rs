@@ -35,7 +35,7 @@ impl MerkleOps<Blake2sMerkleHasher> for CudaBackend {
             );
         }
 
-        return result;
+        result
     }
 }
 
