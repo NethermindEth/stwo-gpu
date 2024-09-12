@@ -66,7 +66,7 @@ impl PolyOps for CudaBackend {
         }
 
         // TODO: Remove this line
-        let _ = values.iter().map(|ptr| CirclePoly::<CudaBackend>::new(cuda::BaseFieldVec::new(*ptr, number_of_rows))).collect_vec();
+        // let _ = values.iter().map(|ptr| CirclePoly::<CudaBackend>::new(cuda::BaseFieldVec::new(*ptr, number_of_rows))).collect_vec();
         columns.into_iter().map(|column| CirclePoly::new(column.values)).collect_vec()
     }
 
@@ -557,7 +557,7 @@ mod tests {
 
     #[test]
     fn test_interpolate_columns() {
-        let log_size = 1;
+        let log_size = 2;  // TODO: Make width and height different
         let log_number_of_columns = 2;
 
         let size = 1 << log_size;
