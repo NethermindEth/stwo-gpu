@@ -1,4 +1,5 @@
 use stwo_prover::core::fields::m31::BaseField;
+use tracing::{span, Level};
 
 use super::bindings;
 

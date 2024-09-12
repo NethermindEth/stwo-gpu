@@ -1,6 +1,9 @@
 #include "../include/circle.cuh"
 #include "../include/bit_reverse.cuh"
 
+// TODO: Debug
+#include <cstdio>
+
 __global__ void sort_values_kernel(m31 *from, m31 *dst, int size) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -214,13 +217,12 @@ batch_ifft_line_part(m31 **values, m31 *inverse_twiddles_tree, int values_size, 
     int index = blockIdx.y * blockDim.x + threadIdx.x;
     unsigned int column_index = blockIdx.x;
 
-    m31 *column = values[column_index];
-
     int layer_domain_size = number_of_rows >> 1;
     int layer_domain_offset = 0;
     int layer = 1;
     while (layer < logValuesSize) {
-        if (index < (values_size >> 1)) {
+        if (index < (number_of_rows >> 1) && column_index < values_size) {
+            m31 *column = values[column_index];
             int number_polynomials = 1 << layer;
             int h = index >> layer;
             int l = index & (number_polynomials - 1);
@@ -279,7 +281,15 @@ void interpolate_columns(int eval_domain_size, m31 **values, m31 *inverse_twiddl
     batch_rescale<<<rescaleGridDimensions, blockDimensions>>>(device_values, values_size, number_of_rows, factor);
     cudaDeviceSynchronize();
 
-    cudaMemcpy(values, device_values, values_size * sizeof(m31 * ), cudaMemcpyDeviceToHost);
+    // TODO: Debug
+    
+    // After a CUDA function or kernel launch
+    cudaError_t err = cudaGetLastError();  // Get the last error
+
+    if (err != cudaSuccess) {  // Check if an error occurred
+        // Print the error message
+        printf("CUDA error: %s\n", cudaGetErrorString(err));
+    }
     cudaFree(device_values);
 }
 

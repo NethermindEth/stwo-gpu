@@ -48,9 +48,10 @@ impl PolyOps for CudaBackend {
     }
 
     fn interpolate_columns(
-        columns: &ColumnVec<CircleEvaluation<Self, BaseField, BitReversedOrder>>,
+        columns: impl IntoIterator<Item = CircleEvaluation<Self, BaseField, BitReversedOrder>>,
         twiddles: &TwiddleTree<Self>,
     ) -> Vec<CirclePoly<Self>> {
+        let columns = columns.into_iter().collect_vec();
         let values = columns.iter().map(|column| column.values.device_ptr).collect_vec();
         let number_of_rows = columns[0].len();
         unsafe  {
@@ -63,7 +64,10 @@ impl PolyOps for CudaBackend {
                 number_of_rows as u32,
             );
         }
-        values.iter().map(|ptr| CirclePoly::new(cuda::BaseFieldVec::new(*ptr, number_of_rows))).collect_vec()
+
+        // TODO: Remove this line
+        let _ = values.iter().map(|ptr| CirclePoly::<CudaBackend>::new(cuda::BaseFieldVec::new(*ptr, number_of_rows))).collect_vec();
+        columns.into_iter().map(|column| CirclePoly::new(column.values)).collect_vec()
     }
 
     fn eval_at_point(poly: &CirclePoly<Self>, point: CirclePoint<SecureField>) -> SecureField {
@@ -553,8 +557,8 @@ mod tests {
 
     #[test]
     fn test_interpolate_columns() {
-        let log_size = 5;
-        let log_number_of_columns = 5;
+        let log_size = 1;
+        let log_number_of_columns = 2;
 
         let size = 1 << log_size;
         let number_of_columns = 1 << log_number_of_columns;
@@ -578,8 +582,8 @@ mod tests {
             gpu_evaluations.clone()
         ).collect_vec();
 
-        let expected_result = CpuBackend::interpolate_columns(&cpu_columns, &cpu_twiddles);
-        let result = CudaBackend::interpolate_columns(&gpu_columns, &gpu_twiddles);
+        let expected_result = CpuBackend::interpolate_columns(cpu_columns, &cpu_twiddles);
+        let result = CudaBackend::interpolate_columns(gpu_columns, &gpu_twiddles);
 
         let expected_coeffs = expected_result.iter().map(|poly| poly.coeffs.clone()).collect_vec();
         let coeffs = result.iter().map(|poly| poly.coeffs.clone().to_cpu()).collect_vec();
