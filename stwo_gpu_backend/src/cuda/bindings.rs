@@ -3,6 +3,7 @@ use stwo_prover::core::{
     circle::CirclePoint,
     fields::{m31::BaseField, qm31::SecureField},
 };
+use std::ffi::c_void;
 
 #[repr(C)]
 pub struct CudaSecureField {
@@ -95,7 +96,7 @@ extern "C" {
 
     pub fn cuda_alloc_zeroes_blake_2s_hash(size: usize) -> *const Blake2sHash;
 
-    pub fn free_uint32_t_vec(device_ptr: *const u32);
+    pub fn cuda_free_memory(device_ptr: *const c_void);
 
     pub fn bit_reverse_base_field(array: *const u32, size: usize);
 
@@ -207,14 +208,10 @@ extern "C" {
         size: usize,
     );
 
-    pub fn free_blake_2s_hash_vec(device_pointer: *const Blake2sHash);
-
     pub fn copy_device_pointer_vec_from_host_to_device(
         from: *const *const u32,
         size: usize,
     ) -> *const *const u32;
-
-    pub fn free_device_pointer_vec(device_pointer: *const *const u32);
 
     pub fn accumulate_quotients(
         half_coset_initial_index: u32,

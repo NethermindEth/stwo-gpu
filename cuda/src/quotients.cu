@@ -204,19 +204,11 @@ void accumulate_quotients(
 
     auto sample_batches = (column_sample_batch *)malloc(sizeof(column_sample_batch) * sample_size);
 
-    column_sample_batch *sample_batches_device;
-    cudaMalloc((void**)&sample_batches_device, sizeof(column_sample_batch) * sample_size);
-    cm31* denominator_inverses;
+    column_sample_batch *sample_batches_device = cuda_malloc<column_sample_batch>(sample_size);
+    cm31* denominator_inverses = cuda_malloc<cm31>(sample_size * domain_size);
 
-    cudaMalloc((void**)&denominator_inverses, sizeof(cm31) * sample_size * domain_size);
-
-    uint32_t *sample_column_indexes_device;
-    cudaMalloc((void**)&sample_column_indexes_device, sizeof(uint32_t) * sample_column_indexes_size);
-    cudaMemcpy(sample_column_indexes_device, sample_column_indexes, sizeof(uint32_t) * sample_column_indexes_size, cudaMemcpyHostToDevice);
-
-    qm31 *sample_column_values_device;
-    cudaMalloc((void**)&sample_column_values_device, sizeof(qm31) * sample_column_indexes_size);
-    cudaMemcpy(sample_column_values_device, sample_column_values, sizeof(qm31) * sample_column_indexes_size, cudaMemcpyHostToDevice);
+    uint32_t *sample_column_indexes_device = clone_to_device<uint32_t>(sample_column_indexes, sample_column_indexes_size);
+    qm31 *sample_column_values_device = clone_to_device<qm31>(sample_column_values, sample_column_indexes_size);
 
     column_sample_batches_for(
             sample_points,
@@ -227,16 +219,13 @@ void accumulate_quotients(
             sample_batches
     );
 
-    cudaMemcpy(sample_batches_device, sample_batches, sizeof(column_sample_batch) * sample_size, cudaMemcpyHostToDevice);
+    cuda_mem_copy_host_to_device(sample_batches, sample_batches_device, sample_size);
 
-    qm31 *batch_random_coeffs_device;
-    cudaMalloc((void**)&batch_random_coeffs_device, sizeof(qm31) * sample_size);
+    qm31 *batch_random_coeffs_device = cuda_malloc<qm31>(sample_size);
 
-    uint32_t *line_coeffs_sizes_device;
-    cudaMalloc((void**)&line_coeffs_sizes_device, sizeof(uint32_t) * sample_size);
+    uint32_t *line_coeffs_sizes_device = cuda_malloc<uint32_t>(sample_size);
 
-    qm31 *flattened_line_coeffs_device;
-    cudaMalloc((void**)&flattened_line_coeffs_device, sizeof(qm31) * flattened_line_coeffs_size);
+    qm31 *flattened_line_coeffs_device = cuda_malloc<qm31>(flattened_line_coeffs_size);
 
     // Accumulate Quotient Constants
     int block_dim = sample_size < THREAD_COUNT_MAX ? sample_size : THREAD_COUNT_MAX; 
@@ -275,11 +264,11 @@ void accumulate_quotients(
     cudaDeviceSynchronize();
 
     free(sample_batches);
-    cudaFree(sample_batches_device);
-    cudaFree(denominator_inverses);
-    cudaFree(sample_column_indexes_device);
-    cudaFree(sample_column_values_device);
-    cudaFree(batch_random_coeffs_device);
-    cudaFree(line_coeffs_sizes_device);
-    cudaFree(flattened_line_coeffs_device);
+    cuda_free_memory(sample_batches_device);
+    cuda_free_memory(denominator_inverses);
+    cuda_free_memory(sample_column_indexes_device);
+    cuda_free_memory(sample_column_values_device);
+    cuda_free_memory(batch_random_coeffs_device);
+    cuda_free_memory(line_coeffs_sizes_device);
+    cuda_free_memory(flattened_line_coeffs_device);
 }

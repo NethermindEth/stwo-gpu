@@ -1,3 +1,5 @@
+use std::ffi::c_void;
+
 use stwo_prover::core::fields::qm31::SecureField;
 
 use super::bindings;
@@ -65,7 +67,7 @@ impl Clone for SecureFieldVec {
 
 impl Drop for SecureFieldVec {
     fn drop(&mut self) {
-        unsafe { bindings::free_uint32_t_vec(self.device_ptr) };
+        unsafe { bindings::cuda_free_memory(self.device_ptr as *const c_void) };
     }
 }
 

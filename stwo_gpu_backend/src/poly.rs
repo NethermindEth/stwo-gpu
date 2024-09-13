@@ -581,9 +581,7 @@ mod tests {
             gpu_evaluations.clone()
         ).collect_vec();
 
-        // let span = span!(Level::INFO, "Interpolate columns").entered();
         let expected_result = CpuBackend::interpolate_columns(cpu_columns, &cpu_twiddles);
-        // span.exit();
         let result = CudaBackend::interpolate_columns(gpu_columns, &gpu_twiddles);
 
         let expected_coeffs = expected_result.iter().map(|poly| poly.coeffs.clone()).collect_vec();
