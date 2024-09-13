@@ -180,8 +180,7 @@ interpolate(int eval_domain_size, m31 *values, m31 *inverse_twiddles_tree, int i
     int layer_domain_offset = 0;
     int i = 1;
     while (i < log_values_size) {
-        ifft_line_part<<<num_blocks, block_dim>>>(values, inverse_twiddles_tree, values_size, layer_domain_size,
-                                                  layer_domain_offset, i);
+        ifft_line_part<<<num_blocks, block_dim>>>(values, inverse_twiddles_tree, values_size, layer_domain_size, layer_domain_offset, i);
 
         layer_domain_size >>= 1;
         layer_domain_offset += layer_domain_size;
@@ -213,33 +212,25 @@ __global__ void batch_ifft_circle_part(m31 **values, m31 *inverse_twiddles_tree,
 }
 
 __global__ void
-batch_ifft_line_part(m31 **values, m31 *inverse_twiddles_tree, int values_size, int number_of_rows, int logValuesSize) {
+batch_ifft_line_part(m31 **values, m31 *inverse_twiddles_tree, int values_size, int number_of_rows, int layer_domain_offset, int layer) {
     int index = blockIdx.y * blockDim.x + threadIdx.x;
     unsigned int column_index = blockIdx.x;
 
-    int layer_domain_size = number_of_rows >> 1;
-    int layer_domain_offset = 0;
-    int layer = 1;
-    while (layer < logValuesSize) {
-        if (index < (number_of_rows >> 1) && column_index < values_size) {
-            m31 *column = values[column_index];
-            int number_polynomials = 1 << layer;
-            int h = index >> layer;
-            int l = index & (number_polynomials - 1);
-            int idx0 = (h << (layer + 1)) + l;
-            int idx1 = idx0 + number_polynomials;
+    if (index < (number_of_rows >> 1) && column_index < values_size) {
+        m31 *column = values[column_index];
+        int number_polynomials = 1 << layer;
+        int h = index >> layer;
+        int l = index & (number_polynomials - 1);
+        int idx0 = (h << (layer + 1)) + l;
+        int idx1 = idx0 + number_polynomials;
 
-            m31 val0 = column[idx0];
-            m31 val1 = column[idx1];
-            m31 twiddle = inverse_twiddles_tree[layer_domain_offset + h];
+        m31 val0 = column[idx0];
+        m31 val1 = column[idx1];
 
-            column[idx0] = add(val0, val1);
-            column[idx1] = mul(sub(val0, val1), twiddle);
-        }
+        m31 twiddle = inverse_twiddles_tree[layer_domain_offset + h];
 
-        layer_domain_size >>= 1;
-        layer_domain_offset += layer_domain_size;
-        layer += 1;
+        column[idx0] = add(val0, val1);
+        column[idx1] = mul(sub(val0, val1), twiddle);
     }
 }
 
@@ -263,25 +254,29 @@ void interpolate_columns(int eval_domain_size, m31 **values, m31 *inverse_twiddl
 
     m31 *inverseTwiddlesTree = inverse_twiddles_tree;
     inverseTwiddlesTree = &inverseTwiddlesTree[inverse_twiddles_size - eval_domain_size];
-    int logValuesSize = log_2(number_of_rows);
     int numBlocks = ((number_of_rows >> 1) + blockDimensions - 1) / blockDimensions;
     dim3 gridDimensions(values_size, numBlocks);
 
-    batch_ifft_circle_part<<<gridDimensions, blockDimensions>>>(device_values, inverseTwiddlesTree, values_size,
-                                                                number_of_rows);
+    batch_ifft_circle_part<<<gridDimensions, blockDimensions>>>(device_values, inverseTwiddlesTree, values_size, number_of_rows);
     cudaDeviceSynchronize();
 
-    batch_ifft_line_part<<<gridDimensions, blockDimensions>>>(device_values, inverseTwiddlesTree, values_size,
-                                                              number_of_rows, logValuesSize);
+    int log_number_of_rows = log_2(number_of_rows);
+    int layer_domain_size = number_of_rows >> 1;
+    int layer_domain_offset = 0;
+    int i = 1;
+    while (i < log_number_of_rows) {
+        batch_ifft_line_part<<<gridDimensions, blockDimensions>>>(device_values, inverseTwiddlesTree, values_size, number_of_rows, layer_domain_offset, i);
+        layer_domain_size >>= 1;
+        layer_domain_offset += layer_domain_size;
+        i += 1;
+    }
     cudaDeviceSynchronize();
 
-    m31 factor = inv(pow(m31{2}, logValuesSize));
+    m31 factor = inv(pow(m31{2}, log_number_of_rows));
     numBlocks = (number_of_rows + blockDimensions - 1) / blockDimensions;
     dim3 rescaleGridDimensions(values_size, numBlocks);
     batch_rescale<<<rescaleGridDimensions, blockDimensions>>>(device_values, values_size, number_of_rows, factor);
     cudaDeviceSynchronize();
-
-    // TODO: Debug
     
     // After a CUDA function or kernel launch
     cudaError_t err = cudaGetLastError();  // Get the last error

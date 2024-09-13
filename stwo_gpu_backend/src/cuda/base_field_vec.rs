@@ -73,6 +73,7 @@ impl Clone for BaseFieldVec {
 
 impl Drop for BaseFieldVec {
     fn drop(&mut self) {
+        // let _span = span!(Level::INFO, "DROP", device_ptr = ?self.device_ptr).entered();
         unsafe { bindings::free_uint32_t_vec(self.device_ptr) };
     }
 }

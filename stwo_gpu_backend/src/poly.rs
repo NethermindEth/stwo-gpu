@@ -66,7 +66,7 @@ impl PolyOps for CudaBackend {
         }
 
         // TODO: Remove this line
-        let _ = values.iter().map(|ptr| CirclePoly::<CudaBackend>::new(cuda::BaseFieldVec::new(*ptr, number_of_rows))).collect_vec();
+        // unsafe {columns.iter().for_each(|col| cuda::bindings::free_uint32_t_vec(col.values.device_ptr));}
         columns.into_iter().map(|column| CirclePoly::new(column.values)).collect_vec()
     }
 
@@ -148,6 +148,7 @@ mod tests {
     use stwo_prover::core::poly::twiddles::TwiddleTree;
     use stwo_prover::core::{backend::{Column, CpuBackend}, circle::{CirclePoint, CirclePointIndex, Coset, SECURE_FIELD_CIRCLE_GEN}, fields::m31::BaseField, ColumnVec};
     use test_log::test;
+    use tracing::{span, Level};
 
     use crate::{
         backend::CudaBackend,
@@ -555,10 +556,10 @@ mod tests {
         assert_eq!(expected_result.coeffs, result.coeffs.to_cpu());
     }
 
-    #[test]
+    #[test_log::test]
     fn test_interpolate_columns() {
-        let log_size = 1;
-        let log_number_of_columns = 2;
+        let log_size = 3;
+        let log_number_of_columns = 0;
 
         let size = 1 << log_size;
         let number_of_columns = 1 << log_number_of_columns;
@@ -582,7 +583,9 @@ mod tests {
             gpu_evaluations.clone()
         ).collect_vec();
 
+        // let span = span!(Level::INFO, "Interpolate columns").entered();
         let expected_result = CpuBackend::interpolate_columns(cpu_columns, &cpu_twiddles);
+        // span.exit();
         let result = CudaBackend::interpolate_columns(gpu_columns, &gpu_twiddles);
 
         let expected_coeffs = expected_result.iter().map(|poly| poly.coeffs.clone()).collect_vec();
