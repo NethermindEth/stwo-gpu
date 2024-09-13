@@ -2,6 +2,8 @@
 #include "../include/utils.cuh"
 #include "../include/circle.cuh"
 
+#include <cstdio>
+
 __device__ void sum_block_list(uint32_t *results, const uint32_t block_thread_index, const uint32_t half_list_size,
                                const uint32_t *list_to_sum_in_block, uint32_t &thread_result) {
     uint32_t list_to_sum_in_block_half_size = min(half_list_size, blockDim.x) >> 1;
@@ -87,7 +89,6 @@ void sum(uint32_t *list, const uint32_t list_size, uint32_t *result) {
                     list_to_sum, temp_list, partial_results, last_size);
         } while (num_blocks > 1);
         copy_uint32_t_vec_from_device_to_host(partial_results, result, 1);
-        free_uint32_t_vec(partial_results);
     }
     free_uint32_t_vec(temp_list);
     free_uint32_t_vec(results);

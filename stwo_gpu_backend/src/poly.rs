@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use stwo_prover::core::{backend::{Col, Column}, circle::{CirclePoint, Coset}, ColumnVec, fields::{m31::BaseField, qm31::SecureField}, poly::{
+use stwo_prover::core::{backend::{Col, Column}, circle::{CirclePoint, Coset}, fields::{m31::BaseField, qm31::SecureField}, poly::{
     circle::{CanonicCoset, CircleDomain, CircleEvaluation, CirclePoly, PolyOps},
     twiddles::TwiddleTree,
     BitReversedOrder,
@@ -144,7 +144,7 @@ mod tests {
         CanonicCoset, CircleDomain, CircleEvaluation, CirclePoly, PolyOps,
     };
     use stwo_prover::core::poly::twiddles::TwiddleTree;
-    use stwo_prover::core::{backend::{Column, CpuBackend}, circle::{CirclePoint, CirclePointIndex, Coset, SECURE_FIELD_CIRCLE_GEN}, fields::m31::BaseField, ColumnVec};
+    use stwo_prover::core::{backend::{Column, CpuBackend}, circle::{CirclePoint, CirclePointIndex, Coset, SECURE_FIELD_CIRCLE_GEN}, fields::m31::BaseField};
     use test_log::test;
     use tracing::{span, Level};
 

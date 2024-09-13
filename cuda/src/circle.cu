@@ -1,7 +1,6 @@
 #include "../include/circle.cuh"
 #include "../include/bit_reverse.cuh"
 
-// TODO: Debug
 #include <cstdio>
 
 __global__ void sort_values_kernel(m31 *from, m31 *dst, int size) {
@@ -221,7 +220,7 @@ batch_ifft_line_part(m31 **values, m31 *inverse_twiddles_tree, int values_size, 
         int number_polynomials = 1 << layer;
         int h = index >> layer;
         int l = index & (number_polynomials - 1);
-        int idx0 = (h << (layer + 1)) + l;
+        int idx0 = ((h << (layer + 1))) + l;
         int idx1 = idx0 + number_polynomials;
 
         m31 val0 = column[idx0];
@@ -278,13 +277,6 @@ void interpolate_columns(int eval_domain_size, m31 **values, m31 *inverse_twiddl
     batch_rescale<<<rescaleGridDimensions, blockDimensions>>>(device_values, values_size, number_of_rows, factor);
     cudaDeviceSynchronize();
     
-    // After a CUDA function or kernel launch
-    cudaError_t err = cudaGetLastError();  // Get the last error
-
-    if (err != cudaSuccess) {  // Check if an error occurred
-        // Print the error message
-        printf("CUDA error: %s\n", cudaGetErrorString(err));
-    }
     cudaFree(device_values);
 }
 
