@@ -65,8 +65,6 @@ impl PolyOps for CudaBackend {
             );
         }
 
-        // TODO: Remove this line
-        // unsafe {columns.iter().for_each(|col| cuda::bindings::free_uint32_t_vec(col.values.device_ptr));}
         columns.into_iter().map(|column| CirclePoly::new(column.values)).collect_vec()
     }
 
@@ -558,8 +556,8 @@ mod tests {
 
     #[test_log::test]
     fn test_interpolate_columns() {
-        let log_size = 3;
-        let log_number_of_columns = 0;
+        let log_size = 9;
+        let log_number_of_columns = 8;
 
         let size = 1 << log_size;
         let number_of_columns = 1 << log_number_of_columns;
