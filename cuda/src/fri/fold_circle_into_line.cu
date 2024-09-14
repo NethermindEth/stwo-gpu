@@ -3,25 +3,21 @@
 #include "poly/utils.cuh"
 
 
-__device__ uint32_t g(uint32_t *domain,
-                      uint32_t _twiddle_offset,
-                      uint32_t i) {
-    return get_twiddle(domain, i);
-}
-
-__global__ void fold_applying2(uint32_t *domain,
-                               const uint32_t twiddle_offset,
-                               const uint32_t n,
-                               const qm31 alpha,
-                               const qm31 alpha_sq,
-                               uint32_t *eval_values_0,
-                               uint32_t *eval_values_1,
-                               uint32_t *eval_values_2,
-                               uint32_t *eval_values_3,
-                               uint32_t *folded_values_0,
-                               uint32_t *folded_values_1,
-                               uint32_t *folded_values_2,
-                               uint32_t *folded_values_3) {
+__global__ void fold_circle_into_line_kernel(
+    m31 *domain,
+    const uint32_t twiddle_offset,
+    const uint32_t n,
+    const qm31 alpha,
+    const qm31 alpha_sq,
+    m31 *eval_values_0,
+    m31 *eval_values_1,
+    m31 *eval_values_2,
+    m31 *eval_values_3,
+    m31 *folded_values_0,
+    m31 *folded_values_1,
+    m31 *folded_values_2,
+    m31 *folded_values_3
+) {
     const uint32_t *eval_values[4] = {eval_values_0,
                                       eval_values_1,
                                       eval_values_2,
@@ -30,8 +26,8 @@ __global__ void fold_applying2(uint32_t *domain,
     const uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
     domain = &domain[twiddle_offset];
 
-    if (i < n / 2) {
-        const uint32_t x_inverse = g(domain, twiddle_offset, i);
+    if (i < (n >> 1)) {
+        const uint32_t x_inverse = get_twiddle(domain, i);
 
         const uint32_t index_left = 2 * i;
         const uint32_t index_right = index_left + 1;
@@ -59,15 +55,12 @@ __global__ void fold_applying2(uint32_t *domain,
     }
 }
 
-void fold_circle_into_line(uint32_t *gpu_domain,
-                           uint32_t twiddle_offset, uint32_t n,
-                           uint32_t *eval_values[],
-                           qm31 alpha,
-                           uint32_t *folded_values[]) {
+void fold_circle_into_line(m31 *gpu_domain, uint32_t twiddle_offset, uint32_t n, m31 *eval_values[], qm31 alpha, m31 *folded_values[]) {
     int block_dim = 1024;
     int num_blocks = (n / 2 + block_dim - 1) / block_dim;
     qm31 alpha_sq = mul(alpha, alpha);
-    fold_applying2<<<num_blocks, block_dim>>>(
+
+    fold_circle_into_line_kernel<<<num_blocks, block_dim>>>(
             gpu_domain,
             twiddle_offset,
             n,
@@ -81,5 +74,6 @@ void fold_circle_into_line(uint32_t *gpu_domain,
             folded_values[1],
             folded_values[2],
             folded_values[3]);
+
     cudaDeviceSynchronize();
 }
