@@ -1,5 +1,6 @@
 #include "../include/fri.cuh"
 #include "../include/utils.cuh"
+#include "../include/poly/utils.cuh"
 #include "../include/circle.cuh"
 
 #include <cstdio>

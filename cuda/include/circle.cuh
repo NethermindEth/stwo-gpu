@@ -22,6 +22,4 @@ void evaluate(int eval_domain_size, m31 *values, m31 *twiddles_tree, int twiddle
 extern "C"
 qm31 eval_at_point(m31 *coeffs, int coeffs_size, qm31 point_x, qm31 point_y);
 
-__device__ int get_twiddle(m31 *twiddles, int index);
-
 #endif // CIRCLE_H

@@ -1,21 +1,9 @@
 #include "../include/circle.cuh"
 #include "../include/bit_reverse.cuh"
 #include "../include/utils.cuh"
+#include "../include/poly/utils.cuh"
 
 
-
-__device__ int get_twiddle(m31 *twiddles, int index) {
-    int k = index >> 2;
-    if (index % 4 == 0) {
-        return twiddles[2 * k + 1];
-    } else if (index % 4 == 1) {
-        return neg(twiddles[2 * k + 1]);
-    } else if (index % 4 == 2) {
-        return neg(twiddles[2 * k]);
-    } else {
-        return twiddles[2 * k];
-    }
-}
 
 __global__ void ifft_circle_part(m31 *values, m31 *inverse_twiddles_tree, int values_size) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
