@@ -11,6 +11,7 @@ add_library(gpubackend SHARED
         src/batch_inverse.cu
         src/bit_reverse.cu
         src/circle.cu
+        src/poly/ifft.cu
         src/poly/twiddles.cu
         src/poly/utils.cu
         src/utils.cu

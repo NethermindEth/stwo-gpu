@@ -12,3 +12,11 @@ __device__ int get_twiddle(m31 *twiddles, int index) {
         return twiddles[2 * k];
     }
 }
+
+__global__ void rescale(m31 *values, int size, m31 factor) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (idx < size) {
+        values[idx] = mul(values[idx], factor);
+    }
+}
