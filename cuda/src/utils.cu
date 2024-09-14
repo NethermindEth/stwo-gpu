@@ -45,15 +45,6 @@ Blake2sHash* cuda_alloc_zeroes_blake_2s_hash(int size) {
     return device_ptr;
 }
 
-Blake2sHash* copy_blake_2s_hash_from_host_to_device(Blake2sHash *host_ptr) {
-    Blake2sHash* device_ptr = clone_to_device<Blake2sHash>(host_ptr, 1);
-    return device_ptr;
-}
-
-void copy_blake_2s_hash_from_device_to_host(Blake2sHash *device_ptr, Blake2sHash *host_ptr) {
-    cuda_mem_copy_device_to_host<Blake2sHash>(device_ptr, host_ptr, 1);
-}
-
 Blake2sHash* copy_blake_2s_hash_vec_from_host_to_device(Blake2sHash *host_ptr, uint32_t size) {
     Blake2sHash* device_ptr = clone_to_device<Blake2sHash>(host_ptr, size);
     return device_ptr;

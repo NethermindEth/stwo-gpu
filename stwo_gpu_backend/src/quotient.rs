@@ -1,3 +1,5 @@
+use std::ffi::c_void;
+
 use itertools::Itertools;
 use stwo_prover::core::{
     fields::{m31::BaseField, qm31::SecureField, secure_column::SecureColumnByCoords},
@@ -104,7 +106,10 @@ impl QuotientOps for CudaBackend {
                 result.values.columns[3].device_ptr,
                 flattened_line_coeffs_size as u32,
             );
+
+            bindings::cuda_free_memory(device_column_pointers as *const c_void);
         }
+
 
         result
     }
