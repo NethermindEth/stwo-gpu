@@ -1,5 +1,5 @@
-#include "../include/poly/twiddles.cuh"
-#include "../include/bit_reverse.cuh"
+#include "poly/twiddles.cuh"
+#include "bit_reverse.cuh"
 
 __global__ void sort_values_kernel(m31 *from, m31 *dst, int size) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;

@@ -1,6 +1,6 @@
-#include "../include/poly/rfft.cuh"
-#include "../include/poly/utils.cuh"
-#include "../include/utils.cuh"
+#include "poly/rfft.cuh"
+#include "poly/utils.cuh"
+#include "utils.cuh"
 
 __global__ void rfft_circle_part(m31 *values, m31 *inverse_twiddles_tree, int values_size) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;

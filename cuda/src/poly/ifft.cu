@@ -1,4 +1,4 @@
-#include "../include/poly/ifft.cuh"
+#include "poly/ifft.cuh"
 
 __global__ void ifft_circle_part(m31 *values, m31 *inverse_twiddles_tree, int values_size) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;

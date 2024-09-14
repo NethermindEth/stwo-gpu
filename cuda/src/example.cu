@@ -1,5 +1,5 @@
-#include "../include/example.cuh"
-#include "../include/utils.cuh"
+#include "example.cuh"
+#include "utils.cuh"
 
 #include <cstdio>
 

@@ -1,4 +1,4 @@
-#include "../include/accumulate.cuh"
+#include "accumulate.cuh"
 
 __global__ void
 accumulate_aux(uint32_t *left_column_0, uint32_t *left_column_1, uint32_t *left_column_2, uint32_t *left_column_3,

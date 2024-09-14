@@ -1,4 +1,4 @@
-#include "../include/quotients.cuh"
+#include "quotients.cuh"
 
 #include <cstdio>
 

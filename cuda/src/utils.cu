@@ -1,5 +1,4 @@
-#include "../include/utils.cuh"
-#include <cstdio>
+#include "utils.cuh"
 
 #include <cstdio>
 

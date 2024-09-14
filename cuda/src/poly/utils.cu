@@ -1,4 +1,4 @@
-#include "../include/poly/utils.cuh"
+#include "poly/utils.cuh"
 
 __device__ int get_twiddle(m31 *twiddles, int index) {
     int k = index >> 2;
