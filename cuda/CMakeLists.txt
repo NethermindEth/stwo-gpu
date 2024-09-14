@@ -12,6 +12,7 @@ add_library(gpubackend SHARED
         src/bit_reverse.cu
         src/circle.cu
         src/poly/ifft.cu
+        src/poly/rfft.cu
         src/poly/twiddles.cu
         src/poly/utils.cu
         src/utils.cu
