@@ -1,6 +1,5 @@
 #include "quotients.cuh"
 
-#include <cstdio>
 
 #define THREAD_COUNT_MAX 1024 
 
@@ -88,9 +87,6 @@ __global__ void column_line_and_batch_random_coeffs(
     }
 }
 
-// __device__ void denominator_inverse(point domain_point, column_sample_batch *sample_batches, cm31 *result) {
-//     result[0] = {1234450342, 2089936180}; // Result of denominator_inverse(sample_batches, domain.at(0))
-// }
 
 __device__ void denominator_inverse(
         column_sample_batch *sample_batches,
