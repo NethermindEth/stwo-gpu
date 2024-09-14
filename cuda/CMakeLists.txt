@@ -15,7 +15,6 @@ add_library(gpubackend SHARED
         src/poly/rfft.cu
         src/poly/twiddles.cu
         src/poly/utils.cu
-        src/fri/decompose.cu
         src/fri/fold_line.cu
         src/fri/fold_circle_into_line.cu
         src/fri/utils.cu

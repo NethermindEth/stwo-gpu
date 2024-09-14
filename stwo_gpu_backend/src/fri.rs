@@ -66,25 +66,10 @@ impl FriOps for CudaBackend {
         }
     }
 
-    fn decompose(eval: &SecureEvaluation<Self, BitReversedOrder>) -> (SecureEvaluation<Self, BitReversedOrder>, SecureField) {
-        let size = eval.len();
-        unsafe {
-            let g_values = CudaSecureColumn::new_with_size(size);
-
-            let lambda = CudaSecureField::zero();
-            bindings::decompose(
-                CudaSecureColumn::from(&eval.values).device_ptr(),
-                size as u32,
-                &lambda,
-                CudaSecureColumn::from(&g_values).device_ptr(),
-            );
-
-            let g = SecureEvaluation::new(
-                eval.domain,
-                g_values,
-            );
-            (g, lambda.into())
-        }
+    fn decompose(_eval: &SecureEvaluation<Self, BitReversedOrder>) -> (SecureEvaluation<Self, BitReversedOrder>, SecureField) {
+        // This method will be deprecated and is no longer used in stwo. In stwo, every polynomial that goes into FRI is
+        // in the FFT space already and there's no need to decompose it.
+        todo!()
     }
 }
 
@@ -109,86 +94,6 @@ mod tests {
 
     use crate::backend::CudaBackend;
     use crate::cuda::BaseFieldVec;
-
-    fn test_decompose_with_domain_log_size(domain_log_size: u32) {
-        let size = 1 << domain_log_size;
-        let coset = CanonicCoset::new(domain_log_size);
-        let domain = coset.circle_domain();
-
-        let from_raw = (0..size * 4 as u32).collect::<Vec<u32>>();
-        let mut vec: [Vec<M31>; 4] = [vec![], vec![], vec![], vec![]];
-
-        from_raw.chunks(4).for_each(|a| {
-            vec[0].push(M31::from_u32_unchecked(a[0]));
-            vec[1].push(M31::from_u32_unchecked(a[1]));
-            vec[2].push(M31::from_u32_unchecked(a[2]));
-            vec[3].push(M31::from_u32_unchecked(a[3]));
-        });
-
-        let cpu_secure_evaluation = SecureEvaluation::new(
-            domain,
-            SecureColumnByCoords {
-                columns: vec.clone(),
-            },
-        );
-
-        let columns = [
-            BaseFieldVec::from_vec(vec[0].clone()),
-            BaseFieldVec::from_vec(vec[1].clone()),
-            BaseFieldVec::from_vec(vec[2].clone()),
-            BaseFieldVec::from_vec(vec[3].clone()),
-        ];
-        let gpu_secure_evaluation = SecureEvaluation::new(
-            domain,
-            SecureColumnByCoords { columns },
-        );
-
-        let (expected_g_values, expected_lambda) = CpuBackend::decompose(&cpu_secure_evaluation);
-        let (g_values, lambda) = CudaBackend::decompose(&gpu_secure_evaluation);
-
-        assert_eq!(lambda, expected_lambda);
-        assert_eq!(
-            g_values.values.columns[0].to_cpu(),
-            expected_g_values.values.columns[0]
-        );
-        assert_eq!(
-            g_values.values.columns[1].to_cpu(),
-            expected_g_values.values.columns[1]
-        );
-        assert_eq!(
-            g_values.values.columns[2].to_cpu(),
-            expected_g_values.values.columns[2]
-        );
-        assert_eq!(
-            g_values.values.columns[3].to_cpu(),
-            expected_g_values.values.columns[3]
-        );
-    }
-
-    #[test]
-    fn test_decompose_using_less_than_an_entire_block() {
-        test_decompose_with_domain_log_size(5);
-    }
-
-    #[test]
-    fn test_decompose_using_an_entire_block() {
-        test_decompose_with_domain_log_size(11);
-    }
-
-    #[test]
-    fn test_decompose_using_more_than_entire_block() {
-        test_decompose_with_domain_log_size(11 + 4);
-    }
-
-    #[test]
-    fn test_decompose_using_an_entire_block_for_results() {
-        test_decompose_with_domain_log_size(22);
-    }
-
-    #[test]
-    fn test_decompose_using_more_than_an_entire_block_for_results() {
-        test_decompose_with_domain_log_size(23);
-    }
 
     #[test]
     fn test_fold_line_compared_with_cpu() {
@@ -416,13 +321,7 @@ mod tests {
                 vec![M31(1733880617), M31(850794569), M31(2030610590), M31(562233856), M31(1460771010), M31(2069111798), M31(2082486460), M31(517895090), M31(591152265), M31(879189323), M31(492693465), M31(1962268963), M31(1180810278), M31(1360959609), M31(1465998969), M31(579298036), M31(1042819150), M31(1472324807), M31(1088967404), M31(1996597293), M31(285959712), M31(1447284512), M31(803149008), M31(1842290266), M31(861208576), M31(1949442307), M31(679820802), M31(1462843748), M31(1123289729), M31(1700666883), M31(2036502646), M31(26988055)],
             ]
         };
-        // let dst_values = SecureColumnByCoords::<CpuBackend> { columns: [
-        //     vec![M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0)],
-        //     vec![M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0)],
-        //     vec![M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0)],
-        //     vec![M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0), M31(0)],
-        //     ]
-        // };
+
         let dst_domain = LineDomain::new(Coset { initial_index: CirclePointIndex(16777216), initial: CirclePoint { x: M31(838195206), y: M31(1774253895) }, step_size: CirclePointIndex(67108864), step: CirclePoint { x: M31(1179735656), y: M31(1241207368) }, log_size: 5 });
         let mut dst = LineEvaluation::new(dst_domain.clone(), dst_values.clone());
 
@@ -448,15 +347,6 @@ mod tests {
             twiddles: twiddles.clone(),
             itwiddles: itwiddles.clone(),
         };
-        // let result_dst_values = SecureColumnByCoords::<CpuBackend> { columns: [
-        //     vec![M31(427612580), M31(164756171), M31(745251747), M31(445542439), M31(470376092), M31(1041716995), M31(1599482178), M31(466188786), M31(1489525911), M31(957428418), M31(1615959283), M31(1225522071), M31(1558354069), M31(1270915145), M31(1605705156), M31(697107394), M31(5642991), M31(704354169), M31(1201438138), M31(1614023409), M31(321729496), M31(538869890), M31(1390899132), M31(64130934), M31(2022882659), M31(1683646555), M31(720142548), M31(447215753), M31(80455463), M31(75266101), M31(628130052), M31(2135133498)],
-        //     vec![M31(1895190297), M31(889640624), M31(2107669050), M31(904247474), M31(2000998663), M31(538559577), M31(581350997), M31(1058630206), M31(908439062), M31(626564454), M31(675277456), M31(387711696), M31(2075449949), M31(1951782856), M31(99403482), M31(1542525050), M31(1691737254), M31(428404574), M31(1472532634), M31(561745038), M31(160386609), M31(1062399600), M31(895884951), M31(915432550), M31(1183867708), M31(1867820422), M31(1160647417), M31(1691074001), M31(402763043), M31(49208958), M31(1605298236), M31(946754251)],
-        //     vec![M31(255583528), M31(1199924885), M31(1954164380), M31(627132925), M31(442867839), M31(1083646257), M31(166653416), M31(633006510), M31(477741585), M31(1594670721), M31(553212543), M31(1128838311), M31(1827533438), M31(1670119603), M31(1147579158), M31(1425347433), M31(1065730901), M31(154801897), M31(1246683852), M31(1738766738), M31(1486361726), M31(1535665656), M31(847909924), M31(198010560), M31(711218636), M31(548308920), M31(779358669), M31(850836666), M31(1619830381), M31(2014156741), M31(682570659), M31(707810606)],
-        //     vec![M31(77407831), M31(1280850973), M31(314849980), M31(1289781523), M31(2137010657), M31(1861986008), M31(2133936064), M31(1895779347), M31(2094196660), M31(1831707396), M31(225701905), M31(377514075), M31(1369650397), M31(867998764), M31(743614146), M31(2045574629), M31(1021844903), M31(871128439), M31(177975162), M31(1914341379), M31(1923834963), M31(565042754), M31(262417871), M31(1688244799), M31(1119117710), M31(1452971356), M31(715494573), M31(184912092), M31(2120816849), M31(949649523), M31(480794430), M31(804006258)]
-        //     ]
-        // };
-        // let result_dst_domain = LineDomain::new(Coset { initial_index: CirclePointIndex(16777216), initial: CirclePoint { x: M31(838195206), y: M31(1774253895) }, step_size: CirclePointIndex(67108864), step: CirclePoint { x: M31(1179735656), y: M31(1241207368) }, log_size: 5 });
-        // let result_dst = LineEvaluation::new(result_dst_domain, result_dst_values);
 
         // CUDA
         let dst_values_cuda = SecureColumnByCoords {
@@ -489,7 +379,9 @@ mod tests {
 
         CpuBackend::fold_circle_into_line(&mut dst, &src, alpha, &twiddle_tree);
         CudaBackend::fold_circle_into_line(&mut dst_cuda, &src_cuda, alpha, &twiddle_tree_cuda);
-        // assert_eq!(result_dst.values.columns, dst.values.columns);
-        assert_eq!(dst_cuda.values.columns[0].to_cpu(), dst.values.columns[0]);
+
+        for i in 0..4 {
+            assert_eq!(dst_cuda.values.columns[i].to_cpu(), dst.values.columns[i]);
+        }
     }
 }
