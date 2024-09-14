@@ -1,9 +1,7 @@
 #include "fri.cuh"
 #include "utils.cuh"
 #include "poly/utils.cuh"
-#include "circle.cuh"
 
-#include <cstdio>
 
 __device__ void sum_block_list(uint32_t *results, const uint32_t block_thread_index, const uint32_t half_list_size,
                                const uint32_t *list_to_sum_in_block, uint32_t &thread_result) {
