@@ -146,7 +146,6 @@ mod tests {
     use stwo_prover::core::poly::twiddles::TwiddleTree;
     use stwo_prover::core::{backend::{Column, CpuBackend}, circle::{CirclePoint, CirclePointIndex, Coset, SECURE_FIELD_CIRCLE_GEN}, fields::m31::BaseField};
     use test_log::test;
-    use tracing::{span, Level};
 
     use crate::{
         backend::CudaBackend,
