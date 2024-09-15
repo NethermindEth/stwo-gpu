@@ -2,6 +2,15 @@
 
 #include <cstdio>
 
+__device__ uint32_t bit_reverse(uint32_t n, int bits) {
+    unsigned int reversed_n = __brev(n);
+    return reversed_n >> (32 - bits);
+}
+
+__host__ int log_2(int value) {
+    return __builtin_ctz(value);
+}
+
 void copy_uint32_t_vec_from_device_to_host(uint32_t *device_ptr, uint32_t *host_ptr, int size) {
     cuda_mem_copy_device_to_host<uint32_t>(device_ptr, host_ptr, size);
 }

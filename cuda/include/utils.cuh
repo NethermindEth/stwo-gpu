@@ -8,14 +8,9 @@ struct Blake2sHash {
     unsigned int s[8];
 };
 
-__device__ __forceinline__ uint32_t bit_reverse(uint32_t n, int bits) {
-    unsigned int reversed_n = __brev(n);
-    return reversed_n >> (32 - bits);
-}
+__device__ uint32_t bit_reverse(uint32_t n, int bits);
 
-__host__ __forceinline__ int log_2(int value) {
-    return __builtin_ctz(value);
-}
+__host__ int log_2(int value);
 
 extern "C"
 void copy_uint32_t_vec_from_device_to_host(uint32_t *, uint32_t*, int);
