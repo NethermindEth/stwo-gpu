@@ -56,8 +56,8 @@ __global__ void eval_at_point_first_pass(m31 *g_coeffs, qm31 *temp, qm31 *factor
     }
 }
 
-__global__ void
-eval_at_point_second_pass(qm31 *temp, qm31 *factors, int level_size, int factor_offset, int level_offset,
+__global__
+void eval_at_point_second_pass(qm31 *temp, qm31 *factors, int level_size, int factor_offset, int level_offset,
                           int output_offset) {
     int idx = threadIdx.x;
 

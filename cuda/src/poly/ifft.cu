@@ -75,8 +75,8 @@ __global__ void batch_ifft_circle_part(m31 **values, m31 *inverse_twiddles_tree,
     }
 }
 
-__global__ void
-batch_ifft_line_part(m31 **values, m31 *twiddles, int values_size, int number_of_rows, int layer) {
+__global__
+void batch_ifft_line_part(m31 **values, m31 *twiddles, int values_size, int number_of_rows, int layer) {
     int index = blockIdx.y * blockDim.x + threadIdx.x;
     unsigned int column_index = blockIdx.x;
 
