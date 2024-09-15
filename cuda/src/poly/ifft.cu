@@ -13,20 +13,25 @@ __global__ void ifft_circle_part(m31 *values, m31 *inverse_twiddles_tree, int va
     }
 }
 
-__global__ void ifft_line_part(m31 *values, m31 *inverse_twiddles_tree, int values_size, int inverse_twiddles_size,
-                               int layer_domain_offset, int layer) {
+__global__ void ifft_line_part(m31 *values, m31 *twiddles, int values_size, int layer) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (idx < (values_size >> 1)) {
+        // `index` is in [0, values_size / 2).
+        // It is interpreted as the n - 1 bit-string `twiddle_index || polynomial_index`,
+        // where n = log_2(`values_size`), `polynomial_index` is the rightmost `layer` bits,
+        // and `twiddle_index` is the rest `n - layer - 1` bits.
+        // This thread performs a butterfly between the values at indexes `twiddle_index || 0 || polynomial_index`
+        // and `twiddle_index || 1 || polynomial_index`.
         int number_polynomials = 1 << layer;
-        int h = idx >> layer;
+        int twiddle_index = idx >> layer;
         int l = idx & (number_polynomials - 1);
-        int idx0 = (h << (layer + 1)) + l;
+        int idx0 = (twiddle_index << (layer + 1)) + l;
         int idx1 = idx0 + number_polynomials;
 
         m31 val0 = values[idx0];
         m31 val1 = values[idx1];
-        m31 twiddle = inverse_twiddles_tree[layer_domain_offset + h];
+        m31 twiddle = twiddles[twiddle_index];
 
         values[idx0] = add(val0, val1);
         values[idx1] = mul(sub(val0, val1), twiddle);
@@ -44,7 +49,7 @@ void interpolate(int eval_domain_size, m31 *values, m31 *inverse_twiddles_tree, 
     int layer_domain_offset = 0;
     int i = 1;
     while (i < log_values_size) {
-        ifft_line_part<<<num_blocks, block_dim>>>(values, inverse_twiddles_tree, values_size, layer_domain_size, layer_domain_offset, i);
+        ifft_line_part<<<num_blocks, block_dim>>>(values, &inverse_twiddles_tree[layer_domain_offset], values_size, i);
 
         layer_domain_size >>= 1;
         layer_domain_offset += layer_domain_size;
@@ -135,7 +140,13 @@ void interpolate_columns(int eval_domain_size, m31 **values, m31 *inverse_twiddl
     int layer_domain_offset = 0;
     int i = 1;
     while (i < log_number_of_rows) {
-        batch_ifft_line_part<<<gridDimensions, blockDimensions>>>(device_values, &inverseTwiddlesTree[layer_domain_offset], values_size, number_of_rows, i);
+        batch_ifft_line_part<<<gridDimensions, blockDimensions>>>(
+            device_values,
+            &inverseTwiddlesTree[layer_domain_offset],
+            values_size,
+            number_of_rows,
+            i
+        );
         layer_domain_size >>= 1;
         layer_domain_offset += layer_domain_size;
         i += 1;
