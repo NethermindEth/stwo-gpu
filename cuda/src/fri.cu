@@ -90,8 +90,8 @@ void sum(uint32_t *list, const uint32_t list_size, uint32_t *result) {
         } while (num_blocks > 1);
         copy_uint32_t_vec_from_device_to_host(partial_results, result, 1);
     }
-    free_uint32_t_vec(temp_list);
-    free_uint32_t_vec(results);
+    cuda_free_memory(temp_list);
+    cuda_free_memory(results);
 }
 
 __global__ void compute_g_values_aux(uint32_t *f_values, uint32_t *results, int size, uint32_t lambda) {

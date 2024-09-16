@@ -1,3 +1,5 @@
+use std::ffi::c_void;
+
 use stwo_prover::core::fields::m31::BaseField;
 
 use super::bindings;
@@ -72,7 +74,7 @@ impl Clone for BaseFieldVec {
 
 impl Drop for BaseFieldVec {
     fn drop(&mut self) {
-        unsafe { bindings::free_uint32_t_vec(self.device_ptr) };
+        unsafe { bindings::cuda_free_memory(self.device_ptr as *const c_void) };
     }
 }
 

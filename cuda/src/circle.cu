@@ -1,5 +1,6 @@
 #include "../include/circle.cuh"
 #include "../include/bit_reverse.cuh"
+#include "../include/utils.cuh"
 
 #include <cstdio>
 
@@ -19,8 +20,7 @@ __global__ void sort_values_kernel(m31 *from, m31 *dst, int size) {
 m31 *sort_values_and_permute_with_bit_reverse_order(m31 *from, int size) {
     int block_dim = 256;
     int num_blocks = (size + block_dim - 1) / block_dim;
-    m31 *dst;
-    cudaMalloc((void **) &dst, sizeof(m31) * size);
+    m31 *dst = cuda_malloc<m31>(size);
 
     sort_values_kernel<<<num_blocks, block_dim>>>(from, dst, size);
     cudaDeviceSynchronize();
@@ -53,7 +53,7 @@ __global__ void precompute_twiddles_kernel(m31 *dst, point initial, point step, 
 m31 *precompute_twiddles(point initial, point step, int size) {
     m31 *twiddles = cuda_malloc_uint32_t(size);
     m31 one = 1;
-    cudaMemcpy(&twiddles[size - 1], &one, sizeof(m31), cudaMemcpyHostToDevice);
+    cuda_mem_copy_host_to_device<m31>(&one, &twiddles[size - 1], 1);
     int block_dim = 256;
     int num_blocks = (size + block_dim - 1) / block_dim;
 
@@ -247,9 +247,7 @@ void interpolate_columns(int eval_domain_size, m31 **values, m31 *inverse_twiddl
     // TODO: Handle case where columns are of different sizes.
     int blockDimensions = 1024;
 
-    m31 **device_values;
-    cudaMalloc((void **) &device_values, values_size * sizeof(m31 * ));
-    cudaMemcpy(device_values, values, values_size * sizeof(m31 * ), cudaMemcpyHostToDevice);
+    m31 **device_values = clone_to_device<m31*>(values, values_size);
 
     m31 *inverseTwiddlesTree = inverse_twiddles_tree;
     inverseTwiddlesTree = &inverseTwiddlesTree[inverse_twiddles_size - eval_domain_size];
@@ -277,7 +275,7 @@ void interpolate_columns(int eval_domain_size, m31 **values, m31 *inverse_twiddl
     batch_rescale<<<rescaleGridDimensions, blockDimensions>>>(device_values, values_size, number_of_rows, factor);
     cudaDeviceSynchronize();
     
-    cudaFree(device_values);
+    cuda_free_memory(device_values);
 }
 
 void evaluate(int eval_domain_size, m31 *values, m31 *twiddles_tree, int twiddles_size, int values_size) {
@@ -414,12 +412,9 @@ qm31 eval_at_point(m31 *coeffs, int coeffs_size, qm31 point_x, qm31 point_y) {
         temp_memory_size += size;
     }
 
-    qm31 *temp;
-    cudaMalloc((void **) &temp, sizeof(qm31) * temp_memory_size);
+    qm31 *temp = cuda_malloc<qm31>(temp_memory_size);
+    qm31 *device_mappings = clone_to_device<qm31>(host_mappings, log_coeffs_size);
 
-    qm31 *device_mappings;
-    cudaMalloc((void **) &device_mappings, sizeof(qm31) * log_coeffs_size);
-    cudaMemcpy(device_mappings, host_mappings, sizeof(qm31) * log_coeffs_size, cudaMemcpyHostToDevice);
     free(host_mappings);
 
     // First pass
@@ -448,9 +443,11 @@ qm31 eval_at_point(m31 *coeffs, int coeffs_size, qm31 point_x, qm31 point_y) {
 
     qm31 result = qm31{cm31{0, 0}, cm31{0, 1}};
     cudaDeviceSynchronize();
-    cudaMemcpy(&result, temp, sizeof(qm31), cudaMemcpyDeviceToHost);
-    cudaFree(temp);
-    cudaFree(device_mappings);
+
+    cuda_mem_copy_device_to_host<qm31>(temp, &result, 1);
+
+    cuda_free_memory(temp);
+    cuda_free_memory(device_mappings);
     return result;
 }
 
