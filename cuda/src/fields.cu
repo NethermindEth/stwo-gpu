@@ -66,6 +66,10 @@ __host__ __device__ cm31 sub(cm31 x, cm31 y) {
     return {sub(x.a, y.a), sub(x.b, y.b)};
 }
 
+__host__ __device__ cm31 sub(m31 x, cm31 y) {
+    return {sub(x, y.a), neg(y.b)};
+}
+
 __host__ __device__ cm31 neg(cm31 x) {
     return {neg(x.a), neg(x.b)};
 }
@@ -117,6 +121,10 @@ __host__ __device__ qm31 add(m31 x, qm31 y) {
 
 __host__ __device__ qm31 sub(qm31 x, qm31 y) {
     return {sub(x.a, y.a), sub(x.b, y.b)};
+}
+
+__host__ __device__ qm31 sub(m31 x, qm31 y) {
+    return {sub(x, y.a), neg(y.b)};
 }
 
 __host__ __device__ qm31 mul_by_scalar(qm31 x, m31 scalar) {
