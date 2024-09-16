@@ -1,4 +1,5 @@
-#include "../include/utils.cuh"
+#include "utils.cuh"
+#include "gkr.cuh"
 
 __global__ void gen_eq_evals_kernel(qm31 v, qm31 *factors, uint32_t y_size, qm31 *evals) {
     // Assumes `factors` holds 1 - y_i at position 2 * i and y_i at position 2 * i + 1
