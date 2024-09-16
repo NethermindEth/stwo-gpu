@@ -7,6 +7,8 @@ pub struct BaseFieldVec {
     pub(crate) device_ptr: *const u32,
     pub(crate) size: usize,
 }
+unsafe impl Send for BaseFieldVec {}
+unsafe impl Sync for BaseFieldVec {}
 
 impl BaseFieldVec {
     pub fn new(device_ptr: *const u32, size: usize) -> Self {
