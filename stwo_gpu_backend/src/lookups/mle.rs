@@ -23,7 +23,7 @@ impl MleOps<BaseField> for CudaBackend {
             cuda::bindings::fix_first_variable_base_field(
                 mle.into_evals().device_ptr,
                 evals_size,
-                assignment,
+                assignment.into(),
                 result_evals.device_ptr,
             )
         }
@@ -45,7 +45,7 @@ impl MleOps<SecureField> for CudaBackend {
             cuda::bindings::fix_first_variable_secure_field(
                 mle.into_evals().device_ptr,
                 evals_size,
-                assignment,
+                assignment.into(),
                 result_evals.device_ptr,
             )
         }
