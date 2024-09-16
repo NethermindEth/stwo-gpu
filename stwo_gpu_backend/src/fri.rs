@@ -1,9 +1,11 @@
+use stwo_prover::core::fri::CIRCLE_TO_LINE_FOLD_STEP;
 use stwo_prover::core::{
     fields::qm31::SecureField,
     fri::FriOps,
-    poly::{circle::SecureEvaluation, line::LineEvaluation, twiddles::TwiddleTree, BitReversedOrder},
+    poly::{
+        circle::SecureEvaluation, line::LineEvaluation, twiddles::TwiddleTree, BitReversedOrder,
+    },
 };
-use stwo_prover::core::fri::CIRCLE_TO_LINE_FOLD_STEP;
 
 use crate::backend::CudaBackend;
 use crate::cuda::bindings;
@@ -36,10 +38,7 @@ impl FriOps for CudaBackend {
                 CudaSecureColumn::from(&folded_values).device_ptr(),
             );
 
-            LineEvaluation::new(
-                eval.domain().double(),
-                folded_values,
-            )
+            LineEvaluation::new(eval.domain().double(), folded_values)
         }
     }
 
@@ -78,14 +77,14 @@ mod tests {
     use std::iter::zip;
 
     use itertools::Itertools;
-    use rand::{Rng, SeedableRng};
     use rand::rngs::SmallRng;
+    use rand::{Rng, SeedableRng};
     use stwo_prover::core::backend::{Column, ColumnOps, CpuBackend};
     use stwo_prover::core::circle::{CirclePoint, CirclePointIndex, Coset};
-    use stwo_prover::core::fields::Field;
     use stwo_prover::core::fields::m31::{BaseField, M31};
-    use stwo_prover::core::fields::qm31::{QM31, SecureField};
+    use stwo_prover::core::fields::qm31::{SecureField, QM31};
     use stwo_prover::core::fields::secure_column::SecureColumnByCoords;
+    use stwo_prover::core::fields::Field;
     use stwo_prover::core::fri::FriOps;
     use stwo_prover::core::poly::circle::{CanonicCoset, CircleDomain, PolyOps, SecureEvaluation};
     use stwo_prover::core::poly::line::{LineDomain, LineEvaluation, LinePoly};
@@ -300,10 +299,7 @@ mod tests {
         );
         CudaBackend::fold_circle_into_line(
             &mut cuda_fold,
-            &SecureEvaluation::new(
-                circle_domain,
-                SecureColumnByCoords { columns: vecs },
-            ),
+            &SecureEvaluation::new(circle_domain, SecureColumnByCoords { columns: vecs }),
             alpha,
             &CudaBackend::precompute_twiddles(line_domain.coset()),
         );
@@ -354,8 +350,8 @@ mod tests {
                 BaseFieldVec::from_vec(dst.values.columns[0].clone()),
                 BaseFieldVec::from_vec(dst.values.columns[1].clone()),
                 BaseFieldVec::from_vec(dst.values.columns[2].clone()),
-                BaseFieldVec::from_vec(dst.values.columns[3].clone())
-            ]
+                BaseFieldVec::from_vec(dst.values.columns[3].clone()),
+            ],
         };
         let mut dst_cuda = LineEvaluation::<CudaBackend>::new(dst.domain(), dst_values_cuda);
         let src_cuda_values = SecureColumnByCoords::<CudaBackend> {
@@ -364,12 +360,10 @@ mod tests {
                 BaseFieldVec::from_vec(src.columns[1].clone()),
                 BaseFieldVec::from_vec(src.columns[2].clone()),
                 BaseFieldVec::from_vec(src.columns[3].clone()),
-            ]
+            ],
         };
-        let src_cuda = SecureEvaluation::<CudaBackend, BitReversedOrder>::new(
-            src.domain,
-            src_cuda_values,
-        );
+        let src_cuda =
+            SecureEvaluation::<CudaBackend, BitReversedOrder>::new(src.domain, src_cuda_values);
 
         let twiddle_tree_cuda = TwiddleTree::<CudaBackend> {
             root_coset: twiddle_tree.root_coset,

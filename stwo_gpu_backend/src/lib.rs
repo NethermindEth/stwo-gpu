@@ -5,7 +5,7 @@ mod column;
 pub mod cuda;
 mod field;
 mod fri;
-mod gkr;
+mod lookups;
 mod poly;
 mod quotient;
 mod secure_column;
