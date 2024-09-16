@@ -1,6 +1,6 @@
 // Extracted from @spapini's implementation
 
-#include "../include/blake2s.cuh"
+#include "blake2s.cuh"
 
 static __constant__ const unsigned int INITIALIZATION_VECTOR[8] = {
         0x6A09E667,

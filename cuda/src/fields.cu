@@ -1,4 +1,4 @@
-#include "../include/fields.cuh"
+#include "fields.cuh"
 
 __host__ __device__ m31 mul(m31 a, m31 b) {
     uint64_t v = ((uint64_t) a * (uint64_t) b);

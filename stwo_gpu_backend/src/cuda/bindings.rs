@@ -3,6 +3,7 @@ use stwo_prover::core::{
     circle::CirclePoint,
     fields::{m31::BaseField, qm31::SecureField},
 };
+use std::ffi::c_void;
 
 #[repr(C)]
 pub struct CudaSecureField {
@@ -34,9 +35,9 @@ impl From<SecureField> for CudaSecureField {
     }
 }
 
-impl Into<SecureField> for CudaSecureField {
-    fn into(self) -> SecureField {
-        SecureField::from_m31(self.a, self.b, self.c, self.d)
+impl From<CudaSecureField> for SecureField{
+    fn from(value: CudaSecureField) -> Self {
+        SecureField::from_m31(value.a, value.b, value.c, value.d)
     }
 }
 
@@ -95,7 +96,7 @@ extern "C" {
 
     pub fn cuda_alloc_zeroes_blake_2s_hash(size: usize) -> *const Blake2sHash;
 
-    pub fn free_uint32_t_vec(device_ptr: *const u32);
+    pub fn cuda_free_memory(device_ptr: *const c_void);
 
     pub fn bit_reverse_base_field(array: *const u32, size: usize);
 
@@ -122,6 +123,15 @@ extern "C" {
         inverse_twiddles_tree: *const u32,
         inverse_twiddle_tree_size: u32,
         values_size: u32,
+    );
+
+    pub fn interpolate_columns(
+        eval_domain_size: u32,
+        values: *const *const u32,
+        inverse_twiddles_tree: *const u32,
+        inverse_twiddle_tree_size: u32,
+        values_size: u32,
+        number_of_rows: u32,
     );
 
     pub fn evaluate(
@@ -155,13 +165,6 @@ extern "C" {
         eval_values: *const *const u32,
         alpha: CudaSecureField,
         folded_values: *const *const u32,
-    );
-
-    pub fn decompose(
-        columns: *const *const u32,
-        column_size: u32,
-        lambda: &CudaSecureField,
-        g_values: *const *const u32,
     );
 
     pub fn accumulate(size: u32, left_columns: *const *const u32, right_columns: *const *const u32);
@@ -198,14 +201,10 @@ extern "C" {
         size: usize,
     );
 
-    pub fn free_blake_2s_hash_vec(device_pointer: *const Blake2sHash);
-
     pub fn copy_device_pointer_vec_from_host_to_device(
         from: *const *const u32,
         size: usize,
     ) -> *const *const u32;
-
-    pub fn free_device_pointer_vec(device_pointer: *const *const u32);
 
     pub fn accumulate_quotients(
         half_coset_initial_index: u32,

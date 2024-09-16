@@ -1,5 +1,5 @@
-#include "../include/bit_reverse.cuh"
-#include "../include/utils.cuh"
+#include "bit_reverse.cuh"
+#include "utils.cuh"
 
 #include <cstdio>
 

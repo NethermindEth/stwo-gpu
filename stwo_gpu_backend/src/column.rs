@@ -4,7 +4,7 @@ use stwo_prover::core::{
     fields::{m31::BaseField, qm31::SecureField},
 };
 
-use crate::cuda::bindings;
+use crate::cuda::{bindings, BaseFieldVec};
 use crate::{backend::CudaBackend, cuda};
 
 impl ColumnOps<BaseField> for CudaBackend {
@@ -64,8 +64,9 @@ impl Column<BaseField> for cuda::BaseFieldVec {
 }
 
 impl FromIterator<BaseField> for cuda::BaseFieldVec {
-    fn from_iter<T: IntoIterator<Item = BaseField>>(_iter: T) -> Self {
-        todo!()
+    fn from_iter<T: IntoIterator<Item = BaseField>>(iter: T) -> Self {
+        let vec: Vec<BaseField> = iter.into_iter().collect();
+        BaseFieldVec::from_vec(vec)
     }
 }
 
