@@ -28,12 +28,11 @@ void gen_eq_evals(qm31 v, qm31 *y, uint32_t y_size, qm31 *evals, uint32_t evals_
         factors[2 * i + 1] = y[i];
     }
 
-    qm31 *factors_device;
-    cudaMalloc((void**)&factors_device, factors_byte_length);
-    cudaMemcpy(factors_device, factors, factors_byte_length, cudaMemcpyHostToDevice);
+    qm31 *factors_device = clone_to_device<qm31>(factors, y_size * 2);
     free(factors);
 
     gen_eq_evals_kernel<<<NUMBER_OF_BLOCKS, min(evals_size, BLOCK_SIZE)>>>(v, factors_device, y_size, evals);
     cudaDeviceSynchronize();
+
     cudaFree(factors_device);
 }
