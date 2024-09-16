@@ -1,28 +1,26 @@
-#include "../include/accumulate.cuh"
+#include "accumulate.cuh"
+#include "utils.cuh"
 
-__global__ void
-accumulate_aux(uint32_t *left_column_0, uint32_t *left_column_1, uint32_t *left_column_2, uint32_t *left_column_3,
-               uint32_t *right_column_0, uint32_t *right_column_1, uint32_t *right_column_2,
-               uint32_t *right_column_3);
-
-void accumulate(uint32_t size,
-                uint32_t *left_columns[],
-                uint32_t *right_columns[]) {
-    int block_dim = 1024;
-    int num_blocks = (size + block_dim - 1) / block_dim;
-    accumulate_aux<<<num_blocks, min(size, block_dim)>>>(
-            left_columns[0], left_columns[1], left_columns[2], left_columns[3],
-            right_columns[0], right_columns[1], right_columns[2], right_columns[3]);
-    cudaDeviceSynchronize();
+__global__
+void accumulate_kernel(int size, m31 **left_columns, m31 **right_columns) {
+    uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < size) {
+        left_columns[0][i] = add(left_columns[0][i], right_columns[0][i]);
+        left_columns[1][i] = add(left_columns[1][i], right_columns[1][i]);
+        left_columns[2][i] = add(left_columns[2][i], right_columns[2][i]);
+        left_columns[3][i] = add(left_columns[3][i], right_columns[3][i]);
+    }
 }
 
-__global__ void
-accumulate_aux(uint32_t *left_column_0, uint32_t *left_column_1, uint32_t *left_column_2, uint32_t *left_column_3,
-               uint32_t *right_column_0, uint32_t *right_column_1, uint32_t *right_column_2,
-               uint32_t *right_column_3) {
-    uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
-    left_column_0[i] = add(left_column_0[i], right_column_0[i]);
-    left_column_1[i] = add(left_column_1[i], right_column_1[i]);
-    left_column_2[i] = add(left_column_2[i], right_column_2[i]);
-    left_column_3[i] = add(left_column_3[i], right_column_3[i]);
+void accumulate(int size, m31 **left_columns, m31 **right_columns) {
+    m31 **left_columns_device = clone_to_device<m31*>(left_columns, 4);
+    m31 **right_columns_device = clone_to_device<m31*>(right_columns, 4);
+
+    int block_dim = 1024;
+    int num_blocks = (size + block_dim - 1) / block_dim;
+    accumulate_kernel<<<num_blocks, block_dim>>>(size, left_columns_device, right_columns_device);
+    cudaDeviceSynchronize();
+
+    cuda_free_memory(left_columns_device);
+    cuda_free_memory(right_columns_device);
 }

@@ -1,5 +1,5 @@
-#include "../include/batch_inverse.cuh"
-#include "../include/utils.cuh"
+#include "batch_inverse.cuh"
+#include "utils.cuh"
 
 template<typename T>
 __device__ void new_forward_parent(T *from, T *dst, int index) {

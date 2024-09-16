@@ -1,3 +1,5 @@
+use std::ffi::c_void;
+
 use stwo_prover::core::backend::ColumnOps;
 use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleHasher;
@@ -35,7 +37,7 @@ impl MerkleOps<Blake2sMerkleHasher> for CudaBackend {
             );
         }
 
-        return result;
+        result
     }
 }
 
@@ -74,7 +76,7 @@ impl CudaBackend {
                 device_result_pointer,
             );
 
-            bindings::free_blake_2s_hash_vec(device_previous_layer_pointer);
+            bindings::cuda_free_memory(device_previous_layer_pointer as *const c_void);
         } else {
             bindings::commit_on_first_layer(
                 size,
@@ -89,8 +91,8 @@ impl CudaBackend {
             result_pointer,
             size,
         );
-        bindings::free_blake_2s_hash_vec(device_result_pointer);
-        bindings::free_device_pointer_vec(device_column_pointers);
+        bindings::cuda_free_memory(device_result_pointer as *const c_void);
+        bindings::cuda_free_memory(device_column_pointers as *const c_void);
     }
 }
 

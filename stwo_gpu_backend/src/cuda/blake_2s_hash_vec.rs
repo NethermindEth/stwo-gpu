@@ -1,5 +1,5 @@
 use crate::cuda::bindings;
-use std::fmt::Debug;
+use std::{ffi::c_void, fmt::Debug};
 use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
 
 #[derive(Debug)]
@@ -46,7 +46,7 @@ impl Blake2sHashVec {
     pub fn to_vec(&self) -> Vec<Blake2sHash> {
         let mut host_data: Vec<Blake2sHash> = Vec::with_capacity(self.size);
         unsafe {
-            host_data.set_len(self.size.try_into().unwrap());
+            host_data.set_len(self.size);
             bindings::copy_blake_2s_hash_vec_from_device_to_host(
                 self.device_ptr,
                 host_data.as_mut_ptr(),
@@ -67,6 +67,6 @@ impl Clone for Blake2sHashVec {
 
 impl Drop for Blake2sHashVec {
     fn drop(&mut self) {
-        unsafe { bindings::free_blake_2s_hash_vec(self.device_ptr) };
+        unsafe { bindings::cuda_free_memory(self.device_ptr as *const c_void) };
     }
 }

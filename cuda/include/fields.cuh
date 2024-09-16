@@ -38,6 +38,8 @@ __host__ __device__ cm31 mul(cm31 x, cm31 y);
 
 __host__ __device__ cm31 add(cm31 x, cm31 y);
 
+__host__ __device__ cm31 add(m31 x, cm31 y);
+
 __host__ __device__ cm31 mul(m31 x, cm31 y);
 
 __host__ __device__ cm31 sub(cm31 x, cm31 y);
@@ -56,9 +58,11 @@ __host__ __device__ qm31 mul(qm31 x, qm31 y);
 
 __host__ __device__ qm31 mul(qm31 x, cm31 y);
 
-__host__ __device__ qm31 mul(qm31 x, cm31 y);
+__host__ __device__ qm31 mul(m31 x, qm31 y);
 
 __host__ __device__ qm31 add(qm31 x, qm31 y);
+
+__host__ __device__ qm31 add(m31 x, qm31 y);
 
 __host__ __device__ qm31 sub(qm31 x, qm31 y);
 
@@ -67,8 +71,6 @@ __host__ __device__ qm31 sub(m31 x, qm31 y);
 __host__ __device__ qm31 inv(qm31 t);
 
 __host__ __device__ qm31 mul_by_scalar(qm31 x, m31 scalar);
-
-__host__ __device__ qm31 mul(m31 x, qm31 y);
 
 __host__ __device__ qm31 pow(qm31 x, uint64_t exp);
 

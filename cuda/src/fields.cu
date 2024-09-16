@@ -1,4 +1,4 @@
-#include "../include/fields.cuh"
+#include "fields.cuh"
 
 __host__ __device__ m31 mul(m31 a, m31 b) {
     uint64_t v = ((uint64_t) a * (uint64_t) b);
@@ -48,6 +48,12 @@ __host__ __device__ cm31 mul(cm31 x, cm31 y) {
 __host__ __device__ cm31 add(cm31 x, cm31 y) {
     return {add(x.a, y.a), add(x.b, y.b)};
 }
+
+__host__ __device__ cm31 add(m31 x, cm31 y) {
+    return {
+            add(x, y.a),
+            y.b,
+    };}
 
 __host__ __device__ cm31 mul(m31 x, cm31 y) {
     return {
@@ -104,6 +110,13 @@ __host__ __device__ qm31 mul(qm31 x, cm31 y) {
 
 __host__ __device__ qm31 add(qm31 x, qm31 y) {
     return {add(x.a, y.a), add(x.b, y.b)};
+}
+
+__host__ __device__ qm31 add(m31 x, qm31 y) {
+    return {
+            add(x, y.a),
+            y.b,
+    };
 }
 
 __host__ __device__ qm31 sub(qm31 x, qm31 y) {
