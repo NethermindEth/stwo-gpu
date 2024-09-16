@@ -1,8 +1,8 @@
-use std::{ffi::c_void, sync::Arc};
+use std::{sync::Arc};
 
 use stwo_prover::core::fields::qm31::SecureField;
 
-use super::{base_field_vec::CudaMemory, bindings};
+use super::{bindings, cuda_memory::CudaMemory};
 
 #[derive(Debug)]
 pub struct SecureFieldVec {

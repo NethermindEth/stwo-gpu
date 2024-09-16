@@ -1,37 +1,9 @@
-use std::{ffi::c_void, ptr::NonNull, sync::Arc};
+use std::{ffi::c_void, sync::Arc};
 
 use stwo_prover::core::fields::m31::BaseField;
 
-use super::bindings;
+use super::{bindings, cuda_memory::CudaMemory};
 
-#[derive(Debug)]
-pub(crate) struct CudaMemory {
-    pub(crate) address: NonNull<u32>
-}
-
-impl CudaMemory {
-    pub(crate) fn new_uninitialized(size: usize) -> Self {
-        let device_ptr = unsafe {
-            bindings::cuda_malloc_uint32_t(size as u32)
-        };
-        Self {
-            address: NonNull::new(device_ptr).expect("Error initializing memory")
-        }
-    }
-    pub(crate) fn new_zeroes(size: usize) -> Self {
-        let device_ptr = unsafe {
-                bindings::cuda_alloc_zeroes_uint32_t(size as u32)
-        };
-        Self {
-            address: NonNull::new(device_ptr).expect("Error initializing memory")
-        }
-    }
-
-    pub(crate) fn as_ptr(&self) -> *mut u32 {
-        self.address.as_ptr()
-    }
-
-}
 
 #[derive(Debug)]
 pub struct BaseFieldVec {
@@ -39,16 +11,11 @@ pub struct BaseFieldVec {
     pub(crate) offset: usize,
     pub(crate) size: usize,
 }
-unsafe impl Send for BaseFieldVec {}
-unsafe impl Sync for BaseFieldVec {}
 
 impl BaseFieldVec {
     pub fn new_uninitialized(size: usize) -> Self {
-        Self {
-            memory: Arc::new(CudaMemory::new_uninitialized(size)),
-            offset: 0,
-            size
-        }
+        let memory = Arc::new(CudaMemory::new_uninitialized(size));
+        Self { memory, offset: 0, size }
     }
 
     pub unsafe fn as_ptr(&self) -> *mut u32 {
