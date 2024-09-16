@@ -16,7 +16,6 @@ __global__ void gen_eq_evals_kernel(qm31 v, qm31 *factors, uint32_t y_size, qm31
     evals[thread_index] = eq_eval;
 }
 
-extern "C"
 void gen_eq_evals(qm31 v, qm31 *y, uint32_t y_size, qm31 *evals, uint32_t evals_size) {
     const unsigned int BLOCK_SIZE = 1024;
     const unsigned int NUMBER_OF_BLOCKS = (evals_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
