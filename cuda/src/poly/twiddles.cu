@@ -14,16 +14,14 @@ __global__ void sort_values_kernel(m31 *from, m31 *dst, int size) {
     }
 }
 
-m31 *sort_values_and_permute_with_bit_reverse_order(m31 *from, int size) {
+void sort_values_and_permute_with_bit_reverse_order(m31 *from, m31 *dst, int size) {
     int block_dim = 256;
     int num_blocks = (size + block_dim - 1) / block_dim;
-    m31 *dst = cuda_malloc<m31>(size);
 
     sort_values_kernel<<<num_blocks, block_dim>>>(from, dst, size);
     cudaDeviceSynchronize();
 
     bit_reverse_base_field(dst, size);
-    return dst;
 }
 
 __global__ void precompute_twiddles_kernel(m31 *dst, point initial, point step, int offset, int size, int log_size) {
@@ -47,10 +45,9 @@ __global__ void precompute_twiddles_kernel(m31 *dst, point initial, point step, 
     }
 }
 
-m31 *precompute_twiddles(point initial, point step, int size) {
-    m31 *twiddles = cuda_malloc_uint32_t(size);
+void precompute_twiddles(m31* result, point initial, point step, int size) {
     m31 one = 1;
-    cuda_mem_copy_host_to_device<m31>(&one, &twiddles[size - 1], 1);
+    cuda_mem_copy_host_to_device<m31>(&one, &result[size - 1], 1);
     int block_dim = 256;
     int num_blocks = (size + block_dim - 1) / block_dim;
 
@@ -60,7 +57,7 @@ m31 *precompute_twiddles(point initial, point step, int size) {
     int i = 0;
     int current_level_offset = 0;
     while (i < log_size) {
-        precompute_twiddles_kernel<<<num_blocks, block_dim>>>(twiddles, initial, step, current_level_offset, size,
+        precompute_twiddles_kernel<<<num_blocks, block_dim>>>(result, initial, step, current_level_offset, size,
                                                               log_2(size));
         initial = point_square(initial);
         step = point_square(step);
@@ -69,5 +66,4 @@ m31 *precompute_twiddles(point initial, point step, int size) {
         i += 1;
     }
     cudaDeviceSynchronize();
-    return twiddles;
 }

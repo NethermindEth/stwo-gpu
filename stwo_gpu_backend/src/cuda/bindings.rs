@@ -76,29 +76,29 @@ impl From<CirclePoint<SecureField>> for CirclePointSecureField {
 extern "C" {
     pub fn copy_uint32_t_vec_from_device_to_host(
         device_ptr: *const u32,
-        host_ptr: *const u32,
+        host_ptr: *mut u32,
         size: u32,
     );
 
     pub fn copy_uint32_t_vec_from_host_to_device(
         host_ptr: *const u32,
-        device_ptr: *const u32,
+        device_ptr: *mut u32,
         size: u32,
     );
 
     pub fn copy_uint32_t_vec_from_device_to_device(
         from: *const u32,
-        dst: *const u32,
+        dst: *mut u32,
         size: u32,
-    ) -> *const u32;
+    ) -> *mut u32;
 
     pub fn clone_uint32_t_vec_from_host_to_device(host_ptr: *const u32, size: u32) -> *const u32;
 
-    pub fn cuda_malloc_uint32_t(size: u32) -> *const u32;
+    pub fn cuda_malloc_uint32_t(size: u32) -> *mut u32;
 
     pub fn cuda_malloc_blake_2s_hash(size: usize) -> *const Blake2sHash;
 
-    pub fn cuda_alloc_zeroes_uint32_t(size: u32) -> *const u32;
+    pub fn cuda_alloc_zeroes_uint32_t(size: u32) -> *mut u32;
 
     pub fn cuda_alloc_zeroes_blake_2s_hash(size: usize) -> *const Blake2sHash;
 
@@ -114,10 +114,12 @@ extern "C" {
 
     pub fn sort_values_and_permute_with_bit_reverse_order(
         from: *const u32,
+        dst: *mut u32,
         size: usize,
     ) -> *const u32;
 
     pub fn precompute_twiddles(
+        result: *mut u32,
         initial: CirclePointBaseField,
         step: CirclePointBaseField,
         total_size: usize,
@@ -125,7 +127,7 @@ extern "C" {
 
     pub fn interpolate(
         eval_domain_size: u32,
-        values: *const u32,
+        values: *mut u32,
         inverse_twiddles_tree: *const u32,
         inverse_twiddle_tree_size: u32,
         values_size: u32,
@@ -133,7 +135,7 @@ extern "C" {
 
     pub fn interpolate_columns(
         eval_domain_size: u32,
-        values: *const *const u32,
+        values: *const *mut u32,
         inverse_twiddles_tree: *const u32,
         inverse_twiddle_tree_size: u32,
         values_size: u32,

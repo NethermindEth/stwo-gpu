@@ -1,50 +1,110 @@
-use std::ffi::c_void;
+use std::{ffi::c_void, ptr::NonNull, sync::Arc};
 
 use stwo_prover::core::fields::m31::BaseField;
 
 use super::bindings;
 
 #[derive(Debug)]
+pub(crate) struct CudaMemory {
+    pub(crate) address: NonNull<u32>
+}
+
+impl CudaMemory {
+    pub(crate) fn new_uninitialized(size: usize) -> Self {
+        let device_ptr = unsafe {
+            bindings::cuda_malloc_uint32_t(size as u32)
+        };
+        Self {
+            address: NonNull::new(device_ptr).expect("Error initializing memory")
+        }
+    }
+    pub(crate) fn new_zeroes(size: usize) -> Self {
+        let device_ptr = unsafe {
+                bindings::cuda_alloc_zeroes_uint32_t(size as u32)
+        };
+        Self {
+            address: NonNull::new(device_ptr).expect("Error initializing memory")
+        }
+    }
+
+    pub(crate) fn as_ptr(&self) -> *mut u32 {
+        self.address.as_ptr()
+    }
+
+}
+
+#[derive(Debug)]
 pub struct BaseFieldVec {
-    pub(crate) device_ptr: *const u32,
+    pub(crate) memory: Arc<CudaMemory>,
+    pub(crate) offset: usize,
     pub(crate) size: usize,
 }
 unsafe impl Send for BaseFieldVec {}
 unsafe impl Sync for BaseFieldVec {}
 
 impl BaseFieldVec {
-    pub fn new(device_ptr: *const u32, size: usize) -> Self {
-        Self { device_ptr, size }
+    pub fn new_uninitialized(size: usize) -> Self {
+        Self {
+            memory: Arc::new(CudaMemory::new_uninitialized(size)),
+            offset: 0,
+            size
+        }
+    }
+
+    pub unsafe fn as_ptr(&self) -> *mut u32 {
+        self.memory.as_ptr().offset(self.offset as isize)
+    }
+
+    pub fn split_at(&self, length: usize) -> (Self, Self) {
+        let left_chunk = Self {
+            memory: self.memory.clone(),
+            offset: self.offset,
+            size:   length
+        };
+        let right_chunk = Self {
+            memory: self.memory.clone(),
+            offset: self.offset + length,
+            size:   self.size - length
+        };
+        (left_chunk, right_chunk)
     }
 
     pub fn from_vec(host_array: Vec<BaseField>) -> Self {
-        let device_ptr = unsafe {
-            bindings::clone_uint32_t_vec_from_host_to_device(
+        let base_field_vec = Self::new_uninitialized(host_array.len());
+        unsafe {
+            bindings::copy_uint32_t_vec_from_host_to_device(
                 host_array.as_ptr() as *const u32,
-                host_array.len() as u32,
-            )
-        };
-        let size = host_array.len();
-        Self::new(device_ptr, size)
+                base_field_vec.as_ptr(),
+                host_array.len() as u32
+            );
+        }
+        base_field_vec
     }
 
-    pub fn new_uninitialized(size: usize) -> Self {
-        Self::new(unsafe { bindings::cuda_malloc_uint32_t(size as u32) }, size)
+    pub fn copy_from_vec(&mut self, host_array: &[BaseField]) {
+        unsafe {
+            bindings::copy_uint32_t_vec_from_host_to_device(
+                host_array.as_ptr() as *const u32,
+                self.as_ptr(),
+                host_array.len() as u32
+            );
+        }
     }
 
     pub fn new_zeroes(size: usize) -> Self {
-        Self::new(
-            unsafe { bindings::cuda_alloc_zeroes_uint32_t(size as u32) },
-            size,
-        )
+        Self {
+            memory: Arc::new(CudaMemory::new_zeroes(size)),
+            offset: 0,
+            size
+        }
     }
 
     pub fn copy_from(&mut self, other: &Self) {
         assert!(self.size >= other.size);
         unsafe {
             bindings::copy_uint32_t_vec_from_device_to_device(
-                other.device_ptr,
-                self.device_ptr,
+                other.as_ptr(),
+                self.as_ptr(),
                 other.size as u32,
             );
         }
@@ -55,8 +115,8 @@ impl BaseFieldVec {
         unsafe {
             host_data.set_len(self.size);
             bindings::copy_uint32_t_vec_from_device_to_host(
-                self.device_ptr,
-                host_data.as_mut_ptr() as *const u32,
+                self.as_ptr(),
+                host_data.as_mut_ptr() as *mut u32,
                 self.size as u32,
             );
         }
@@ -72,9 +132,9 @@ impl Clone for BaseFieldVec {
     }
 }
 
-impl Drop for BaseFieldVec {
+impl Drop for CudaMemory {
     fn drop(&mut self) {
-        unsafe { bindings::cuda_free_memory(self.device_ptr as *const c_void) };
+        unsafe { bindings::cuda_free_memory(self.address.as_ptr() as *const c_void) };
     }
 }
 

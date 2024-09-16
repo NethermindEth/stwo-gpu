@@ -24,7 +24,7 @@ impl FriOps for CudaBackend {
         let twiddle_offset: usize = twiddles_size - (1 << remaining_folds);
 
         unsafe {
-            let gpu_domain = twiddles.itwiddles.device_ptr;
+            let gpu_domain = twiddles.itwiddles.as_ptr();
             let folded_values = CudaSecureColumn::new_with_size(n >> 1);
 
             bindings::fold_line(
@@ -53,7 +53,7 @@ impl FriOps for CudaBackend {
         assert_eq!(n >> CIRCLE_TO_LINE_FOLD_STEP, dst.len());
 
         unsafe {
-            let gpu_domain = twiddles.itwiddles.device_ptr;
+            let gpu_domain = twiddles.itwiddles.as_ptr();
             let twiddle_offset = twiddles.root_coset.size() - dst.domain().size();
             bindings::fold_circle_into_line(
                 gpu_domain,

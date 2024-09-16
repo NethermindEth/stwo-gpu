@@ -37,18 +37,19 @@ impl QuotientOps for CudaBackend {
             },
         );
 
-        let device_column_pointers_vector = columns
-            .iter()
-            .map(|column| column.values.device_ptr)
-            .collect_vec();
 
         unsafe {
+            let device_column_pointers_vector = columns
+                .iter()
+                .map(|column| column.values.as_ptr())
+                .collect_vec();
+
             let half_coset_initial_index = domain.half_coset.initial_index;
             let half_coset_step_size = domain.half_coset.step_size;
 
             let device_column_pointers: *const *const u32 =
                 bindings::copy_device_pointer_vec_from_host_to_device(
-                    device_column_pointers_vector.as_ptr(),
+                    device_column_pointers_vector.as_ptr() as *const *const u32,
                     number_of_columns,
                 );
 
@@ -100,10 +101,10 @@ impl QuotientOps for CudaBackend {
                 sample_column_values.as_ptr(),
                 sample_column_and_values_sizes.as_ptr(),
                 sample_points.len() as u32,
-                result.values.columns[0].device_ptr,
-                result.values.columns[1].device_ptr,
-                result.values.columns[2].device_ptr,
-                result.values.columns[3].device_ptr,
+                result.values.columns[0].as_ptr(),
+                result.values.columns[1].as_ptr(),
+                result.values.columns[2].as_ptr(),
+                result.values.columns[3].as_ptr(),
                 flattened_line_coeffs_size as u32,
             );
 

@@ -18,10 +18,10 @@ impl PolyOps for CudaBackend {
         values: Col<Self, BaseField>,
     ) -> CircleEvaluation<Self, BaseField, BitReversedOrder> {
         let size = values.len();
-        let device_ptr = unsafe {
-            cuda::bindings::sort_values_and_permute_with_bit_reverse_order(values.device_ptr, size)
+        let result = cuda::BaseFieldVec::new_uninitialized(size);
+        unsafe {
+            cuda::bindings::sort_values_and_permute_with_bit_reverse_order(values.as_ptr(), result.as_ptr(), size)
         };
-        let result = cuda::BaseFieldVec::new(device_ptr, size);
         CircleEvaluation::new(coset.circle_domain(), result)
     }
 
@@ -37,8 +37,8 @@ impl PolyOps for CudaBackend {
         unsafe {
             cuda::bindings::interpolate(
                 eval.domain.half_coset.size() as u32,
-                values.device_ptr,
-                twiddle_tree.itwiddles.device_ptr,
+                values.as_ptr(),
+                twiddle_tree.itwiddles.as_ptr(),
                 twiddle_tree.itwiddles.len() as u32,
                 values.len() as u32,
             );
@@ -51,27 +51,27 @@ impl PolyOps for CudaBackend {
         columns: impl IntoIterator<Item = CircleEvaluation<Self, BaseField, BitReversedOrder>>,
         twiddles: &TwiddleTree<Self>,
     ) -> Vec<CirclePoly<Self>> {
-        let columns = columns.into_iter().collect_vec();
-        let values = columns.iter().map(|column| column.values.device_ptr).collect_vec();
-        let number_of_rows = columns[0].len();
         unsafe  {
+            let columns = columns.into_iter().collect_vec();
+            let values = columns.iter().map(|column| column.values.as_ptr()).collect_vec();
+            let number_of_rows = columns[0].len();
             cuda::bindings::interpolate_columns(
                 columns[0].domain.half_coset.size() as u32,
                 values.as_ptr(),
-                twiddles.itwiddles.device_ptr,
+                twiddles.itwiddles.as_ptr(),
                 twiddles.itwiddles.len() as u32,
                 columns.len() as u32,
                 number_of_rows as u32,
             );
-        }
 
-        columns.into_iter().map(|column| CirclePoly::new(column.values)).collect_vec()
+            columns.into_iter().map(|column| CirclePoly::new(column.values)).collect_vec()
+        }
     }
 
     fn eval_at_point(poly: &CirclePoly<Self>, point: CirclePoint<SecureField>) -> SecureField {
         unsafe {
             cuda::bindings::eval_at_point(
-                poly.coeffs.device_ptr,
+                poly.coeffs.as_ptr(),
                 poly.coeffs.len() as u32,
                 CudaSecureField::from(point.x),
                 CudaSecureField::from(point.y),
@@ -102,8 +102,8 @@ impl PolyOps for CudaBackend {
         unsafe {
             cuda::bindings::evaluate(
                 domain.half_coset.size() as u32,
-                values.device_ptr,
-                twiddle_tree.twiddles.device_ptr,
+                values.as_ptr(),
+                twiddle_tree.twiddles.as_ptr(),
                 twiddle_tree.twiddles.len() as u32,
                 values.len() as u32,
             );
@@ -114,18 +114,17 @@ impl PolyOps for CudaBackend {
 
     fn precompute_twiddles(coset: Coset) -> TwiddleTree<Self> {
         unsafe {
-            let twiddles = cuda::BaseFieldVec::new(
-                cuda::bindings::precompute_twiddles(
-                    coset.initial.into(),
-                    coset.step.into(),
-                    coset.size(),
-                ),
+            let all_twiddles = cuda::BaseFieldVec::new_uninitialized(coset.size() * 2);
+            let (twiddles, itwiddles) = all_twiddles.split_at(coset.size());
+            cuda::bindings::precompute_twiddles(
+                twiddles.as_ptr(),
+                coset.initial.into(),
+                coset.step.into(),
                 coset.size(),
             );
-            let itwiddles = cuda::BaseFieldVec::new_uninitialized(coset.size());
             cuda::bindings::batch_inverse_base_field(
-                twiddles.device_ptr,
-                itwiddles.device_ptr,
+                twiddles.as_ptr(),
+                itwiddles.as_ptr(),
                 coset.size(),
             );
             TwiddleTree {

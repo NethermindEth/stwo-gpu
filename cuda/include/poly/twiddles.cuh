@@ -5,9 +5,9 @@
 #include "point.cuh"
 
 extern "C"
-m31* sort_values_and_permute_with_bit_reverse_order(m31 *from, int size);
+void sort_values_and_permute_with_bit_reverse_order(m31 *from, m31 *dst, int size);
 
 extern "C"
-m31* precompute_twiddles(point initial, point step, int total_size);
+void precompute_twiddles(m31* result, point initial, point step, int size);
 
 #endif // POLY_TWIDDLES_H

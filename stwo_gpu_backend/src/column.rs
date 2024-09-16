@@ -15,7 +15,7 @@ impl ColumnOps<BaseField> for CudaBackend {
         assert!(size.is_power_of_two() && size < u32::MAX as usize);
 
         unsafe {
-            cuda::bindings::bit_reverse_base_field(column.device_ptr, size);
+            cuda::bindings::bit_reverse_base_field(column.as_ptr(), size);
         }
     }
 }
@@ -28,7 +28,7 @@ impl ColumnOps<SecureField> for CudaBackend {
         assert!(size.is_power_of_two() && size < u32::MAX as usize);
 
         unsafe {
-            cuda::bindings::bit_reverse_secure_field(column.device_ptr, size);
+            cuda::bindings::bit_reverse_secure_field(column.as_ptr(), size);
         }
     }
 }
@@ -56,10 +56,7 @@ impl Column<BaseField> for cuda::BaseFieldVec {
     }
 
     unsafe fn uninitialized(len: usize) -> Self {
-        Self {
-            device_ptr: bindings::cuda_malloc_uint32_t(len as u32),
-            size: len,
-        }
+        Self::new_uninitialized(len)
     }
 }
 
@@ -92,10 +89,7 @@ impl Column<SecureField> for cuda::SecureFieldVec {
     }
 
     unsafe fn uninitialized(len: usize) -> Self {
-        Self {
-            device_ptr: bindings::cuda_malloc_uint32_t(4 * len as u32),
-            size: len,
-        }
+        Self::new_uninitialized(len)
     }
 }
 

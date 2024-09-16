@@ -61,7 +61,7 @@ template<typename T>
 void cuda_mem_copy_device_to_device(T* device_data_from, T* device_data_to, unsigned int data_size) {
     cudaError_t err = cudaMemcpy(device_data_to, device_data_from, sizeof(T) * data_size, cudaMemcpyDeviceToDevice);
     if (err != cudaSuccess) {
-        printf("Error copying memory: %s\n", cudaGetErrorString(err));
+        printf("Error copying memory B: %s\n", cudaGetErrorString(err));
     } 
 }
 
@@ -69,7 +69,7 @@ template<typename T>
 void cuda_mem_copy_device_to_host(T* device_data, T* host_data, unsigned int data_size) {
     cudaError_t err = cudaMemcpy(host_data, device_data, sizeof(T) * data_size, cudaMemcpyDeviceToHost);
     if (err != cudaSuccess) {
-        printf("Error copying memory: %s\n", cudaGetErrorString(err));
+        printf("Error copying memory C: %s\n", cudaGetErrorString(err));
     } 
 }
 

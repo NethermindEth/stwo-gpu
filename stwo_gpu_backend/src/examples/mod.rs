@@ -57,25 +57,28 @@ pub fn generate_trace<const N: usize>(
 ) -> ColumnVec<CircleEvaluation<CudaBackend, BaseField, BitReversedOrder>> {
     assert!(log_size >= LOG_N_LANES);
     assert_eq!(inputs.len(), 1 << (log_size - LOG_N_LANES));
-    let mut trace = (0..N)
+    let mut cpu_trace = (0..N)
         .map(|_| Col::<SimdBackend, BaseField>::zeros(1 << log_size))
         .collect_vec();
     for (vec_index, input) in inputs.iter().enumerate() {
         let mut a = input.a;
         let mut b = input.b;
-        trace[0].data[vec_index] = a;
-        trace[1].data[vec_index] = b;
-        trace.iter_mut().skip(2).for_each(|col| {
+        cpu_trace[0].data[vec_index] = a;
+        cpu_trace[1].data[vec_index] = b;
+        cpu_trace.iter_mut().skip(2).for_each(|col| {
             (a, b) = (b, a.square() + b.square());
             col.data[vec_index] = b;
         });
     }
     let domain = CanonicCoset::new(log_size).circle_domain();
-    trace
+    let mut trace = BaseFieldVec::new_uninitialized((1 << log_size) * N);
+    cpu_trace
         .into_iter()
-        .map(|eval| {
-            let eval = BaseFieldVec::from_vec(eval.to_cpu());
-            CircleEvaluation::<CudaBackend, _, BitReversedOrder>::new(domain, eval)
+        .map(|col| {
+            let (mut left, right) = trace.split_at(1 << log_size);
+            trace = right;
+            left.copy_from_vec(&col.to_cpu());
+            CircleEvaluation::<CudaBackend, _, BitReversedOrder>::new(domain, left)
         })
         .collect_vec()
 }
