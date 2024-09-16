@@ -25,18 +25,12 @@ impl QuotientOps for CudaBackend {
         let domain_size = domain.size();
         let number_of_columns = columns.len();
 
+        let flattened_columns = BaseFieldVec::new_uninitialized(domain_size * 4);
+        let columns_list = flattened_columns.split_at_indexes([0, domain_size, 2 * domain_size, 3 * domain_size]);
         let result: SecureEvaluation<Self, BitReversedOrder> = SecureEvaluation::new(
             domain,
-            SecureColumnByCoords {
-                columns: [
-                    BaseFieldVec::new_uninitialized(domain_size),
-                    BaseFieldVec::new_uninitialized(domain_size),
-                    BaseFieldVec::new_uninitialized(domain_size),
-                    BaseFieldVec::new_uninitialized(domain_size),
-                ],
-            },
+            SecureColumnByCoords { columns: columns_list },
         );
-
 
         unsafe {
             let device_column_pointers_vector = columns

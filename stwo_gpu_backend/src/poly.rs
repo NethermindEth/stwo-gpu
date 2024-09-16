@@ -115,7 +115,7 @@ impl PolyOps for CudaBackend {
     fn precompute_twiddles(coset: Coset) -> TwiddleTree<Self> {
         unsafe {
             let all_twiddles = cuda::BaseFieldVec::new_uninitialized(coset.size() * 2);
-            let (twiddles, itwiddles) = all_twiddles.split_at(coset.size());
+            let [twiddles, itwiddles] = all_twiddles.split_at(coset.size());
             cuda::bindings::precompute_twiddles(
                 twiddles.as_ptr(),
                 coset.initial.into(),

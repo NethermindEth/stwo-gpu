@@ -75,7 +75,7 @@ pub fn generate_trace<const N: usize>(
     cpu_trace
         .into_iter()
         .map(|col| {
-            let (mut left, right) = trace.split_at(1 << log_size);
+            let [mut left, right] = trace.split_at(1 << log_size);
             trace = right;
             left.copy_from_vec(&col.to_cpu());
             CircleEvaluation::<CudaBackend, _, BitReversedOrder>::new(domain, left)

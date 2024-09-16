@@ -22,18 +22,28 @@ impl BaseFieldVec {
         self.memory.as_ptr().offset(self.offset as isize)
     }
 
-    pub fn split_at(&self, length: usize) -> (Self, Self) {
-        let left_chunk = Self {
-            memory: self.memory.clone(),
-            offset: self.offset,
-            size:   length
-        };
-        let right_chunk = Self {
-            memory: self.memory.clone(),
-            offset: self.offset + length,
-            size:   self.size - length
-        };
-        (left_chunk, right_chunk)
+    pub fn split_at(&self, index: usize) -> [Self; 2] {
+        self.split_at_indexes([0, index])
+    }
+
+    pub fn split_at_indexes<const N: usize>(&self, indexes: [usize; N]) -> [Self; N] {
+        let mut indexes = indexes.to_vec();
+        indexes.sort();
+        indexes.push(self.size);
+        let mut prev_index = indexes[0];
+        let mut result = Vec::new();
+        for index in indexes.into_iter().skip(1) {
+            result.push(
+                Self {
+                    memory: self.memory.clone(),
+                    offset: self.offset + prev_index,
+                    size: index - prev_index
+                }
+            );
+            prev_index = index;
+        }
+
+        result.try_into().unwrap_or_else(|_| unreachable!())
     }
 
     pub fn from_vec(host_array: Vec<BaseField>) -> Self {
