@@ -10,10 +10,16 @@ include_directories(include)
 add_library(gpubackend SHARED
         src/batch_inverse.cu
         src/bit_reverse.cu
-        src/circle.cu
+        src/poly/eval_at_point.cu
+        src/poly/ifft.cu
+        src/poly/rfft.cu
+        src/poly/twiddles.cu
+        src/poly/utils.cu
+        src/fri/fold_line.cu
+        src/fri/fold_circle_into_line.cu
+        src/fri/utils.cu
         src/utils.cu
         src/accumulate.cu
-        src/fri.cu
         src/fields.cu
         src/blake2s.cu
         src/quotients.cu

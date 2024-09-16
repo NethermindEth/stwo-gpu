@@ -1,7 +1,15 @@
-#include "../include/utils.cuh"
-#include <cstdio>
+#include "utils.cuh"
 
 #include <cstdio>
+
+__device__ uint32_t bit_reverse(uint32_t n, int bits) {
+    unsigned int reversed_n = __brev(n);
+    return reversed_n >> (32 - bits);
+}
+
+__host__ int log_2(int value) {
+    return __builtin_ctz(value);
+}
 
 void copy_uint32_t_vec_from_device_to_host(uint32_t *device_ptr, uint32_t *host_ptr, int size) {
     cuda_mem_copy_device_to_host<uint32_t>(device_ptr, host_ptr, size);
@@ -44,15 +52,6 @@ Blake2sHash* cuda_alloc_zeroes_blake_2s_hash(int size) {
     Blake2sHash* device_ptr = cuda_malloc_blake_2s_hash(size);
     cudaMemset(device_ptr, 0x00, sizeof(uint32_t) * size);
     return device_ptr;
-}
-
-Blake2sHash* copy_blake_2s_hash_from_host_to_device(Blake2sHash *host_ptr) {
-    Blake2sHash* device_ptr = clone_to_device<Blake2sHash>(host_ptr, 1);
-    return device_ptr;
-}
-
-void copy_blake_2s_hash_from_device_to_host(Blake2sHash *device_ptr, Blake2sHash *host_ptr) {
-    cuda_mem_copy_device_to_host<Blake2sHash>(device_ptr, host_ptr, 1);
 }
 
 Blake2sHash* copy_blake_2s_hash_vec_from_host_to_device(Blake2sHash *host_ptr, uint32_t size) {

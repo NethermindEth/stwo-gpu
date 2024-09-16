@@ -163,7 +163,7 @@ mod tests {
     use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
     use stwo_prover::core::ColumnVec;
 
-    const FIB_SEQUENCE_LENGTH: usize = 1 << 16;
+    const FIB_SEQUENCE_LENGTH: usize = 1024;
 
     fn generate_test_trace(
         log_n_instances: u32,
@@ -219,7 +219,7 @@ mod tests {
 
     #[test_log::test]
     fn test_wide_fib_prove() {
-        const LOG_N_INSTANCES: u32 = 10;
+        const LOG_N_INSTANCES: u32 = 16;
         let config = PcsConfig::default();
         // Precompute twiddles.
         let twiddles = CudaBackend::precompute_twiddles(

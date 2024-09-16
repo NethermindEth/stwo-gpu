@@ -167,13 +167,6 @@ extern "C" {
         folded_values: *const *const u32,
     );
 
-    pub fn decompose(
-        columns: *const *const u32,
-        column_size: u32,
-        lambda: &CudaSecureField,
-        g_values: *const *const u32,
-    );
-
     pub fn accumulate(size: u32, left_columns: *const *const u32, right_columns: *const *const u32);
 
     pub fn commit_on_first_layer(
