@@ -211,22 +211,30 @@ __global__ void batch_ifft_circle_part(m31 **values, m31 *inverse_twiddles_tree,
 }
 
 __global__ void
-batch_ifft_line_part(m31 **values, m31 *inverse_twiddles_tree, int values_size, int number_of_rows, int layer_domain_offset, int layer) {
+batch_ifft_line_part(m31 **values, m31 *twiddles, int values_size, int number_of_rows, int layer) {
     int index = blockIdx.y * blockDim.x + threadIdx.x;
     unsigned int column_index = blockIdx.x;
 
     if (index < (number_of_rows >> 1) && column_index < values_size) {
+        // `index` is in [0, number_of_rows / 2).
+        // It is interpreted as the n - 1 bit-string `twiddle_index || polynomial_index`,
+        // where n = log_2(`number_of_rows`), `polynomial_index` is the rightmost `layer` bits,
+        // and `twiddle_index` is the rest `n - layer - 1` bits.
+        // This thread performs a butterfly between the values at indexes `twiddle_index || 0 || polynomial_index`
+        // and `twiddle_index || 1 || polynomial_index`.
         m31 *column = values[column_index];
+
         int number_polynomials = 1 << layer;
-        int h = index >> layer;
-        int l = index & (number_polynomials - 1);
-        int idx0 = ((h << (layer + 1))) + l;
-        int idx1 = idx0 + number_polynomials;
+        int twiddle_index = index >> layer;
+        int polynomial_index = index & (number_polynomials - 1);
+
+        int idx0 = (twiddle_index << (layer + 1)) | polynomial_index;
+        int idx1 = idx0 | number_polynomials;
 
         m31 val0 = column[idx0];
         m31 val1 = column[idx1];
 
-        m31 twiddle = inverse_twiddles_tree[layer_domain_offset + h];
+        m31 twiddle = twiddles[twiddle_index];
 
         column[idx0] = add(val0, val1);
         column[idx1] = mul(sub(val0, val1), twiddle);
@@ -262,7 +270,7 @@ void interpolate_columns(int eval_domain_size, m31 **values, m31 *inverse_twiddl
     int layer_domain_offset = 0;
     int i = 1;
     while (i < log_number_of_rows) {
-        batch_ifft_line_part<<<gridDimensions, blockDimensions>>>(device_values, inverseTwiddlesTree, values_size, number_of_rows, layer_domain_offset, i);
+        batch_ifft_line_part<<<gridDimensions, blockDimensions>>>(device_values, &inverseTwiddlesTree[layer_domain_offset], values_size, number_of_rows, i);
         layer_domain_size >>= 1;
         layer_domain_offset += layer_domain_size;
         i += 1;
