@@ -80,13 +80,19 @@ extern "C" {
         size: u32,
     );
 
-    pub fn copy_uint32_t_vec_from_host_to_device(host_ptr: *const u32, size: u32) -> *const u32;
+    pub fn copy_uint32_t_vec_from_host_to_device(
+        host_ptr: *const u32,
+        device_ptr: *const u32,
+        size: u32,
+    );
 
     pub fn copy_uint32_t_vec_from_device_to_device(
         from: *const u32,
         dst: *const u32,
         size: u32,
     ) -> *const u32;
+
+    pub fn clone_uint32_t_vec_from_host_to_device(host_ptr: *const u32, size: u32) -> *const u32;
 
     pub fn cuda_malloc_uint32_t(size: u32) -> *const u32;
 

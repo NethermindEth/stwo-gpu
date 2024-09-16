@@ -19,7 +19,7 @@ impl BaseFieldVec {
 
     pub fn from_vec(host_array: Vec<BaseField>) -> Self {
         let device_ptr = unsafe {
-            bindings::copy_uint32_t_vec_from_host_to_device(
+            bindings::clone_uint32_t_vec_from_host_to_device(
                 host_array.as_ptr() as *const u32,
                 host_array.len() as u32,
             )
