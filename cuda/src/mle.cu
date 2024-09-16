@@ -11,14 +11,14 @@ __global__ void fix_first_variable_kernel(T *evals, int evals_size, qm31 assignm
     }
 }
 
-void fix_first_variable_basefield(m31 *evals, int evals_size, qm31 assignment, qm31* output_evals) {
+void fix_first_variable_base_field(m31 *evals, int evals_size, qm31 assignment, qm31* output_evals) {
     int block_size = 1024;
     int num_blocks = ((evals_size >> 1) + block_size - 1) / block_size;
     fix_first_variable_kernel<<<num_blocks, block_size>>>(evals, evals_size, assignment, output_evals);
     cudaDeviceSynchronize();
 }
 
-void fix_first_variable_securefield(qm31 *evals, int evals_size, qm31 assignment, qm31* output_evals) {
+void fix_first_variable_secure_field(qm31 *evals, int evals_size, qm31 assignment, qm31* output_evals) {
     int block_size = 1024;
     int num_blocks = ((evals_size >> 1) + block_size - 1) / block_size;
     fix_first_variable_kernel<<<num_blocks, block_size>>>(evals, evals_size, assignment, output_evals);

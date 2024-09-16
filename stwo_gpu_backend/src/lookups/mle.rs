@@ -20,7 +20,7 @@ impl MleOps<BaseField> for CudaBackend {
         let evals_size = mle.len();
         let result_evals = SecureFieldVec::new_uninitialized(evals_size >> 1);
         unsafe {
-            cuda::bindings::fix_first_variable_basefield(
+            cuda::bindings::fix_first_variable_base_field(
                 mle.into_evals().device_ptr,
                 evals_size,
                 assignment,
@@ -42,7 +42,7 @@ impl MleOps<SecureField> for CudaBackend {
         let evals_size = mle.len();
         let result_evals = SecureFieldVec::new_uninitialized(evals_size >> 1);
         unsafe {
-            cuda::bindings::fix_first_variable_securefield(
+            cuda::bindings::fix_first_variable_secure_field(
                 mle.into_evals().device_ptr,
                 evals_size,
                 assignment,
