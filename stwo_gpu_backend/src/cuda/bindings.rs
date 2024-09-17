@@ -142,6 +142,15 @@ extern "C" {
         values_size: u32,
     );
 
+    pub fn evaluate_columns(
+        eval_domain_sizes: *const u32,
+        values: *const *const u32,
+        twiddles_tree: *const u32,
+        twiddle_tree_size: u32,
+        number_of_columns: u32,
+        column_sizes: *const u32,
+    );
+
     pub fn eval_at_point(
         coeffs: *const u32,
         coeffs_size: u32,

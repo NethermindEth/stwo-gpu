@@ -3,7 +3,8 @@ use stwo_prover::core::{backend::{Col, Column}, circle::{CirclePoint, Coset}, fi
     circle::{CanonicCoset, CircleDomain, CircleEvaluation, CirclePoly, PolyOps},
     twiddles::TwiddleTree,
     BitReversedOrder,
-}};
+}, ColumnVec};
+use tracing::{span, Level};
 use crate::cuda::bindings::CudaSecureField;
 use crate::{
     backend::CudaBackend,
@@ -112,6 +113,46 @@ impl PolyOps for CudaBackend {
         CircleEvaluation::new(domain, values)
     }
 
+    fn evaluate_columns(
+        polynomials: &ColumnVec<CirclePoly<Self>>,
+        log_blowup_factor: u32,
+        twiddles: &TwiddleTree<Self>,
+    ) -> Vec<CircleEvaluation<Self, BaseField, BitReversedOrder>> {
+        let mut values_pointers = Vec::new();
+        let mut values_columns = Vec::new();
+        let mut column_sizes = Vec::new();
+        let mut domains = Vec::new();
+        let mut eval_domain_sizes = Vec::new();
+
+        for poly in polynomials.iter() {
+            let domain = CanonicCoset::new(poly.log_size() + log_blowup_factor).circle_domain();
+            let values = poly.extend(domain.log_size()).coeffs;  // todo: OJO
+
+            values_pointers.push(values.device_ptr);
+            column_sizes.push(values.len() as u32);
+            values_columns.push(values);
+            domains.push(domain);
+            eval_domain_sizes.push(domain.half_coset.size() as u32);
+        }
+
+        unsafe {
+            cuda::bindings::evaluate_columns(
+                eval_domain_sizes.as_ptr(),
+                values_pointers.as_ptr(),
+                twiddles.twiddles.device_ptr,
+                twiddles.twiddles.len() as u32,
+                values_columns.len() as u32,
+                column_sizes.as_ptr(),
+            );
+        }
+
+        domains
+            .into_iter()
+            .zip(values_columns.into_iter())
+            .map(|(domain, values)| CircleEvaluation::<Self, BaseField, BitReversedOrder>::new(domain, values))
+            .collect_vec()
+    }
+
     fn precompute_twiddles(coset: Coset) -> TwiddleTree<Self> {
         unsafe {
             let twiddles = cuda::BaseFieldVec::new(
@@ -144,7 +185,7 @@ mod tests {
         CanonicCoset, CircleDomain, CircleEvaluation, CirclePoly, PolyOps,
     };
     use stwo_prover::core::poly::twiddles::TwiddleTree;
-    use stwo_prover::core::{backend::{Column, CpuBackend}, circle::{CirclePoint, CirclePointIndex, Coset, SECURE_FIELD_CIRCLE_GEN}, fields::m31::BaseField};
+    use stwo_prover::core::{backend::{Column, CpuBackend}, circle::{CirclePoint, CirclePointIndex, Coset, SECURE_FIELD_CIRCLE_GEN}, fields::m31::BaseField, ColumnVec};
     use test_log::test;
 
     use crate::{
@@ -587,5 +628,42 @@ mod tests {
         let coeffs = result.iter().map(|poly| poly.coeffs.clone().to_cpu()).collect_vec();
 
         assert_eq!(coeffs, expected_coeffs);
+    }
+
+    #[test_log::test]
+    fn test_evaluate_columns() {
+        let log_size = 9;
+        let log_number_of_columns = 8;
+        let log_blowup_factor = 2;
+
+        let size = 1 << log_size;
+        let number_of_columns = 1 << log_number_of_columns;
+
+        let cpu_values = (1..(size + 1) as u32)
+            .map(BaseField::from)
+            .collect::<Vec<_>>();
+        let gpu_values = cuda::BaseFieldVec::from_vec(cpu_values.clone());
+
+        let trace_coset = CanonicCoset::new(log_size);
+        let cpu_evaluations = CpuBackend::new_canonical_ordered(trace_coset, cpu_values);
+        let gpu_evaluations = CudaBackend::new_canonical_ordered(trace_coset, gpu_values);
+
+        let interpolation_coset = CanonicCoset::new(log_size + log_blowup_factor);
+        let cpu_twiddles = CpuBackend::precompute_twiddles(interpolation_coset.half_coset());
+        let gpu_twiddles = CudaBackend::precompute_twiddles(interpolation_coset.half_coset());
+
+        let cpu_poly = CpuBackend::interpolate(cpu_evaluations, &cpu_twiddles);
+        let gpu_poly = CudaBackend::interpolate(gpu_evaluations, &gpu_twiddles);
+
+        let cpu_columns = ColumnVec::from((0..number_of_columns).map( |_index| cpu_poly.clone()).collect_vec());
+        let gpu_columns = ColumnVec::from((0..number_of_columns).map( |_index| gpu_poly.clone()).collect_vec());
+
+        let result = CudaBackend::evaluate_columns(&gpu_columns, log_blowup_factor, &gpu_twiddles);
+        let expected_result = CpuBackend::evaluate_columns(&cpu_columns, log_blowup_factor, &cpu_twiddles);
+
+        let expected_values = expected_result.iter().map(|eval| eval.clone().values).collect_vec();
+        let values = result.iter().map(|eval| eval.clone().values.to_cpu()).collect_vec();
+
+        assert_eq!(values, expected_values);
     }
 }
