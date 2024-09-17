@@ -3,7 +3,8 @@
 #include <cstdio>
 
 #define THREAD_COUNT_MAX 1024 
-
+#define THREAD_COUNT_512 512
+#define COMPUTE_CAPABILITY_8 8
 typedef struct {
     secure_field_point point;
     uint32_t *columns;
@@ -195,6 +196,13 @@ void accumulate_quotients(
         uint32_t *result_column_3,
         uint32_t flattened_line_coeffs_size
 ) {
+    int device = 0;
+    cudaSetDevice(device);
+
+    cudaDeviceProp deviceProp;
+    cudaGetDeviceProperties(&deviceProp, device);
+
+
     int domain_log_size = log_2((int)domain_size);
 
     auto sample_batches = (column_sample_batch *)malloc(sizeof(column_sample_batch) * sample_size);
@@ -245,8 +253,16 @@ void accumulate_quotients(
             batch_random_coeffs_device
     );
 
-    block_dim = domain_size < THREAD_COUNT_MAX ? domain_size : THREAD_COUNT_MAX; 
-    num_blocks = block_dim < THREAD_COUNT_MAX ? 1 : (domain_size + block_dim - 1) / block_dim;
+    // Launch threads based on Compute Capability
+    if(deviceProp.major >= COMPUTE_CAPABILITY_8) {
+        block_dim = domain_size < THREAD_COUNT_MAX ? domain_size : THREAD_COUNT_MAX; 
+        num_blocks = block_dim < THREAD_COUNT_MAX ? 1 : (domain_size + block_dim - 1) / block_dim;
+    }
+    else {
+        block_dim = domain_size < THREAD_COUNT_512 ? domain_size : THREAD_COUNT_512; 
+        num_blocks = block_dim < THREAD_COUNT_512 ? 1 : (domain_size + block_dim - 1) / block_dim;
+    }
+
     accumulate_quotients_in_gpu<<<num_blocks, block_dim>>>(
             half_coset_initial_index,
             half_coset_step_size,
