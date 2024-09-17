@@ -268,6 +268,11 @@ void accumulate_quotients(
     );
     cudaDeviceSynchronize();
 
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        printf("CUDA Error: %s\n", cudaGetErrorString(err));
+    }
+
     free(sample_batches);
     cudaFree(sample_batches_device);
     cudaFree(denominator_inverses);
