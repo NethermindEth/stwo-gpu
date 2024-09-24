@@ -27,3 +27,7 @@ harness = false
 [[bench]]
 name = "batch_inverse"
 harness = false
+
+[[bench]]
+name = "interpolate_columns"
+harness = false
