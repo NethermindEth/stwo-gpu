@@ -20,6 +20,8 @@ test-log = { version = "0.2.15", features = ["trace"] }
 [build-dependencies]
 cmake = "0.1.50"
 
+# *** Benches ***
+
 [[bench]]
 name = "bit_reverse"
 harness = false
@@ -30,4 +32,8 @@ harness = false
 
 [[bench]]
 name = "interpolate_columns"
+harness = false
+
+[[bench]]
+name = "evaluate_columns"
 harness = false
