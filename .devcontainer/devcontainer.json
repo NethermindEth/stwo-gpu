@@ -3,8 +3,8 @@
     "dockerfile": "Dockerfile"
   },
   "runArgs": [
-    "--gpus",
-    "all"
+    "--device",
+    "nvidia.com/gpu=all"
   ],
   "customizations": {
     "vscode": {
