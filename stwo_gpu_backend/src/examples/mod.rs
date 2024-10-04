@@ -80,7 +80,7 @@ pub fn generate_trace<const N: usize>(
         .collect_vec()
 }
 
-impl<E: FrameworkEval> ComponentProver<CudaBackend> for FrameworkComponent<E> {
+impl<E: FrameworkEval + Send + Sync> ComponentProver<CudaBackend> for FrameworkComponent<E> {
     fn evaluate_constraint_quotients_on_domain(
         &self,
         trace: &Trace<'_, CudaBackend>,

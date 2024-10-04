@@ -5,7 +5,7 @@ use stwo_prover::core::{
 };
 
 use crate::{
-    cuda::{self, BaseFieldVec, SecureFieldVec},
+    cuda::{self,SecureFieldVec},
     CudaBackend,
 };
 
@@ -21,7 +21,7 @@ impl MleOps<BaseField> for CudaBackend {
         let result_evals = SecureFieldVec::new_uninitialized(evals_size >> 1);
         unsafe {
             cuda::bindings::fix_first_variable_base_field(
-                mle.into_evals().device_ptr,
+                mle.into_evals().as_ptr(),
                 evals_size,
                 assignment.into(),
                 result_evals.device_ptr,

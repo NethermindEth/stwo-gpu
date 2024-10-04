@@ -9,8 +9,8 @@ impl FieldOps<BaseField> for CudaBackend {
     fn batch_inverse(column: &Self::Column, dst: &mut Self::Column) {
         unsafe {
             cuda::bindings::batch_inverse_base_field(
-                column.device_ptr,
-                dst.device_ptr,
+                column.as_ptr(),
+                dst.as_ptr(),
                 column.len(),
             );
         }

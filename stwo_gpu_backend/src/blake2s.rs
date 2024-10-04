@@ -50,7 +50,7 @@ impl CudaBackend {
         result_pointer: *const Blake2sHash,
     ) {
         let device_column_pointers_vector: Vec<*const u32> =
-            columns.iter().map(|column| column.device_ptr).collect();
+            columns.iter().map(|column| column.as_ptr()).collect();
 
         let device_result_pointer =
             bindings::copy_blake_2s_hash_vec_from_host_to_device(result_pointer, size);

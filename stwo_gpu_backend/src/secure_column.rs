@@ -31,7 +31,7 @@ impl<'a> From<&'a SecureColumnByCoords<CudaBackend>> for CudaSecureColumn {
         let columns = &secure_column.columns;
         let columns_ptrs_as_vec = columns
             .iter()
-            .map(|column| column.device_ptr)
+            .map(|column| column.as_ptr())
             .collect::<Vec<*const u32>>();
         let columns_ptrs_as_array: [*const u32; 4] = columns_ptrs_as_vec.try_into().unwrap();
 
@@ -46,7 +46,7 @@ impl<'a> From<&'a mut SecureColumnByCoords<CudaBackend>> for CudaSecureColumn {
         let columns = &secure_column.columns;
         let columns_ptrs_as_vec = columns
             .iter()
-            .map(|column| column.device_ptr)
+            .map(|column| column.as_ptr())
             .collect::<Vec<*const u32>>();
         let columns_ptrs_as_array: [*const u32; 4] = columns_ptrs_as_vec.try_into().unwrap();
 

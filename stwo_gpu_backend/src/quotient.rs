@@ -39,7 +39,7 @@ impl QuotientOps for CudaBackend {
 
         let device_column_pointers_vector = columns
             .iter()
-            .map(|column| column.values.device_ptr)
+            .map(|column| column.values.as_ptr())
             .collect_vec();
 
         unsafe {
@@ -100,10 +100,10 @@ impl QuotientOps for CudaBackend {
                 sample_column_values.as_ptr(),
                 sample_column_and_values_sizes.as_ptr(),
                 sample_points.len() as u32,
-                result.values.columns[0].device_ptr,
-                result.values.columns[1].device_ptr,
-                result.values.columns[2].device_ptr,
-                result.values.columns[3].device_ptr,
+                result.values.columns[0].as_ptr(),
+                result.values.columns[1].as_ptr(),
+                result.values.columns[2].as_ptr(),
+                result.values.columns[3].as_ptr(),
                 flattened_line_coeffs_size as u32,
             );
 
