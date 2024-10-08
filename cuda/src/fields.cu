@@ -39,6 +39,10 @@ __host__ __device__ m31 inv(m31 t) {
     return mul(pow_to_power_of_two(7, t5), t2);
 }
 
+__host__ __device__ m31 square(m31 x) {
+    return mul(x, x); 
+}
+
 /*##### CM31 ##### */
 
 __host__ __device__ cm31 mul(cm31 x, cm31 y) {
