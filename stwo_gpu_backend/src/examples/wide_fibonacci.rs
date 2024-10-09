@@ -184,11 +184,11 @@ mod test{
     }
 
     #[test_log::test]
-    fn test_wide_fib_prove_with_cuda_optimized_constraints_evaluation() {
+    fn test_cuda_optimized_constraints_evaluation_wide_fib_prove() {
         // Note: To see time measurement, run test with
         //   RUST_LOG_SPAN_EVENTS=enter,close RUST_LOG=info RUST_BACKTRACE=1 
         //   RUSTFLAGS="-Awarnings -C target-cpu=native -C target-feature=+avx2 -C opt-level=3"
-        //   cargo test test_wide_fib_prove_with_cuda_optimized_constraints_evaluation -- --nocapture
+        //   cargo test test_cuda_optimized_constraints_evaluation_wide_fib_prove -- --nocapture
         const LOG_N_INSTANCES: u32 = 10;
 
         let config = PcsConfig::default();
