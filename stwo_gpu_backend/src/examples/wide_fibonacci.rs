@@ -16,7 +16,7 @@ use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::utils::bit_reverse;
 use stwo_prover::core::{ColumnVec};
 
-pub const LOG_N_COLUMNS: usize = 8;
+pub const LOG_N_COLUMNS: usize = 16;
 pub const N_COLUMNS: usize = 1 << LOG_N_COLUMNS;
 
 const ALPHA_ID: &str = "wide_fibonacci_alpha";
@@ -183,12 +183,12 @@ mod test{
         }
     }
 
-    #[test]
+    #[test_log::test]
     fn test_single_instance_wide_fib_prove() {
         // Note: To see time measurement, run test with
-        //   RUST_LOG_SPAN_EVENTS=enter,close RUST_LOG=info RUST_BACKTRACE=1 cargo test
-        //   test_prove -- --nocapture
-        const LOG_N_INSTANCES: u32 = 3;
+        //   RUST_LOG_SPAN_EVENTS=enter,close RUST_LOG=info RUST_BACKTRACE=1 cargo test 
+        //   test_single_instance_wide_fib_prove -- --nocapture
+        const LOG_N_INSTANCES: u32 = 10;
 
         let config = PcsConfig::default();
 
