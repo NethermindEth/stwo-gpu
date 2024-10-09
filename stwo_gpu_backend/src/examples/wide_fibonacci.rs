@@ -140,7 +140,7 @@ impl ComponentProver<CpuBackend> for WideFibComponent {
 mod test{
     use itertools::Itertools;
     use num_traits::{One, Zero};
-    use stwo_prover::core::{air::{Air, Component}, backend::{cpu::CpuCircleEvaluation, simd::m31::LOG_N_LANES, CpuBackend}, channel::Blake2sChannel, fields::{m31::BaseField, FieldExpOps, IntoSlice}, pcs::{CommitmentSchemeProver, CommitmentSchemeVerifier, PcsConfig}, poly::{circle::{CanonicCoset, CircleEvaluation, PolyOps}, BitReversedOrder}, prover::{prove, verify}, vcs::{blake2_hash::Blake2sHasher, blake2_merkle::Blake2sMerkleChannel}, ColumnVec};
+    use stwo_prover::core::{air::{Air, Component}, backend::{cpu::CpuCircleEvaluation, simd::m31::LOG_N_LANES, CpuBackend}, channel::Blake2sChannel, fields::{test_wide_fib_prove_with_cuda_optimized_constraints_evaluationm31::BaseField, FieldExpOps, IntoSlice}, pcs::{CommitmentSchemeProver, CommitmentSchemeVerifier, PcsConfig}, poly::{circle::{CanonicCoset, CircleEvaluation, PolyOps}, BitReversedOrder}, prover::{prove, verify}, vcs::{blake2_hash::Blake2sHasher, blake2_merkle::Blake2sMerkleChannel}, ColumnVec};
 
     use crate::examples::{wide_fibonacci::{WideFibAir, LOG_N_COLUMNS}};
 
@@ -184,10 +184,11 @@ mod test{
     }
 
     #[test_log::test]
-    fn test_single_instance_wide_fib_prove() {
+    fn test_wide_fib_prove_with_cuda_optimized_constraints_evaluation() {
         // Note: To see time measurement, run test with
-        //   RUST_LOG_SPAN_EVENTS=enter,close RUST_LOG=info RUST_BACKTRACE=1 cargo test 
-        //   test_single_instance_wide_fib_prove -- --nocapture
+        //   RUST_LOG_SPAN_EVENTS=enter,close RUST_LOG=info RUST_BACKTRACE=1 
+        //   RUSTFLAGS="-Awarnings -C target-cpu=native -C target-feature=+avx2 -C opt-level=3"
+        //   cargo test test_wide_fib_prove_with_cuda_optimized_constraints_evaluation -- --nocapture
         const LOG_N_INSTANCES: u32 = 10;
 
         let config = PcsConfig::default();
