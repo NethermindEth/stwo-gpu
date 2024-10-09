@@ -1,22 +1,20 @@
-use itertools::Itertools;
-
 use num_traits::Zero;
 use stwo_prover::core::air::mask::fixed_mask_points;
 use stwo_prover::core::air::accumulation::{DomainEvaluationAccumulator, PointEvaluationAccumulator};
 use stwo_prover::core::air::{Air, Component, ComponentProver, Trace};
-use stwo_prover::core::backend::CpuBackend;
 use stwo_prover::core::circle::CirclePoint;
 use stwo_prover::core::constraints::coset_vanishing;
 use stwo_prover::core::fields::m31::BaseField;
 use stwo_prover::core::fields::qm31::SecureField;
 use stwo_prover::core::fields::FieldExpOps;
 use stwo_prover::core::pcs::TreeVec;
-use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation};
-use stwo_prover::core::poly::BitReversedOrder;
+use stwo_prover::core::poly::circle::CanonicCoset;
 use stwo_prover::core::utils::bit_reverse;
-use stwo_prover::core::{ColumnVec};
+use stwo_prover::core::ColumnVec;
 
-pub const LOG_N_COLUMNS: usize = 16;
+use crate::CudaBackend;
+
+pub const LOG_N_COLUMNS: usize = 10;
 pub const N_COLUMNS: usize = 1 << LOG_N_COLUMNS;
 
 const ALPHA_ID: &str = "wide_fibonacci_alpha";
@@ -101,55 +99,65 @@ pub struct Input {
 }
 
 
-impl ComponentProver<CpuBackend> for WideFibComponent {
+impl ComponentProver<CudaBackend> for WideFibComponent {
     fn evaluate_constraint_quotients_on_domain(
         &self,
-        trace: &Trace<'_, CpuBackend>,
-        evaluation_accumulator: &mut DomainEvaluationAccumulator<CpuBackend>
+        trace: &Trace<'_, CudaBackend>,
+        evaluation_accumulator: &mut DomainEvaluationAccumulator<CudaBackend>
     ) {
-        let max_constraint_degree = self.max_constraint_log_degree_bound();
-        let trace_eval_domain = CanonicCoset::new(max_constraint_degree).circle_domain();
-        let trace_evals = &trace.evals;
-        let zero_domain = CanonicCoset::new(self.log_column_size()).coset;
-        let mut denoms = vec![];
-        for point in trace_eval_domain.iter() {
-            denoms.push(coset_vanishing(zero_domain, point));
-        }
-        bit_reverse(&mut denoms);
-        let mut denom_inverses = vec![BaseField::zero(); 1 << (max_constraint_degree)];
-        BaseField::batch_inverse(&denoms, &mut denom_inverses);
-        let mut numerators = vec![SecureField::zero(); 1 << (max_constraint_degree)];
-        let [mut accum] =
-            evaluation_accumulator.columns([(max_constraint_degree, self.n_constraints())]);
+        // let ext_domain_log_size = self.max_constraint_log_degree_bound();  // Degree of extended domain.
+        // let ext_domain = CanonicCoset::new(ext_domain_log_size).circle_domain();  // Extended domain.
+        // let trace_evals_ext_domain = &trace.evals;  // Trace evaluations in the extended domain.
+        // let zero_domain = CanonicCoset::new(self.log_column_size()).coset;  // Domain where f has its roots.
+        
+        // // Evaluate the vanishing polynomial in each ext domain point.
+        // let mut denoms = vec![];
+        // for point in ext_domain.iter() {
+        //     denoms.push(coset_vanishing(zero_domain, point));
+        // }
 
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..trace_eval_domain.size() {
-            // Step constraints.
-            for j in 0..self.n_columns() - 2 {
-                numerators[i] += accum.random_coeff_powers[self.n_columns() - 3 - j]
-                    * (trace_evals[0][j][i].square() + trace_evals[0][j + 1][i].square()
-                        - trace_evals[0][j + 2][i]);
-            }
-        }
-        for (i, (num, denom)) in numerators.iter().zip(denom_inverses.iter()).enumerate() {
-            accum.accumulate(i, *num * *denom);
-        }
+        // // Inverse of denominators (to effectively treat them as denominators)
+        // bit_reverse(&mut denoms);
+        // let mut denom_inverses = vec![BaseField::zero(); 1 << (ext_domain_log_size)];
+        // BaseField::batch_inverse(&denoms, &mut denom_inverses);
+
+        // // Calculate f
+        // let mut numerators = vec![SecureField::zero(); 1 << (ext_domain_log_size)];
+        // let [mut accum] =
+        //     evaluation_accumulator.columns([(ext_domain_log_size, self.n_constraints())]);
+        // #[allow(clippy::needless_range_loop)]
+        // for i in 0..ext_domain.size() {
+        //     // Step constraints.
+        //     for j in 0..self.n_columns() - 2 {
+        //         numerators[i] += accum.random_coeff_powers[self.n_columns() - 3 - j]
+        //             * (trace_evals_ext_domain[0][j][i].square() + trace_evals_ext_domain[0][j + 1][i].square()
+        //                 - trace_evals_ext_domain[0][j + 2][i]);
+        //     }
+        // }
+
+        // // calculate t
+        // for (i, (num, denom)) in numerators.iter().zip(denom_inverses.iter()).enumerate() {
+        //     accum.accumulate(i, *num * *denom);
+        // }
+
+        
+
     }
 }
 
 mod test{
     use itertools::Itertools;
     use num_traits::{One, Zero};
-    use stwo_prover::core::{air::{Air, Component}, backend::{cpu::CpuCircleEvaluation, simd::m31::LOG_N_LANES, CpuBackend}, channel::Blake2sChannel, fields::{m31::BaseField, FieldExpOps, IntoSlice}, pcs::{CommitmentSchemeProver, CommitmentSchemeVerifier, PcsConfig}, poly::{circle::{CanonicCoset, CircleEvaluation, PolyOps}, BitReversedOrder}, prover::{prove, verify}, vcs::{blake2_hash::Blake2sHasher, blake2_merkle::Blake2sMerkleChannel}, ColumnVec};
+    use stwo_prover::core::{air::Component, channel::Blake2sChannel, fields::{m31::BaseField, FieldExpOps}, pcs::{CommitmentSchemeProver, CommitmentSchemeVerifier, PcsConfig}, poly::{circle::{CanonicCoset, CircleEvaluation, PolyOps}, BitReversedOrder}, prover::{prove, verify}, vcs::{blake2_merkle::Blake2sMerkleChannel}, ColumnVec};
 
-    use crate::examples::{wide_fibonacci::{WideFibAir, LOG_N_COLUMNS}};
+    use crate::{cuda::BaseFieldVec, examples::wide_fibonacci::LOG_N_COLUMNS, CudaBackend};
 
     use super::{Input, WideFibComponent, N_COLUMNS};
 
     /// Generates the trace for the wide Fibonacci example.
     fn generate_test_trace(
         log_n_instances: u32,
-    ) -> ColumnVec<CircleEvaluation<CpuBackend, BaseField, BitReversedOrder>> {
+    ) -> ColumnVec<CircleEvaluation<CudaBackend, BaseField, BitReversedOrder>> {
         let inputs: Vec<Input> = (0..1<<log_n_instances).map( |i|
             Input {
                 a: BaseField::one(),
@@ -164,7 +172,7 @@ mod test{
 
         let domain = CanonicCoset::new(log_n_instances).circle_domain();
         trace.into_iter().map(|column| {
-            CircleEvaluation::<_, _, BitReversedOrder>::new(domain, column)
+            CircleEvaluation::<_, _, BitReversedOrder>::new(domain, BaseFieldVec::from_vec(column))
         }).collect_vec()
     }
 
@@ -189,12 +197,12 @@ mod test{
         //   RUST_LOG_SPAN_EVENTS=enter,close RUST_LOG=info RUST_BACKTRACE=1 
         //   RUSTFLAGS="-Awarnings -C target-cpu=native -C target-feature=+avx2 -C opt-level=3"
         //   cargo test test_cuda_optimized_constraints_evaluation_wide_fib_prove -- --nocapture
-        const LOG_N_INSTANCES: u32 = 10;
+        const LOG_N_INSTANCES: u32 = 16;
 
         let config = PcsConfig::default();
 
         // Precompute twiddles.
-        let twiddles = CpuBackend::precompute_twiddles(
+        let twiddles = CudaBackend::precompute_twiddles(
             CanonicCoset::new(LOG_N_INSTANCES + 1 + config.fri_config.log_blowup_factor)
                 .circle_domain()
                 .half_coset,
@@ -202,7 +210,7 @@ mod test{
 
         // Setup protocol.
         let prover_channel = &mut Blake2sChannel::default();
-        let commitment_scheme = &mut CommitmentSchemeProver::<CpuBackend, Blake2sMerkleChannel>::new(
+        let commitment_scheme = &mut CommitmentSchemeProver::<CudaBackend, Blake2sMerkleChannel>::new(
                 config, &twiddles,
         );
 
@@ -217,7 +225,7 @@ mod test{
             log_n_instances: LOG_N_INSTANCES,
         };
         
-        let proof = prove::<CpuBackend, _>(&[&component], prover_channel, commitment_scheme).unwrap();
+        let proof = prove::<CudaBackend, _>(&[&component], prover_channel, commitment_scheme).unwrap();
 
         // Verify.
         let verifier_channel = &mut Blake2sChannel::default();
