@@ -110,55 +110,16 @@ impl ComponentProver<CudaBackend> for WideFibComponent {
         trace: &Trace<'_, CudaBackend>,
         evaluation_accumulator: &mut DomainEvaluationAccumulator<CudaBackend>
     ) {
-        // let ext_domain_log_size = self.max_constraint_log_degree_bound();  // Degree of extended domain.
-        // let ext_domain = CanonicCoset::new(ext_domain_log_size).circle_domain();  // Extended domain.
-        // let trace_evals_ext_domain = &trace.evals;  // Trace evaluations in the extended domain.
-        // let zero_domain = CanonicCoset::new(self.log_column_size()).coset;  // Domain where f has its roots.
-        
-        // // Evaluate the vanishing polynomial in each ext domain point.
-        // let mut denoms = vec![];
-        // for point in ext_domain.iter() {
-        //     denoms.push(coset_vanishing(zero_domain, point));
-        // }
+        let ext_domain_log_size = self.max_constraint_log_degree_bound();
+        let ext_domain = CanonicCoset::new(ext_domain_log_size).circle_domain();
+        let trace_evals_ext_domain = &trace.evals[0];
+        let zero_domain = CanonicCoset::new(self.log_column_size()).coset;
 
-        // // Inverse of denominators (to effectively treat them as denominators)
-        // bit_reverse(&mut denoms);
-        // let mut denom_inverses = vec![BaseField::zero(); 1 << (ext_domain_log_size)];
-        // BaseField::batch_inverse(&denoms, &mut denom_inverses);
-
-        // // Calculate f
-        // let mut numerators = vec![SecureField::zero(); 1 << (ext_domain_log_size)];
-        // let [mut accum] =
-        //     evaluation_accumulator.columns([(ext_domain_log_size, self.n_constraints())]);
-        // #[allow(clippy::needless_range_loop)]
-        // for i in 0..ext_domain.size() {
-        //     // Step constraints.
-        //     for j in 0..self.n_columns() - 2 {
-        //         numerators[i] += accum.random_coeff_powers[self.n_columns() - 3 - j]
-        //             * (trace_evals_ext_domain[0][j][i].square() + trace_evals_ext_domain[0][j + 1][i].square()
-        //                 - trace_evals_ext_domain[0][j + 2][i]);
-        //     }
-        // }
-
-        // // calculate t
-        // for (i, (num, denom)) in numerators.iter().zip(denom_inverses.iter()).enumerate() {
-        //     accum.accumulate(i, *num * *denom);
-        // }
-
-        /* ******************************************* */
-
-        let ext_domain_log_size = self.max_constraint_log_degree_bound();  // Degree of extended domain.
-        let ext_domain = CanonicCoset::new(ext_domain_log_size).circle_domain();  // Extended domain.
-        let trace_evals_ext_domain = &trace.evals[0];  // Trace evaluations in the extended domain (for component 0, this component).
-        let zero_domain = CanonicCoset::new(self.log_column_size()).coset;  // Domain where f has its roots.
-        
-        // Evaluate the vanishing polynomial in each ext domain point.
         let mut denominators = vec![];
         for point in ext_domain.iter() {
             denominators.push(coset_vanishing(zero_domain, point));
         }
 
-        // Inverse of denominators (to effectively treat them as denominators)
         let gpu_denominators = BaseFieldVec::from_vec(denominators);
         unsafe { bindings::bit_reverse_base_field(gpu_denominators.device_ptr, ext_domain.size()); }
         let denominator_inverses = BaseFieldVec::new_zeroes(ext_domain.size());
@@ -180,7 +141,7 @@ impl ComponentProver<CudaBackend> for WideFibComponent {
                 column_accumulator.col.columns[1].device_ptr,
                 column_accumulator.col.columns[2].device_ptr,
                 column_accumulator.col.columns[3].device_ptr,
-                trace_evaluations_vec.as_ptr(),  // CPU array of pointer to GPU arrays
+                trace_evaluations_vec.as_ptr(),
                 random_coeff_powers.device_ptr,
                 denominator_inverses.device_ptr,
                 ext_domain.size() as u32,

@@ -9,25 +9,6 @@ __global__ void evaluate_wide_fibonacci_constraint_quotients_kernel(
     unsigned int extended_domain_size,
     unsigned int number_of_columns
 ) {
-    // // Calculate f
-    // let mut numerators = vec![SecureField::zero(); 1 << (ext_domain_log_size)];
-    // let [mut accum] =
-    //     evaluation_accumulator.columns([(ext_domain_log_size, self.n_constraints())]);
-
-    // for i in 0..ext_domain.size() {
-    //     // Step constraints.
-    //     for j in 0..self.n_columns() - 2 {
-    //         numerators[i] += accum.random_coeff_powers[self.n_columns() - 3 - j]
-    //             * (trace_evals_ext_domain[0][j][i].square() + trace_evals_ext_domain[0][j + 1][i].square()
-    //                 - trace_evals_ext_domain[0][j + 2][i]);
-    //     }
-    // }
-
-    // // calculate t
-    // for (i, (num, denom)) in numerators.iter().zip(denom_inverses.iter()).enumerate() {
-    //     accum.accumulate(i, *num * *denom);
-    // }
-
     for(unsigned int row_index = 0; row_index < extended_domain_size; row_index++) {
         for(unsigned int constraint_index = 0; constraint_index < number_of_columns - 2; constraint_index++) {
             numerators[row_index] = add(
