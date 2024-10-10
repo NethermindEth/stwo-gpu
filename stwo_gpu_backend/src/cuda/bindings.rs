@@ -1,9 +1,9 @@
+use std::ffi::c_void;
 use stwo_prover::core::vcs::blake2_hash::Blake2sHash;
 use stwo_prover::core::{
     circle::CirclePoint,
     fields::{m31::BaseField, qm31::SecureField},
 };
-use std::ffi::c_void;
 
 #[repr(C)]
 pub struct CudaSecureField {
@@ -35,7 +35,7 @@ impl From<SecureField> for CudaSecureField {
     }
 }
 
-impl From<CudaSecureField> for SecureField{
+impl From<CudaSecureField> for SecureField {
     fn from(value: CudaSecureField) -> Self {
         SecureField::from_m31(value.a, value.b, value.c, value.d)
     }

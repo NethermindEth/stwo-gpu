@@ -18,5 +18,3 @@ impl GrindOps<Blake2sChannel> for CudaBackend {
 }
 
 impl BackendForChannel<Blake2sMerkleChannel> for CudaBackend {}
-
-

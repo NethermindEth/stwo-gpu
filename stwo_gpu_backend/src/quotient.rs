@@ -110,7 +110,6 @@ impl QuotientOps for CudaBackend {
             bindings::cuda_free_memory(device_column_pointers as *const c_void);
         }
 
-
         result
     }
 }
