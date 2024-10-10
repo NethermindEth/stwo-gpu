@@ -19,9 +19,6 @@ use crate::CudaBackend;
 pub const LOG_N_COLUMNS: usize = 10;
 pub const N_COLUMNS: usize = 1 << LOG_N_COLUMNS;
 
-const ALPHA_ID: &str = "wide_fibonacci_alpha";
-const Z_ID: &str = "wide_fibonacci_z";
-
 /// Component that computes 2^`self.log_n_instances` instances of fibonacci sequences of size
 /// 2^`self.log_fibonacci_size`. The numbers are computes over [N_COLUMNS] trace columns. The
 /// number of rows (i.e the size of the columns) is determined by the parameters above (see
@@ -36,10 +33,6 @@ impl WideFibComponent {
     /// the log number of rows).
     pub fn log_column_size(&self) -> u32 {
         self.log_n_instances as u32
-    }
-
-    pub fn log_n_columns(&self) -> usize {
-        LOG_N_COLUMNS
     }
 
     pub fn n_columns(&self) -> usize {
