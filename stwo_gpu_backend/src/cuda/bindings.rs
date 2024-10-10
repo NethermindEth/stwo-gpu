@@ -256,4 +256,16 @@ extern "C" {
         assignment: CudaSecureField,
         output_evals: *const u32,
     );
+
+    pub fn evaluate_wide_fibonacci_constraint_quotients_on_domain(
+        quotients_0: *const u32,
+        quotients_1: *const u32,
+        quotients_2: *const u32,
+        quotients_3: *const u32,
+        trace_evaluations: *const *const u32,
+        random_coeff_powers: *const u32,
+        denominator_inverses: *const u32,
+        extended_domain_size: u32,
+        number_of_columns: u32,
+    );
 }

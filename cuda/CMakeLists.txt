@@ -26,6 +26,7 @@ add_library(gpubackend SHARED
         src/example.cu
         src/gkr.cu
         src/mle.cu
+        src/examples/wide_fibonacci.cu
 )
 target_compile_options(gpubackend PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
         -arch=sm_50;

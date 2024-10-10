@@ -1,17 +1,22 @@
+use itertools::Itertools;
 use num_traits::Zero;
 use stwo_prover::core::air::mask::fixed_mask_points;
 use stwo_prover::core::air::accumulation::{DomainEvaluationAccumulator, PointEvaluationAccumulator};
 use stwo_prover::core::air::{Air, Component, ComponentProver, Trace};
+use stwo_prover::core::backend::simd::column;
 use stwo_prover::core::circle::CirclePoint;
 use stwo_prover::core::constraints::coset_vanishing;
 use stwo_prover::core::fields::m31::BaseField;
 use stwo_prover::core::fields::qm31::SecureField;
+use stwo_prover::core::fields::secure_column::SecureColumnByCoords;
 use stwo_prover::core::fields::FieldExpOps;
 use stwo_prover::core::pcs::TreeVec;
-use stwo_prover::core::poly::circle::CanonicCoset;
+use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation};
+use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::utils::bit_reverse;
 use stwo_prover::core::ColumnVec;
 
+use crate::cuda::{bindings, BaseFieldVec, SecureFieldVec};
 use crate::CudaBackend;
 
 pub const LOG_N_COLUMNS: usize = 10;
@@ -140,8 +145,48 @@ impl ComponentProver<CudaBackend> for WideFibComponent {
         //     accum.accumulate(i, *num * *denom);
         // }
 
-        
+        /* ******************************************* */
 
+        let ext_domain_log_size = self.max_constraint_log_degree_bound();  // Degree of extended domain.
+        let ext_domain = CanonicCoset::new(ext_domain_log_size).circle_domain();  // Extended domain.
+        let trace_evals_ext_domain = &trace.evals[0];  // Trace evaluations in the extended domain (for component 0, this component).
+        let zero_domain = CanonicCoset::new(self.log_column_size()).coset;  // Domain where f has its roots.
+        
+        // Evaluate the vanishing polynomial in each ext domain point.
+        let mut denominators = vec![];
+        for point in ext_domain.iter() {
+            denominators.push(coset_vanishing(zero_domain, point));
+        }
+
+        // Inverse of denominators (to effectively treat them as denominators)
+        let gpu_denominators = BaseFieldVec::from_vec(denominators);
+        unsafe { bindings::bit_reverse_base_field(gpu_denominators.device_ptr, ext_domain.size()); }
+        let denominator_inverses = BaseFieldVec::new_zeroes(ext_domain.size());
+        unsafe {
+            bindings::batch_inverse_base_field(
+                gpu_denominators.device_ptr,
+                denominator_inverses.device_ptr,
+                ext_domain.size()
+            );
+        }
+
+        let [column_accumulator] = evaluation_accumulator.columns([(ext_domain_log_size, self.n_constraints())]);
+        let trace_evaluations_vec = trace_evals_ext_domain.iter().map(|column_evaluations| column_evaluations.device_ptr).collect_vec();
+        let random_coeff_powers = SecureFieldVec::from_vec(column_accumulator.random_coeff_powers);
+
+        unsafe {
+            bindings::evaluate_wide_fibonacci_constraint_quotients_on_domain(
+                column_accumulator.col.columns[0].device_ptr,
+                column_accumulator.col.columns[1].device_ptr,
+                column_accumulator.col.columns[2].device_ptr,
+                column_accumulator.col.columns[3].device_ptr,
+                trace_evaluations_vec.as_ptr(),  // CPU array of pointer to GPU arrays
+                random_coeff_powers.device_ptr,
+                denominator_inverses.device_ptr,
+                ext_domain.size() as u32,
+                self.n_columns() as u32,
+            );
+        };
     }
 }
 
