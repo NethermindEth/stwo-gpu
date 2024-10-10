@@ -29,18 +29,18 @@ __global__ void evaluate_wide_fibonacci_constraint_quotients_kernel(
     // }
 
     for(unsigned int row_index = 0; row_index < extended_domain_size; row_index++) {
-        for(unsigned int column_index = 0; column_index < number_of_columns - 2; column_index++) {
+        for(unsigned int constraint_index = 0; constraint_index < number_of_columns - 2; constraint_index++) {
             numerators[row_index] = add(
                 numerators[row_index],
                 mul(
                     sub(
                         add(
-                            square(trace_evaluations[column_index][row_index]),
-                            square(trace_evaluations[column_index + 1][row_index])
+                            square(trace_evaluations[constraint_index][row_index]),
+                            square(trace_evaluations[constraint_index + 1][row_index])
                         ),
-                        trace_evaluations[column_index + 2][row_index]
+                        trace_evaluations[constraint_index + 2][row_index]
                     ),
-                    random_coeff_powers[number_of_columns - 3 - column_index]
+                    random_coeff_powers[number_of_columns - 3 - constraint_index]
                 )
             );
         }
