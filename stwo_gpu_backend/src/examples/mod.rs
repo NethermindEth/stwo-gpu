@@ -1,3 +1,5 @@
+mod wide_fibonacci;
+
 use itertools::Itertools;
 
 use stwo_prover::constraint_framework::{EvalAtRow, FrameworkComponent, FrameworkEval};
@@ -86,58 +88,95 @@ impl<E: FrameworkEval> ComponentProver<CudaBackend> for FrameworkComponent<E> {
         trace: &Trace<'_, CudaBackend>,
         evaluation_accumulator: &mut DomainEvaluationAccumulator<CudaBackend>,
     ) {
-        let simd_polys = trace.polys.iter().map(|column_vec| 
-            column_vec.iter().map(|circle_poly| 
-                CirclePoly::<SimdBackend>::new(
-                    BaseColumn::from_iter(circle_poly.coeffs.to_cpu())
-                )
-            ).collect_vec()
-        ).collect_vec();
+        let simd_polys = trace
+            .polys
+            .iter()
+            .map(|column_vec| {
+                column_vec
+                    .iter()
+                    .map(|circle_poly| {
+                        CirclePoly::<SimdBackend>::new(BaseColumn::from_iter(
+                            circle_poly.coeffs.to_cpu(),
+                        ))
+                    })
+                    .collect_vec()
+            })
+            .collect_vec();
 
-        let simd_evals = trace.evals.iter().map(|column_vec| 
-            column_vec.iter().map(|circle_eval| 
-                CircleEvaluation::<SimdBackend, BaseField, BitReversedOrder>::new(
-                    circle_eval.domain,
-                    BaseColumn::from_iter(circle_eval.values.to_cpu())
-                )
-            ).collect_vec()
-        ).collect_vec();
+        let simd_evals = trace
+            .evals
+            .iter()
+            .map(|column_vec| {
+                column_vec
+                    .iter()
+                    .map(|circle_eval| {
+                        CircleEvaluation::<SimdBackend, BaseField, BitReversedOrder>::new(
+                            circle_eval.domain,
+                            BaseColumn::from_iter(circle_eval.values.to_cpu()),
+                        )
+                    })
+                    .collect_vec()
+            })
+            .collect_vec();
 
         let simd_trace = Trace::<'_, SimdBackend> {
-            polys: TreeVec(simd_polys.iter().map(|x| x.iter().collect_vec()).collect_vec()),
-            evals: TreeVec(simd_evals.iter().map(|x| x.iter().collect_vec()).collect_vec()),
+            polys: TreeVec(
+                simd_polys
+                    .iter()
+                    .map(|x| x.iter().collect_vec())
+                    .collect_vec(),
+            ),
+            evals: TreeVec(
+                simd_evals
+                    .iter()
+                    .map(|x| x.iter().collect_vec())
+                    .collect_vec(),
+            ),
         };
 
-        let simd_sub_accumulations: Vec<Option<SecureColumnByCoords<SimdBackend>>> = evaluation_accumulator.sub_accumulations.iter().map(
-            |item| item.clone().map(|secure_column_by_coords| SecureColumnByCoords {
-                columns: [
-                    BaseColumn::from_iter(secure_column_by_coords.columns[0].to_cpu()),
-                    BaseColumn::from_iter(secure_column_by_coords.columns[1].to_cpu()),
-                    BaseColumn::from_iter(secure_column_by_coords.columns[2].to_cpu()),
-                    BaseColumn::from_iter(secure_column_by_coords.columns[3].to_cpu()),
-                ]
-            })
-        ).collect_vec();
+        let simd_sub_accumulations: Vec<Option<SecureColumnByCoords<SimdBackend>>> =
+            evaluation_accumulator
+                .sub_accumulations
+                .iter()
+                .map(|item| {
+                    item.clone()
+                        .map(|secure_column_by_coords| SecureColumnByCoords {
+                            columns: [
+                                BaseColumn::from_iter(secure_column_by_coords.columns[0].to_cpu()),
+                                BaseColumn::from_iter(secure_column_by_coords.columns[1].to_cpu()),
+                                BaseColumn::from_iter(secure_column_by_coords.columns[2].to_cpu()),
+                                BaseColumn::from_iter(secure_column_by_coords.columns[3].to_cpu()),
+                            ],
+                        })
+                })
+                .collect_vec();
         let mut simd_evaluation_accumulator = DomainEvaluationAccumulator::<SimdBackend> {
             random_coeff_powers: evaluation_accumulator.random_coeff_powers.clone(),
-            sub_accumulations: simd_sub_accumulations
+            sub_accumulations: simd_sub_accumulations,
         };
-        <Self as ComponentProver<SimdBackend>>::evaluate_constraint_quotients_on_domain(self, &simd_trace, &mut simd_evaluation_accumulator);
-        evaluation_accumulator.random_coeff_powers = simd_evaluation_accumulator.random_coeff_powers;
-        evaluation_accumulator.sub_accumulations = simd_evaluation_accumulator.sub_accumulations.into_iter().map(
-            |item| item.map(|secure_column_by_coords| SecureColumnByCoords {
-                columns: [
-                    BaseFieldVec::from_vec(secure_column_by_coords.columns[0].to_cpu()),
-                    BaseFieldVec::from_vec(secure_column_by_coords.columns[1].to_cpu()),
-                    BaseFieldVec::from_vec(secure_column_by_coords.columns[2].to_cpu()),
-                    BaseFieldVec::from_vec(secure_column_by_coords.columns[3].to_cpu()),
-                ],
+        <Self as ComponentProver<SimdBackend>>::evaluate_constraint_quotients_on_domain(
+            self,
+            &simd_trace,
+            &mut simd_evaluation_accumulator,
+        );
+        evaluation_accumulator.random_coeff_powers =
+            simd_evaluation_accumulator.random_coeff_powers;
+        evaluation_accumulator.sub_accumulations = simd_evaluation_accumulator
+            .sub_accumulations
+            .into_iter()
+            .map(|item| {
+                item.map(|secure_column_by_coords| SecureColumnByCoords {
+                    columns: [
+                        BaseFieldVec::from_vec(secure_column_by_coords.columns[0].to_cpu()),
+                        BaseFieldVec::from_vec(secure_column_by_coords.columns[1].to_cpu()),
+                        BaseFieldVec::from_vec(secure_column_by_coords.columns[2].to_cpu()),
+                        BaseFieldVec::from_vec(secure_column_by_coords.columns[3].to_cpu()),
+                    ],
+                })
             })
-        ).collect_vec();
+            .collect_vec();
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -156,7 +195,9 @@ mod tests {
     use stwo_prover::core::backend::Column;
     use stwo_prover::core::channel::Blake2sChannel;
     use stwo_prover::core::fields::m31::BaseField;
-    use stwo_prover::core::pcs::{CommitmentSchemeProver, CommitmentSchemeVerifier, PcsConfig, TreeVec};
+    use stwo_prover::core::pcs::{
+        CommitmentSchemeProver, CommitmentSchemeVerifier, PcsConfig, TreeVec,
+    };
     use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation, PolyOps};
     use stwo_prover::core::poly::BitReversedOrder;
     use stwo_prover::core::prover::{prove, verify};
