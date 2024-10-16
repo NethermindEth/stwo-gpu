@@ -138,7 +138,7 @@ impl PolyOps for CudaBackend {
 
         for poly in polynomials.iter() {
             let domain = CanonicCoset::new(poly.log_size() + log_blowup_factor).circle_domain();
-            let values = poly.extend(domain.log_size()).coeffs; // todo: OJO
+            let values = poly.extend(domain.log_size()).coeffs;
 
             values_pointers.push(values.device_ptr);
             column_sizes.push(values.len() as u32);
