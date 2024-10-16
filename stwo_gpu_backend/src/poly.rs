@@ -125,8 +125,8 @@ impl PolyOps for CudaBackend {
         CircleEvaluation::new(domain, values)
     }
 
-    fn evaluate_columns(
-        polynomials: &ColumnVec<CirclePoly<Self>>,
+    fn evaluate_polynomials(
+        polynomials: &mut ColumnVec<CirclePoly<Self>>,
         log_blowup_factor: u32,
         twiddles: &TwiddleTree<Self>,
     ) -> Vec<CircleEvaluation<Self, BaseField, BitReversedOrder>> {
@@ -678,20 +678,20 @@ mod tests {
         let cpu_poly = CpuBackend::interpolate(cpu_evaluations, &cpu_twiddles);
         let gpu_poly = CudaBackend::interpolate(gpu_evaluations, &gpu_twiddles);
 
-        let cpu_columns = ColumnVec::from(
+        let mut cpu_columns = ColumnVec::from(
             (0..number_of_columns)
                 .map(|_index| cpu_poly.clone())
                 .collect_vec(),
         );
-        let gpu_columns = ColumnVec::from(
+        let mut gpu_columns = ColumnVec::from(
             (0..number_of_columns)
                 .map(|_index| gpu_poly.clone())
                 .collect_vec(),
         );
 
-        let result = CudaBackend::evaluate_columns(&gpu_columns, log_blowup_factor, &gpu_twiddles);
+        let result = CudaBackend::evaluate_polynomials(&mut gpu_columns, log_blowup_factor, &gpu_twiddles);
         let expected_result =
-            CpuBackend::evaluate_columns(&cpu_columns, log_blowup_factor, &cpu_twiddles);
+            CpuBackend::evaluate_polynomials(&mut cpu_columns, log_blowup_factor, &cpu_twiddles);
 
         let expected_values = expected_result
             .iter()

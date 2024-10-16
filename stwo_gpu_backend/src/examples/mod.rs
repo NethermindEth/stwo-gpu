@@ -45,7 +45,7 @@ impl<const N: usize> FrameworkEval for WideFibonacciEvalCuda<N> {
         let mut b = eval.next_trace_mask();
         for _ in 2..N {
             let c = eval.next_trace_mask();
-            eval.add_constraint(c - (a.square() + b.square()));
+            eval.add_constraint(c.clone() - (a.square() + b.square()));
             a = b;
             b = c;
         }
@@ -82,7 +82,7 @@ pub fn generate_trace<const N: usize>(
         .collect_vec()
 }
 
-impl<E: FrameworkEval> ComponentProver<CudaBackend> for FrameworkComponent<E> {
+impl<E: FrameworkEval + std::marker::Sync> ComponentProver<CudaBackend> for FrameworkComponent<E> {
     fn evaluate_constraint_quotients_on_domain(
         &self,
         trace: &Trace<'_, CudaBackend>,
