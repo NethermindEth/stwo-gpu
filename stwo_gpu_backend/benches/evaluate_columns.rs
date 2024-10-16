@@ -29,8 +29,8 @@ pub fn simd_evaluate_columns(c: &mut Criterion) {
     group.bench_function(BenchmarkId::new("simd evaluate", LOG_COLUMN_SIZE), |b| {
         b.iter_batched(
             || polynomials.clone(),
-            |polynomial| {
-                SimdBackend::evaluate_columns(&polynomial, LOG_BLOWUP_FACTOR, &twiddle_tree)
+            |mut polynomial| {
+                SimdBackend::evaluate_polynomials(&mut polynomial, LOG_BLOWUP_FACTOR, &twiddle_tree)
             },
             BatchSize::LargeInput,
         )
