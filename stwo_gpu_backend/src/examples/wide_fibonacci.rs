@@ -140,6 +140,7 @@ impl ComponentProver<CudaBackend> for WideFibComponent {
     }
 }
 
+#[cfg(test)]
 mod test {
     use itertools::Itertools;
     use num_traits::{One, Zero};
@@ -156,6 +157,7 @@ mod test {
         vcs::blake2_merkle::Blake2sMerkleChannel,
         ColumnVec,
     };
+    use test_log;
 
     use crate::{cuda::BaseFieldVec, examples::wide_fibonacci::LOG_N_COLUMNS, CudaBackend};
 
