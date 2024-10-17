@@ -2,25 +2,18 @@ mod wide_fibonacci;
 
 use itertools::Itertools;
 
-use stwo_prover::constraint_framework::{EvalAtRow, FrameworkComponent, FrameworkEval};
-use stwo_prover::core::air::accumulation::DomainEvaluationAccumulator;
-use stwo_prover::core::air::{ComponentProver, Trace};
-use stwo_prover::core::backend::simd::column::BaseColumn;
+use stwo_prover::constraint_framework::{EvalAtRow, FrameworkEval};
 use stwo_prover::core::backend::simd::m31::{PackedBaseField, LOG_N_LANES};
 use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::{Col, Column};
 use stwo_prover::core::fields::m31::BaseField;
-use stwo_prover::core::fields::secure_column::SecureColumnByCoords;
 use stwo_prover::core::fields::FieldExpOps;
-use stwo_prover::core::pcs::TreeVec;
-use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation, CirclePoly};
+use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation};
 use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::ColumnVec;
 
 use crate::cuda::BaseFieldVec;
 use crate::CudaBackend;
-
-pub type WideFibonacciComponentCuda<const N: usize> = FrameworkComponent<WideFibonacciEvalCuda<N>>;
 
 pub struct FibInput {
     a: PackedBaseField,
@@ -82,126 +75,23 @@ pub fn generate_trace<const N: usize>(
         .collect_vec()
 }
 
-impl<E: FrameworkEval + std::marker::Sync> ComponentProver<CudaBackend> for FrameworkComponent<E> {
-    fn evaluate_constraint_quotients_on_domain(
-        &self,
-        trace: &Trace<'_, CudaBackend>,
-        evaluation_accumulator: &mut DomainEvaluationAccumulator<CudaBackend>,
-    ) {
-        let simd_polys = trace
-            .polys
-            .iter()
-            .map(|column_vec| {
-                column_vec
-                    .iter()
-                    .map(|circle_poly| {
-                        CirclePoly::<SimdBackend>::new(BaseColumn::from_iter(
-                            circle_poly.coeffs.to_cpu(),
-                        ))
-                    })
-                    .collect_vec()
-            })
-            .collect_vec();
-
-        let simd_evals = trace
-            .evals
-            .iter()
-            .map(|column_vec| {
-                column_vec
-                    .iter()
-                    .map(|circle_eval| {
-                        CircleEvaluation::<SimdBackend, BaseField, BitReversedOrder>::new(
-                            circle_eval.domain,
-                            BaseColumn::from_iter(circle_eval.values.to_cpu()),
-                        )
-                    })
-                    .collect_vec()
-            })
-            .collect_vec();
-
-        let simd_trace = Trace::<'_, SimdBackend> {
-            polys: TreeVec(
-                simd_polys
-                    .iter()
-                    .map(|x| x.iter().collect_vec())
-                    .collect_vec(),
-            ),
-            evals: TreeVec(
-                simd_evals
-                    .iter()
-                    .map(|x| x.iter().collect_vec())
-                    .collect_vec(),
-            ),
-        };
-
-        let simd_sub_accumulations: Vec<Option<SecureColumnByCoords<SimdBackend>>> =
-            evaluation_accumulator
-                .sub_accumulations
-                .iter()
-                .map(|item| {
-                    item.clone()
-                        .map(|secure_column_by_coords| SecureColumnByCoords {
-                            columns: [
-                                BaseColumn::from_iter(secure_column_by_coords.columns[0].to_cpu()),
-                                BaseColumn::from_iter(secure_column_by_coords.columns[1].to_cpu()),
-                                BaseColumn::from_iter(secure_column_by_coords.columns[2].to_cpu()),
-                                BaseColumn::from_iter(secure_column_by_coords.columns[3].to_cpu()),
-                            ],
-                        })
-                })
-                .collect_vec();
-        let mut simd_evaluation_accumulator = DomainEvaluationAccumulator::<SimdBackend> {
-            random_coeff_powers: evaluation_accumulator.random_coeff_powers.clone(),
-            sub_accumulations: simd_sub_accumulations,
-        };
-        <Self as ComponentProver<SimdBackend>>::evaluate_constraint_quotients_on_domain(
-            self,
-            &simd_trace,
-            &mut simd_evaluation_accumulator,
-        );
-        evaluation_accumulator.random_coeff_powers =
-            simd_evaluation_accumulator.random_coeff_powers;
-        evaluation_accumulator.sub_accumulations = simd_evaluation_accumulator
-            .sub_accumulations
-            .into_iter()
-            .map(|item| {
-                item.map(|secure_column_by_coords| SecureColumnByCoords {
-                    columns: [
-                        BaseFieldVec::from_vec(secure_column_by_coords.columns[0].to_cpu()),
-                        BaseFieldVec::from_vec(secure_column_by_coords.columns[1].to_cpu()),
-                        BaseFieldVec::from_vec(secure_column_by_coords.columns[2].to_cpu()),
-                        BaseFieldVec::from_vec(secure_column_by_coords.columns[3].to_cpu()),
-                    ],
-                })
-            })
-            .collect_vec();
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use itertools::Itertools;
     use num_traits::One;
 
-    use crate::examples::WideFibonacciComponentCuda;
     use crate::CudaBackend;
 
     use super::{generate_trace, FibInput, WideFibonacciEvalCuda};
     use stwo_prover::constraint_framework::{
-        assert_constraints, AssertEvaluator, FrameworkEval, TraceLocationAllocator,
+        assert_constraints, AssertEvaluator, FrameworkEval,
     };
-    use stwo_prover::core::air::Component;
     use stwo_prover::core::backend::simd::m31::{PackedBaseField, LOG_N_LANES};
     use stwo_prover::core::backend::Column;
-    use stwo_prover::core::channel::Blake2sChannel;
     use stwo_prover::core::fields::m31::BaseField;
-    use stwo_prover::core::pcs::{
-        CommitmentSchemeProver, CommitmentSchemeVerifier, PcsConfig, TreeVec,
-    };
-    use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation, PolyOps};
+    use stwo_prover::core::pcs::TreeVec;
+    use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation};
     use stwo_prover::core::poly::BitReversedOrder;
-    use stwo_prover::core::prover::{prove, verify};
-    use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
     use stwo_prover::core::ColumnVec;
 
     const FIB_SEQUENCE_LENGTH: usize = 1024;
@@ -256,54 +146,5 @@ mod tests {
             CanonicCoset::new(LOG_N_INSTANCES),
             fibonacci_constraint_evaluator::<LOG_N_INSTANCES>,
         );
-    }
-
-    #[test_log::test]
-    fn test_wide_fib_prove() {
-        const LOG_N_INSTANCES: u32 = 16;
-        let config = PcsConfig::default();
-        // Precompute twiddles.
-        let twiddles = CudaBackend::precompute_twiddles(
-            CanonicCoset::new(LOG_N_INSTANCES + 1 + config.fri_config.log_blowup_factor)
-                .circle_domain()
-                .half_coset,
-        );
-
-        // Setup protocol.
-        let prover_channel = &mut Blake2sChannel::default();
-        let commitment_scheme =
-            &mut CommitmentSchemeProver::<CudaBackend, Blake2sMerkleChannel>::new(
-                config, &twiddles,
-            );
-
-        // Trace.
-        let trace = generate_test_trace(LOG_N_INSTANCES);
-        let mut tree_builder = commitment_scheme.tree_builder();
-        tree_builder.extend_evals(trace);
-        tree_builder.commit(prover_channel);
-
-        // Prove constraints.
-        let component = WideFibonacciComponentCuda::new(
-            &mut TraceLocationAllocator::default(),
-            WideFibonacciEvalCuda::<FIB_SEQUENCE_LENGTH> {
-                log_n_rows: LOG_N_INSTANCES,
-            },
-        );
-
-        let proof = prove::<CudaBackend, Blake2sMerkleChannel>(
-            &[&component],
-            prover_channel,
-            commitment_scheme,
-        )
-        .unwrap();
-
-        // Verify.
-        let verifier_channel = &mut Blake2sChannel::default();
-        let commitment_scheme = &mut CommitmentSchemeVerifier::<Blake2sMerkleChannel>::new(config);
-
-        // Retrieve the expected column sizes in each commitment interaction, from the AIR.
-        let sizes = component.trace_log_degree_bounds();
-        commitment_scheme.commit(proof.commitments[0], &sizes[0], verifier_channel);
-        verify(&[&component], verifier_channel, commitment_scheme, proof).unwrap();
     }
 }
