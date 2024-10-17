@@ -8,8 +8,8 @@ use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation, PolyOps};
 use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::ColumnVec;
 
-const LOG_COLUMN_SIZE: u32 = 10;
-const LOG_NUMBER_OF_COLUMNS: usize = 16;
+const LOG_COLUMN_SIZE: u32 = 16;
+const LOG_NUMBER_OF_COLUMNS: usize = 10;
 const LOG_BLOWUP_FACTOR: u32 = 2;
 
 pub fn simd_evaluate_polynomials(c: &mut Criterion) {
