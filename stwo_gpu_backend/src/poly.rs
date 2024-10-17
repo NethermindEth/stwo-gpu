@@ -15,7 +15,6 @@ use stwo_prover::core::{
     },
     ColumnVec,
 };
-use tracing::{span, Level};
 
 impl PolyOps for CudaBackend {
     type Twiddles = cuda::BaseFieldVec;
