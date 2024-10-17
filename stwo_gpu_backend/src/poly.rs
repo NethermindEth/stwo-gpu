@@ -1,9 +1,12 @@
 use crate::cuda::bindings::CudaSecureField;
+use crate::cuda::SecureFieldVec;
 use crate::{
     backend::CudaBackend,
     cuda::{self},
 };
 use itertools::Itertools;
+use stwo_prover::core::pcs::quotients::PointSample;
+use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::{
     backend::{Col, Column},
     circle::{CirclePoint, Coset},
@@ -15,7 +18,6 @@ use stwo_prover::core::{
     },
     ColumnVec,
 };
-use tracing::{span, Level};
 
 impl PolyOps for CudaBackend {
     type Twiddles = cuda::BaseFieldVec;
@@ -91,6 +93,99 @@ impl PolyOps for CudaBackend {
             )
             .into()
         }
+    }
+
+    fn evaluate_polynomials_out_of_domain(
+        polynomials: TreeVec<ColumnVec<&CirclePoly<Self>>>,
+        points: TreeVec<ColumnVec<Vec<CirclePoint<SecureField>>>>,
+    ) -> TreeVec<ColumnVec<Vec<PointSample>>> {
+        TreeVec::new(
+            polynomials
+                .0
+                .into_iter()
+                .enumerate()
+                .map(|(index, column)| {
+                    let log_polynomial_sizes: Vec<u32> = column
+                        .iter()
+                        .map(|polynomial| polynomial.log_size())
+                        .collect();
+
+                    let polynomial_coefficients: Vec<*const u32> = column
+                        .into_iter()
+                        .map(|polynomial| polynomial.coeffs.device_ptr)
+                        .collect();
+
+                    let out_of_domain_points = &points.0[index];
+                    let points_x = out_of_domain_points
+                        .iter()
+                        .map(|points_x_y| points_x_y.iter().map(|point| point.x).collect_vec())
+                        .collect_vec();
+                    let points_y = out_of_domain_points
+                        .iter()
+                        .map(|points_x_y| points_x_y.iter().map(|point| point.y).collect_vec())
+                        .collect_vec();
+                    let points_x_pointers = points_x
+                        .iter()
+                        .map(|points_x_for_polynomial| {
+                            points_x_for_polynomial.as_ptr() as *const u32
+                        })
+                        .collect_vec();
+                    let points_y_pointers = points_y
+                        .iter()
+                        .map(|points_y_for_polynomial| {
+                            points_y_for_polynomial.as_ptr() as *const u32
+                        })
+                        .collect_vec();
+
+                    let sample_sizes = out_of_domain_points
+                        .iter()
+                        .map(|points_x_y| points_x_y.len() as u32)
+                        .collect_vec();
+
+                    let evaluations: Vec<SecureFieldVec> = (0..polynomial_coefficients.len())
+                        .map(|index| {
+                            SecureFieldVec::new_uninitialized(sample_sizes[index] as usize)
+                        })
+                        .collect();
+                    let evaluation_pointers = evaluations
+                        .iter()
+                        .map(|evaluation_vector| evaluation_vector.device_ptr)
+                        .collect_vec();
+
+                    // In this iteration, we assume all polynomials are of equal size and will be evaluated in the same list of points
+                    let points_for_first_poly = &out_of_domain_points[0];
+                    assert!(out_of_domain_points.iter().all(|points| points == points_for_first_poly));
+
+                    unsafe {
+                        cuda::bindings::evaluate_polynomials_out_of_domain(
+                            evaluation_pointers.as_ptr(),
+                            polynomial_coefficients.as_ptr(),
+                            log_polynomial_sizes.as_ptr(),
+                            polynomial_coefficients.len() as u32,
+                            points_x_pointers.as_ptr(),
+                            points_y_pointers.as_ptr(),
+                            sample_sizes.as_ptr(),
+                        );
+                    }
+
+                    evaluations
+                        .into_iter()
+                        .zip(out_of_domain_points)
+                        .map(|(values, evaluated_points)| {
+                            values
+                                .to_vec()
+                                .into_iter()
+                                .zip(evaluated_points)
+                                .map(|(value, point)| PointSample {
+                                    point: *point,
+                                    value,
+                                })
+                                .collect()
+                        })
+                        .collect()
+                })
+                .collect(),
+        )
     }
 
     fn extend(poly: &CirclePoly<Self>, log_size: u32) -> CirclePoly<Self> {
@@ -195,6 +290,11 @@ impl PolyOps for CudaBackend {
 #[cfg(test)]
 mod tests {
     use itertools::Itertools;
+    use rand::rngs::SmallRng;
+    use rand::{Rng, SeedableRng};
+    use stwo_prover::core::air::mask::fixed_mask_points;
+    use stwo_prover::core::fields::qm31::SecureField;
+    use stwo_prover::core::pcs::TreeVec;
     use stwo_prover::core::poly::circle::{
         CanonicCoset, CircleDomain, CircleEvaluation, CirclePoly, PolyOps,
     };
@@ -205,7 +305,6 @@ mod tests {
         fields::m31::BaseField,
         ColumnVec,
     };
-    use test_log::test;
 
     use crate::{
         backend::CudaBackend,
@@ -613,7 +712,7 @@ mod tests {
         assert_eq!(expected_result.coeffs, result.coeffs.to_cpu());
     }
 
-    #[test_log::test]
+    #[test]
     fn test_interpolate_columns() {
         let log_size = 9;
         let log_number_of_columns = 8;
@@ -653,8 +752,8 @@ mod tests {
         assert_eq!(coeffs, expected_coeffs);
     }
 
-    #[test_log::test]
-    fn test_evaluate_columns() {
+    #[test]
+    fn test_evaluate_polynomials() {
         let log_size = 9;
         let log_number_of_columns = 8;
         let log_blowup_factor = 2;
@@ -689,7 +788,8 @@ mod tests {
                 .collect_vec(),
         );
 
-        let result = CudaBackend::evaluate_polynomials(&mut gpu_columns, log_blowup_factor, &gpu_twiddles);
+        let result =
+            CudaBackend::evaluate_polynomials(&mut gpu_columns, log_blowup_factor, &gpu_twiddles);
         let expected_result =
             CpuBackend::evaluate_polynomials(&mut cpu_columns, log_blowup_factor, &cpu_twiddles);
 
@@ -703,5 +803,80 @@ mod tests {
             .collect_vec();
 
         assert_eq!(values, expected_values);
+    }
+
+    fn generate_random_point() -> CirclePoint<SecureField> {
+        let mut rng = SmallRng::seed_from_u64(0);
+        let x = rng.gen();
+        let y = rng.gen();
+        CirclePoint { x, y }
+    }
+
+    fn mask_points(
+        point: CirclePoint<SecureField>,
+        number_of_columns: usize,
+    ) -> TreeVec<ColumnVec<Vec<CirclePoint<SecureField>>>> {
+        TreeVec(vec![fixed_mask_points(
+            &vec![vec![0_usize]; number_of_columns],
+            point,
+        )])
+    }
+
+    #[test]
+    fn test_evaluate_polynomials_out_of_domain() {
+        for log_size in [3, 9, 14] {
+            let log_number_of_columns = 8;
+            let log_blowup_factor = 2;
+
+            let size = 1 << log_size;
+            let number_of_columns = 1 << log_number_of_columns;
+
+            let cpu_values = (1..(size + 1) as u32)
+                .map(BaseField::from)
+                .collect::<Vec<_>>();
+            let gpu_values = cuda::BaseFieldVec::from_vec(cpu_values.clone());
+
+            let trace_coset = CanonicCoset::new(log_size);
+            let cpu_evaluations = CpuBackend::new_canonical_ordered(trace_coset, cpu_values);
+            let gpu_evaluations = CudaBackend::new_canonical_ordered(trace_coset, gpu_values);
+
+            let interpolation_coset = CanonicCoset::new(log_size + log_blowup_factor);
+            let cpu_twiddles = CpuBackend::precompute_twiddles(interpolation_coset.half_coset());
+            let gpu_twiddles = CudaBackend::precompute_twiddles(interpolation_coset.half_coset());
+
+            let cpu_poly = CpuBackend::interpolate(cpu_evaluations, &cpu_twiddles);
+            let gpu_poly = CudaBackend::interpolate(gpu_evaluations, &gpu_twiddles);
+
+            let cpu_polynomials =
+                ColumnVec::from((0..number_of_columns).map(|_index| &cpu_poly).collect_vec());
+            let gpu_polynomials =
+                ColumnVec::from((0..number_of_columns).map(|_index| &gpu_poly).collect_vec());
+
+            let point = generate_random_point();
+            let sample_points = mask_points(point, number_of_columns);
+
+            let result = CudaBackend::evaluate_polynomials_out_of_domain(
+                TreeVec::new(vec![gpu_polynomials]),
+                sample_points.clone(),
+            );
+            let expected_result = CpuBackend::evaluate_polynomials_out_of_domain(
+                TreeVec::new(vec![cpu_polynomials]),
+                sample_points.clone(),
+            );
+
+            let flattened_result = result.flatten_cols();
+            let flattened_expected_result = expected_result.flatten_cols();
+
+            let values = flattened_result
+                .iter()
+                .map(|point_sample| (point_sample.point, point_sample.value))
+                .collect_vec();
+            let expected_values = flattened_expected_result
+                .iter()
+                .map(|point_sample| (point_sample.point, point_sample.value))
+                .collect_vec();
+
+            assert_eq!(values, expected_values);
+        }
     }
 }

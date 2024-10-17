@@ -83,9 +83,7 @@ mod tests {
     use crate::CudaBackend;
 
     use super::{generate_trace, FibInput, WideFibonacciEvalCuda};
-    use stwo_prover::constraint_framework::{
-        assert_constraints, AssertEvaluator, FrameworkEval,
-    };
+    use stwo_prover::constraint_framework::{assert_constraints, AssertEvaluator, FrameworkEval};
     use stwo_prover::core::backend::simd::m31::{PackedBaseField, LOG_N_LANES};
     use stwo_prover::core::backend::Column;
     use stwo_prover::core::fields::m31::BaseField;

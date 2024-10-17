@@ -7,8 +7,8 @@ use stwo_prover::core::fields::m31::BaseField;
 use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation, PolyOps};
 use stwo_prover::core::poly::BitReversedOrder;
 
-const LOG_COLUMN_SIZE: u32 = 10;
-const LOG_NUMBER_OF_COLUMNS: usize = 16;
+const LOG_COLUMN_SIZE: u32 = 16;
+const LOG_NUMBER_OF_COLUMNS: usize = 10;
 
 pub fn simd_interpolate_columns(c: &mut Criterion) {
     let mut group = c.benchmark_group("interpolate_columns");

@@ -48,7 +48,6 @@ __global__ void eval_at_point_first_pass(m31 *g_coeffs, qm31 *temp, qm31 *factor
         }
         factor_idx -= 1;
         level_size >>= 1;
-
     }
 
     if (idx == 0) {
@@ -154,3 +153,211 @@ qm31 eval_at_point(m31 *coeffs, int coeffs_size, qm31 point_x, qm31 point_y) {
     return result;
 }
 
+/* Many polynomials */
+
+
+__global__ void eval_many_at_point_first_pass(m31 **g_coeffs, qm31 *temp, qm31 *factors, int coeffs_size, int factors_size,
+                                         int output_offset) {
+    int idx = threadIdx.x;
+
+    qm31 *output = &temp[output_offset];
+
+    int coeffs_per_block = 2 * blockDim.x;
+    int blocks_in_poly = max(1, coeffs_size / coeffs_per_block);
+    // Thread syncing happens within a block. 
+    // Split the problem to feed them to multiple blocks.
+    if (coeffs_size >= coeffs_per_block) {
+        coeffs_size = coeffs_per_block;
+    }
+
+    extern __shared__ m31 s_coeffs[];
+    extern __shared__ qm31 s_level[];
+
+    int poly_index = blockIdx.x / blocks_in_poly;
+    
+    // A % X == A & (X-1) when X is a power of two
+    s_coeffs[idx] = g_coeffs[poly_index][(blockIdx.x & (blocks_in_poly - 1)) * coeffs_size + idx];
+    s_coeffs[idx + blockDim.x] = g_coeffs[poly_index][(blockIdx.x & (blocks_in_poly - 1)) * coeffs_size + idx + blockDim.x];
+    __syncthreads();
+
+    int level_size = coeffs_size >> 1;
+    int factor_idx = factors_size - 1;
+
+    if (idx < level_size) {
+        m31 alpha = s_coeffs[2 * idx];
+        m31 beta = s_coeffs[2 * idx + 1];
+        qm31 factor = factors[factor_idx];
+
+        qm31 result = {
+                {add(mul(beta, factor.a.a), alpha), mul(factor.a.b, beta)},
+                {mul(beta, factor.b.a),             mul(beta, factor.b.b)}
+        };
+        s_level[idx] = result;
+    }
+    factor_idx -= 1;
+    level_size >>= 1;
+
+    while (level_size > 0) {
+        if (idx < level_size) {
+            __syncthreads();
+            qm31 a = s_level[2 * idx];
+            qm31 b = s_level[2 * idx + 1];
+            __syncthreads();
+            s_level[idx] = add(a, mul(b, factors[factor_idx]));
+        }
+        factor_idx -= 1;
+        level_size >>= 1;
+    }
+
+    if (idx == 0) {
+        output[blockIdx.x] = s_level[0];
+    }
+}
+
+__global__
+void eval_many_at_point_second_pass(qm31 *temp, qm31 *factors, int level_size, int factor_offset, int level_offset,
+                          int output_offset, int results_per_block) {
+    int idx = threadIdx.x;
+
+    qm31 *level = &temp[level_offset];
+    qm31 *output = &temp[output_offset];
+
+    // Thread syncing happens within a block.
+    // Split the problem to feed them to multiple blocks.
+    if (level_size >= 2 * blockDim.x) {
+        level_size = 2 * blockDim.x;
+    }
+
+    extern __shared__ qm31 s_level[];
+
+    s_level[idx] = level[2 * blockIdx.x * blockDim.x + idx];
+    s_level[idx + blockDim.x] = level[2 * blockIdx.x * blockDim.x + idx + blockDim.x];
+
+    level_size >>= 1;
+
+    int factor_idx = factor_offset;
+
+    while (level_size >= results_per_block) {
+        if (idx < level_size) {
+            __syncthreads();
+            qm31 a = s_level[2 * idx];
+            qm31 b = s_level[2 * idx + 1];
+            __syncthreads();
+            s_level[idx] = add(a, mul(b, factors[factor_idx]));
+        }
+        factor_idx -= 1;
+        level_size >>= 1;
+    }
+
+    if (idx < results_per_block) {
+        output[blockIdx.x * results_per_block + idx] = s_level[idx];
+    }
+}
+
+__global__
+void copy_result_for_polynomial(qm31 **result, qm31 *temp, int number_of_polynomials) {
+    int global_thread_index = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (global_thread_index < number_of_polynomials) {
+        result[global_thread_index][0] = temp[global_thread_index];
+    }
+}
+
+void eval_polys_at_point(
+    qm31 **result, m31 **polynomials, int log_number_of_polynomials, int log_coeffs_size, qm31 point_x, qm31 point_y
+) {
+    int coeffs_size = 1 << log_coeffs_size;
+    int block_dim = min(256, coeffs_size);
+    int coeffs_per_block = block_dim * 2;
+
+    qm31 *host_mappings = (qm31 *) malloc(sizeof(qm31) * log_coeffs_size);
+    host_mappings[log_coeffs_size - 1] = point_y;
+    host_mappings[log_coeffs_size - 2] = point_x;
+    qm31 x = point_x;
+    for (int i = 2; i < log_coeffs_size; i += 1) {
+        x = sub(mul(qm31{cm31{2, 0}, cm31{0, 0}}, mul(x, x)), qm31{cm31{1, 0}, cm31{0, 0}});
+        host_mappings[log_coeffs_size - 1 - i] = x;
+    }
+
+    int number_of_polynomials = 1 << log_number_of_polynomials;
+    int total_number_of_coeffs = coeffs_size * number_of_polynomials;
+    int temp_memory_size = 0;
+    int size = total_number_of_coeffs;
+    while (size > number_of_polynomials) {
+        size = (size + coeffs_per_block - 1) / coeffs_per_block;
+        temp_memory_size += size;
+    }
+
+    temp_memory_size = max(temp_memory_size, number_of_polynomials);
+
+    qm31 *temp = cuda_malloc<qm31>(temp_memory_size);
+    qm31 *device_mappings = clone_to_device<qm31>(host_mappings, log_coeffs_size);
+
+    free(host_mappings);
+
+    // First pass
+    int num_blocks = max(number_of_polynomials, ((total_number_of_coeffs >> 1) + block_dim - 1) / block_dim);
+    int shared_memory_bytes = coeffs_per_block * 4 + coeffs_per_block * 8;
+    int output_offset = temp_memory_size - num_blocks;
+
+    eval_many_at_point_first_pass<<<num_blocks, block_dim, shared_memory_bytes>>>(polynomials, temp, device_mappings, coeffs_size,
+                                                                             log_coeffs_size, output_offset);
+
+    // Second pass
+    int mappings_offset = log_coeffs_size - 1;
+    int level_offset = output_offset;
+    while (num_blocks > number_of_polynomials) {
+        mappings_offset -= 9;
+        int new_num_blocks = ((num_blocks >> 1) + block_dim - 1) / block_dim;
+        int number_of_results = max(number_of_polynomials, new_num_blocks);
+        int results_per_block = number_of_results / new_num_blocks;
+        shared_memory_bytes = coeffs_per_block * 4 * 4;
+        output_offset = level_offset - new_num_blocks;
+        eval_many_at_point_second_pass<<<new_num_blocks, block_dim, shared_memory_bytes>>>(temp, device_mappings, num_blocks,
+                                                                                      mappings_offset, level_offset,
+                                                                                      output_offset, results_per_block);
+        num_blocks = new_num_blocks;
+        level_offset = output_offset;
+    }
+
+    cudaDeviceSynchronize();
+
+    num_blocks = (number_of_polynomials + block_dim - 1) / block_dim;
+    copy_result_for_polynomial<<<num_blocks, block_dim>>>(
+        result, temp, number_of_polynomials
+    );
+
+    cuda_free_memory(temp);
+    cuda_free_memory(device_mappings);
+}
+
+void eval_polys_at_points(
+    qm31 **result, m31 **polynomials, int log_polynomial_size, int log_number_of_polynomials,
+    qm31 *points_x, qm31 *points_y, int sample_size
+) {
+    for (int point_index = 0; point_index < sample_size; point_index++) {
+        qm31 point_x = points_x[point_index];
+        qm31 point_y = points_y[point_index];
+        eval_polys_at_point(result, polynomials, log_number_of_polynomials, log_polynomial_size, point_x, point_y);
+    }
+}
+
+void evaluate_polynomials_out_of_domain(
+    qm31 **result, m31 **polynomials, int *log_polynomial_sizes, int number_of_polynomials,
+    qm31 **out_of_domain_points_x, qm31 **out_of_domain_points_y, int *sample_sizes
+) {
+    // In this iteration, we assume all polynomials are of equal size and will be evaluated in the same list of points
+
+    qm31 **device_result = clone_to_device<qm31*>(result, number_of_polynomials);
+    m31 **device_polynomials = clone_to_device<m31*>(polynomials, number_of_polynomials);
+    int log_polynomial_size = log_polynomial_sizes[0];
+    int log_number_of_polynomials = log_2(number_of_polynomials);
+
+    eval_polys_at_points(
+        device_result, device_polynomials, log_polynomial_size, log_number_of_polynomials,
+        out_of_domain_points_x[0], out_of_domain_points_y[0], sample_sizes[0]
+    );
+
+    cuda_free_memory(device_result);
+    cuda_free_memory(device_polynomials);
+};
