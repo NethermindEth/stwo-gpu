@@ -37,3 +37,7 @@ harness = false
 [[bench]]
 name = "evaluate_polynomials"
 harness = false
+
+[[bench]]
+name = "evaluate_polynomials_out_of_domain"
+harness = false
