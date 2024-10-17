@@ -12,8 +12,8 @@ const LOG_COLUMN_SIZE: u32 = 10;
 const LOG_NUMBER_OF_COLUMNS: usize = 16;
 const LOG_BLOWUP_FACTOR: u32 = 2;
 
-pub fn simd_evaluate_columns(c: &mut Criterion) {
-    let mut group = c.benchmark_group("evaluate_columns");
+pub fn simd_evaluate_polynomials(c: &mut Criterion) {
+    let mut group = c.benchmark_group("evaluate_polynomials");
 
     let coset = CanonicCoset::new(LOG_COLUMN_SIZE);
     let values = (0..coset.size()).map(BaseField::from).collect();
@@ -37,8 +37,8 @@ pub fn simd_evaluate_columns(c: &mut Criterion) {
     });
 }
 
-pub fn gpu_evaluate_columns(c: &mut Criterion) {
-    let mut group = c.benchmark_group("evaluate_columns");
+pub fn gpu_evaluate_polynomials(c: &mut Criterion) {
+    let mut group = c.benchmark_group("evaluate_polynomials");
 
     let coset = CanonicCoset::new(LOG_COLUMN_SIZE);
     let values = BaseFieldVec::from_vec((0..coset.size()).map(BaseField::from).collect_vec());
@@ -63,7 +63,7 @@ pub fn gpu_evaluate_columns(c: &mut Criterion) {
 }
 
 criterion_group!(
-    name = interpolate_columns;
+    name = evaluate_polynomials;
     config = Criterion::default().sample_size(10);
-    targets = simd_evaluate_columns, gpu_evaluate_columns);
-criterion_main!(interpolate_columns);
+    targets = simd_evaluate_polynomials, gpu_evaluate_polynomials);
+criterion_main!(evaluate_polynomials);
