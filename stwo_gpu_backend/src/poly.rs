@@ -4,6 +4,8 @@ use crate::{
     cuda::{self},
 };
 use itertools::Itertools;
+use stwo_prover::core::pcs::quotients::PointSample;
+use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::{
     backend::{Col, Column},
     circle::{CirclePoint, Coset},
@@ -90,6 +92,23 @@ impl PolyOps for CudaBackend {
             )
             .into()
         }
+    }
+
+    fn evaluate_polynomials_out_of_domain(
+        polynomials: TreeVec<ColumnVec<&CirclePoly<Self>>>,
+        points: TreeVec<ColumnVec<Vec<CirclePoint<SecureField>>>>,
+    ) -> TreeVec<ColumnVec<Vec<PointSample>>> {
+        polynomials
+            .zip_cols(&points)
+            .map_cols(|(poly, points)| {
+                points
+                    .iter()
+                    .map(|&point| PointSample {
+                        point,
+                        value: poly.eval_at_point(point),
+                    })
+                    .collect_vec()
+            })
     }
 
     fn extend(poly: &CirclePoly<Self>, log_size: u32) -> CirclePoly<Self> {
