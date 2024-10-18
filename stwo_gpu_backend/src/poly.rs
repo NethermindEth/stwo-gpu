@@ -98,17 +98,24 @@ impl PolyOps for CudaBackend {
         polynomials: TreeVec<ColumnVec<&CirclePoly<Self>>>,
         points: TreeVec<ColumnVec<Vec<CirclePoint<SecureField>>>>,
     ) -> TreeVec<ColumnVec<Vec<PointSample>>> {
-        polynomials
-            .zip_cols(&points)
-            .map_cols(|(poly, points)| {
-                points
-                    .iter()
-                    .map(|&point| PointSample {
-                        point,
-                        value: poly.eval_at_point(point),
-                    })
-                    .collect_vec()
-            })
+        let zipped_polys_points = polynomials
+            .zip_cols(&points);
+
+        TreeVec::new(
+            zipped_polys_points.0
+                .into_iter()
+                .map(|column| column.into_iter().map( |(poly, points)| {
+                        points
+                            .iter()
+                            .map(|&point| PointSample {
+                                point,
+                                value: poly.eval_at_point(point),
+                            })
+                            .collect_vec()
+                    }
+                ).collect())
+                .collect(),
+        )
     }
 
     fn extend(poly: &CirclePoly<Self>, log_size: u32) -> CirclePoly<Self> {
