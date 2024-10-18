@@ -220,6 +220,11 @@ impl PolyOps for CudaBackend {
 #[cfg(test)]
 mod tests {
     use itertools::Itertools;
+    use rand::rngs::SmallRng;
+    use rand::{Rng, SeedableRng};
+    use stwo_prover::core::air::mask::fixed_mask_points;
+    use stwo_prover::core::fields::qm31::SecureField;
+    use stwo_prover::core::pcs::TreeVec;
     use stwo_prover::core::poly::circle::{
         CanonicCoset, CircleDomain, CircleEvaluation, CirclePoly, PolyOps,
     };
@@ -230,7 +235,6 @@ mod tests {
         fields::m31::BaseField,
         ColumnVec,
     };
-    use test_log::test;
 
     use crate::{
         backend::CudaBackend,
@@ -638,7 +642,7 @@ mod tests {
         assert_eq!(expected_result.coeffs, result.coeffs.to_cpu());
     }
 
-    #[test_log::test]
+    #[test]
     fn test_interpolate_columns() {
         let log_size = 9;
         let log_number_of_columns = 8;
@@ -678,8 +682,8 @@ mod tests {
         assert_eq!(coeffs, expected_coeffs);
     }
 
-    #[test_log::test]
-    fn test_evaluate_columns() {
+    #[test]
+    fn test_evaluate_polynomials() {
         let log_size = 9;
         let log_number_of_columns = 8;
         let log_blowup_factor = 2;
@@ -725,6 +729,81 @@ mod tests {
         let values = result
             .iter()
             .map(|eval| eval.clone().values.to_cpu())
+            .collect_vec();
+
+        assert_eq!(values, expected_values);
+    }
+
+    fn generate_random_point() -> CirclePoint<SecureField> {
+        let mut rng = SmallRng::seed_from_u64(0);
+        let x = rng.gen();
+        let y = rng.gen();
+        CirclePoint { x, y }
+    }
+    
+    fn mask_points(
+        point: CirclePoint<SecureField>,
+        number_of_columns: usize,
+    ) -> TreeVec<ColumnVec<Vec<CirclePoint<SecureField>>>> {
+        TreeVec(vec![fixed_mask_points(
+            &vec![vec![0_usize]; number_of_columns],
+            point,
+        )])
+    }
+
+    #[test]
+    fn test_evaluate_polynomials_out_of_domain() {
+        let log_size = 9;
+        let log_number_of_columns = 8;
+        let log_blowup_factor = 2;
+
+        let size = 1 << log_size;
+        let number_of_columns = 1 << log_number_of_columns;
+
+        let cpu_values = (1..(size + 1) as u32)
+            .map(BaseField::from)
+            .collect::<Vec<_>>();
+        let gpu_values = cuda::BaseFieldVec::from_vec(cpu_values.clone());
+
+        let trace_coset = CanonicCoset::new(log_size);
+        let cpu_evaluations = CpuBackend::new_canonical_ordered(trace_coset, cpu_values);
+        let gpu_evaluations = CudaBackend::new_canonical_ordered(trace_coset, gpu_values);
+
+        let interpolation_coset = CanonicCoset::new(log_size + log_blowup_factor);
+        let cpu_twiddles = CpuBackend::precompute_twiddles(interpolation_coset.half_coset());
+        let gpu_twiddles = CudaBackend::precompute_twiddles(interpolation_coset.half_coset());
+
+        let cpu_poly = CpuBackend::interpolate(cpu_evaluations, &cpu_twiddles);
+        let gpu_poly = CudaBackend::interpolate(gpu_evaluations, &gpu_twiddles);
+
+        let cpu_polynomials = ColumnVec::from(
+            (0..number_of_columns)
+                .map(|_index| &cpu_poly)
+                .collect_vec(),
+        );
+        let gpu_polynomials = ColumnVec::from(
+            (0..number_of_columns)
+                .map(|_index| &gpu_poly)
+                .collect_vec(),
+        );
+
+        let point = generate_random_point();
+        let sample_points = mask_points(point, number_of_columns);
+
+        let result = CudaBackend::evaluate_polynomials_out_of_domain(TreeVec::new(vec![gpu_polynomials]), sample_points.clone());
+        let expected_result =
+            CpuBackend::evaluate_polynomials_out_of_domain(TreeVec::new(vec![cpu_polynomials]), sample_points.clone());
+
+        let flattened_result = result.flatten_cols();
+        let flattened_expected_result = expected_result.flatten_cols();
+
+        let values = flattened_result
+            .iter()
+            .map(|point_sample| (point_sample.point, point_sample.value))
+            .collect_vec();
+        let expected_values = flattened_expected_result
+            .iter()
+            .map(|point_sample| (point_sample.point, point_sample.value))
             .collect_vec();
 
         assert_eq!(values, expected_values);
