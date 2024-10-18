@@ -104,31 +104,56 @@ impl PolyOps for CudaBackend {
                     .into_iter()
                     .enumerate()
                     .map(|(index, column)| {
-                        let mut evaluated_polynomials: Vec<Vec<PointSample>> = Vec::with_capacity(column.len());
+                        // column
+                        //     .into_iter()
+                        //     .enumerate()
+                        //     .map( |(index2, polynomial)|
+                        //         points.0[index][index2]
+                        //             .iter()
+                        //             .map(|&point| PointSample {
+                        //                 point,
+                        //                 value: polynomial.eval_at_point(point),
+                        //             })
+                        //             .collect_vec()
+                        //     ).collect();
 
-                        evaluated_polynomials = column
+                        let evaluations: Vec<Vec<CudaSecureField>> = Vec::with_capacity(column.len());
+                        let evaluation_pointers = evaluations.iter().map(|evaluation_vector| evaluation_vector.as_ptr()).collect_vec();
+
+                        let polynomial_sizes: Vec<u32> = column.iter().map( |polynomial| 1 << polynomial.log_size() ).collect();
+                        let polynomial_coefficients: Vec<*const u32> = column.into_iter().map( |polynomial| polynomial.coeffs.device_ptr ).collect();
+                        let out_of_domain_points = &points.0[index];
+                        let points_x = out_of_domain_points.iter().map( |points_x_y|
+                            points_x_y.iter().map( |point| CudaSecureField::from(point.x) ).collect_vec().as_ptr()
+                        ).collect_vec();
+                        let points_y = out_of_domain_points.iter().map( |points_x_y|
+                            points_x_y.iter().map( |point| CudaSecureField::from(point.y) ).collect_vec().as_ptr()
+                        ).collect_vec();
+
+                        unsafe {
+                            cuda::bindings::evaluate_polynomials_out_of_domain(
+                                evaluation_pointers.as_ptr(),
+                                polynomial_coefficients.as_ptr(),
+                                polynomial_sizes.as_ptr(),
+                                points_x.as_ptr(),
+                                points_y.as_ptr(),
+                            );
+                        }
+
+                        evaluations
                             .into_iter()
-                            .enumerate()
-                            .map( |(index2, polynomial)|
-                                points.0[index][index2]
-                                    .iter()
-                                    .map(|&point| PointSample {
-                                        point,
-                                        value: polynomial.eval_at_point(point),
-                                    })
-                                    .collect_vec()
-                            ).collect();
-
-                        // let out_of_domain_points = points.0[index];
-                        // unsafe {
-                        //     cuda::bindings::evaluate_polynomials_out_of_domain(
-                        //         evaluated_polynomials.as_ptr(),
-                        //         column.as_ptr(),
-                        //         out_of_domain_points.as_ptr(),
-                        //     );
-                        // }
-
-                        evaluated_polynomials
+                            .zip(out_of_domain_points)
+                            .map(|(values, evaluated_points)|
+                                values
+                                    .into_iter()
+                                    .zip(evaluated_points)
+                                    .map( |(value, point)|
+                                        PointSample {
+                                            point: *point,
+                                            value: SecureField::from(value),
+                                        }
+                                    ).collect()
+                            ).collect()
 
                     }).collect(),
         )

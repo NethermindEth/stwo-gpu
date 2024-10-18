@@ -158,6 +158,14 @@ extern "C" {
         point_y: CudaSecureField,
     ) -> CudaSecureField;
 
+    pub fn evaluate_polynomials_out_of_domain(
+        result: *const *const CudaSecureField,
+        polynomials: *const *const u32,
+        polynomial_sizes: *const u32,
+        out_of_domain_points_x: *const *const CudaSecureField,
+        out_of_domain_points_y: *const *const CudaSecureField,
+    );
+
     pub fn fold_line(
         gpu_domain: *const u32,
         twiddle_offset: usize,
