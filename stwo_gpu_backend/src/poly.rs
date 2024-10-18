@@ -129,14 +129,19 @@ impl PolyOps for CudaBackend {
                         let points_y = out_of_domain_points.iter().map( |points_x_y|
                             points_x_y.iter().map( |point| CudaSecureField::from(point.y) ).collect_vec().as_ptr()
                         ).collect_vec();
+                        let sample_sizes = out_of_domain_points.iter().map( |points_x_y|
+                            points_x_y.len()
+                        ).collect_vec();
 
                         unsafe {
                             cuda::bindings::evaluate_polynomials_out_of_domain(
                                 evaluation_pointers.as_ptr(),
                                 polynomial_coefficients.as_ptr(),
                                 polynomial_sizes.as_ptr(),
+                                polynomial_coefficients.len() as u32,
                                 points_x.as_ptr(),
                                 points_y.as_ptr(),
+                                sample_sizes.as_ptr() as *const u32,
                             );
                         }
 

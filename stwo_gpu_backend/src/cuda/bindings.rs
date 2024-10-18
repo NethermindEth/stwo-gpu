@@ -162,8 +162,10 @@ extern "C" {
         result: *const *const CudaSecureField,
         polynomials: *const *const u32,
         polynomial_sizes: *const u32,
+        number_of_polynomials: u32,
         out_of_domain_points_x: *const *const CudaSecureField,
         out_of_domain_points_y: *const *const CudaSecureField,
+        sample_sizes: *const u32,
     );
 
     pub fn fold_line(
