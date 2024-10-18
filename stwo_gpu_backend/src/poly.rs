@@ -98,23 +98,39 @@ impl PolyOps for CudaBackend {
         polynomials: TreeVec<ColumnVec<&CirclePoly<Self>>>,
         points: TreeVec<ColumnVec<Vec<CirclePoint<SecureField>>>>,
     ) -> TreeVec<ColumnVec<Vec<PointSample>>> {
-        let zipped_polys_points = polynomials
-            .zip_cols(&points);
-
         TreeVec::new(
-            zipped_polys_points.0
-                .into_iter()
-                .map(|column| column.into_iter().map( |(poly, points)| {
-                        points
-                            .iter()
-                            .map(|&point| PointSample {
-                                point,
-                                value: poly.eval_at_point(point),
-                            })
-                            .collect_vec()
-                    }
-                ).collect())
-                .collect(),
+            polynomials
+                    .0
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, column)| {
+                        let mut evaluated_polynomials: Vec<Vec<PointSample>> = Vec::with_capacity(column.len());
+
+                        evaluated_polynomials = column
+                            .into_iter()
+                            .enumerate()
+                            .map( |(index2, polynomial)|
+                                points.0[index][index2]
+                                    .iter()
+                                    .map(|&point| PointSample {
+                                        point,
+                                        value: polynomial.eval_at_point(point),
+                                    })
+                                    .collect_vec()
+                            ).collect();
+
+                        // let out_of_domain_points = points.0[index];
+                        // unsafe {
+                        //     cuda::bindings::evaluate_polynomials_out_of_domain(
+                        //         evaluated_polynomials.as_ptr(),
+                        //         column.as_ptr(),
+                        //         out_of_domain_points.as_ptr(),
+                        //     );
+                        // }
+
+                        evaluated_polynomials
+
+                    }).collect(),
         )
     }
 
