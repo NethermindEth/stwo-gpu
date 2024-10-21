@@ -104,22 +104,6 @@ impl PolyOps for CudaBackend {
                     .into_iter()
                     .enumerate()
                     .map(|(index, column)| {
-                        // column
-                        //     .into_iter()
-                        //     .enumerate()
-                        //     .map( |(index2, polynomial)|
-                        //         points.0[index][index2]
-                        //             .iter()
-                        //             .map(|&point| PointSample {
-                        //                 point,
-                        //                 value: polynomial.eval_at_point(point),
-                        //             })
-                        //             .collect_vec()
-                        //     ).collect();
-
-                        let evaluations: Vec<Vec<CudaSecureField>> = Vec::with_capacity(column.len());
-                        let evaluation_pointers = evaluations.iter().map(|evaluation_vector| evaluation_vector.as_ptr()).collect_vec();
-
                         let polynomial_sizes: Vec<u32> = column.iter().map( |polynomial| 1 << polynomial.log_size() ).collect();
                         let polynomial_coefficients: Vec<*const u32> = column.into_iter().map( |polynomial| polynomial.coeffs.device_ptr ).collect();
                         let out_of_domain_points = &points.0[index];
@@ -132,6 +116,16 @@ impl PolyOps for CudaBackend {
                         let sample_sizes = out_of_domain_points.iter().map( |points_x_y|
                             points_x_y.len()
                         ).collect_vec();
+
+                        let evaluations: Vec<Vec<CudaSecureField>> = (0..polynomial_coefficients.len())
+                            .map( |index|
+                                Vec::with_capacity(sample_sizes[index])
+                            ).collect();
+                        let evaluation_pointers = evaluations
+                            .iter()
+                            .map(|evaluation_vector|
+                                evaluation_vector.as_ptr()
+                            ).collect_vec();
 
                         unsafe {
                             cuda::bindings::evaluate_polynomials_out_of_domain(
@@ -159,7 +153,6 @@ impl PolyOps for CudaBackend {
                                         }
                                     ).collect()
                             ).collect()
-
                     }).collect(),
         )
     }

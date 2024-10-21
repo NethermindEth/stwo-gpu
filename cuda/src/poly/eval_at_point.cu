@@ -161,8 +161,8 @@ void evaluate_polynomials_out_of_domain(
     // column
     //     .into_iter()
     //     .enumerate()
-    //     .map( |(index2, polynomial)|
-    //         points.0[index][index2]
+    //     .map( |(index2, polynomial)|     // Index2 es el del thread!
+    //         out_of_domain_points[index2]
     //             .iter()
     //             .map(|&point| PointSample {
     //                 point,
@@ -171,5 +171,31 @@ void evaluate_polynomials_out_of_domain(
     //             .collect_vec()
     //     ).collect();
 
-    m31 **device_polynomials = clone_to_device<m31*>(polynomials, number_of_polynomials);
+    // qm31 **device_result = cuda_malloc<qm31*>(number_of_polynomials);
+    // m31 **device_polynomials = clone_to_device<m31*>(polynomials, number_of_polynomials);
+
+    // int number_of_blocks = 0;
+    // int block_size = 1024;
+    // int shared_memory_bytes = 0;
+    // eval_polys_at_points<<<number_of_blocks, block_size, shared_memory_bytes>>>(
+    //     device_result, device_polynomials, polynomial_sizes, number_of_polynomials,
+    //     out_of_domain_points_x, out_of_domain_points_y, sample_sizes
+    // );
+
+    // cuda_free_memory(device_result);
+    // cuda_free_memory(device_polynomials);
+
+    for (int index = 0; index < number_of_polynomials; index++) {
+        m31 *polynomial = polynomials[index];
+        int polynomial_size = polynomial_sizes[index];
+        qm31 *poly_points_x = out_of_domain_points_x[index];
+        qm31 *poly_points_y = out_of_domain_points_y[index];
+        int sample_size = sample_sizes[index];
+
+        for (int point_index = 0; point_index < sample_size; point_index++) {
+            qm31 point_x = poly_points_x[point_index];
+            qm31 point_y = poly_points_y[point_index];
+            result[index][point_index] = eval_at_point(polynomial, polynomial_size, point_x, point_y);
+        }
+    }
 };
