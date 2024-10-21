@@ -108,19 +108,29 @@ impl PolyOps for CudaBackend {
                     let polynomial_coefficients: Vec<*const u32> = column.into_iter().map( |polynomial| polynomial.coeffs.device_ptr ).collect();
                     let out_of_domain_points = &points.0[index];
                     let points_x = out_of_domain_points.iter().map( |points_x_y|
-                        points_x_y.iter().map( |point| CudaSecureField::from(point.x) ).collect_vec().as_ptr()
+                        points_x_y.iter().map( |point| CudaSecureField::from(point.x) ).collect_vec()
                     ).collect_vec();
                     let points_y = out_of_domain_points.iter().map( |points_x_y|
-                        points_x_y.iter().map( |point| CudaSecureField::from(point.y) ).collect_vec().as_ptr()
+                        points_x_y.iter().map( |point| CudaSecureField::from(point.y) ).collect_vec()
+                    ).collect_vec();
+                    let points_x_pointers = points_x.iter().map( |point_x_for_polynomial|
+                        point_x_for_polynomial.as_ptr()
+                    ).collect_vec();
+                    let points_y_pointers = points_y.iter().map( |point_y_for_polynomial|
+                        point_y_for_polynomial.as_ptr()
                     ).collect_vec();
                     let sample_sizes = out_of_domain_points.iter().map( |points_x_y|
-                        points_x_y.len()
+                        points_x_y.len() as u32
                     ).collect_vec();
 
                     let evaluations: Vec<Vec<CudaSecureField>> = (0..polynomial_coefficients.len())
-                        .map( |index|
-                            Vec::with_capacity(sample_sizes[index])
-                        ).collect();
+                        .map( |index|{
+                            let mut vector = Vec::with_capacity(sample_sizes[index] as usize);
+                            unsafe {
+                                vector.set_len(sample_sizes[index] as usize);
+                            }
+                            vector
+                        }).collect();
                     let evaluation_pointers = evaluations
                         .iter()
                         .map(|evaluation_vector|
@@ -133,9 +143,9 @@ impl PolyOps for CudaBackend {
                             polynomial_coefficients.as_ptr(),
                             polynomial_sizes.as_ptr(),
                             polynomial_coefficients.len() as u32,
-                            points_x.as_ptr(),
-                            points_y.as_ptr(),
-                            sample_sizes.as_ptr() as *const u32,
+                            points_x_pointers.as_ptr(),
+                            points_y_pointers.as_ptr(),
+                            sample_sizes.as_ptr(),
                         );
                     }
 
