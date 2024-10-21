@@ -99,61 +99,61 @@ impl PolyOps for CudaBackend {
         points: TreeVec<ColumnVec<Vec<CirclePoint<SecureField>>>>,
     ) -> TreeVec<ColumnVec<Vec<PointSample>>> {
         TreeVec::new(
-            polynomials
-                    .0
-                    .into_iter()
-                    .enumerate()
-                    .map(|(index, column)| {
-                        let polynomial_sizes: Vec<u32> = column.iter().map( |polynomial| 1 << polynomial.log_size() ).collect();
-                        let polynomial_coefficients: Vec<*const u32> = column.into_iter().map( |polynomial| polynomial.coeffs.device_ptr ).collect();
-                        let out_of_domain_points = &points.0[index];
-                        let points_x = out_of_domain_points.iter().map( |points_x_y|
-                            points_x_y.iter().map( |point| CudaSecureField::from(point.x) ).collect_vec().as_ptr()
-                        ).collect_vec();
-                        let points_y = out_of_domain_points.iter().map( |points_x_y|
-                            points_x_y.iter().map( |point| CudaSecureField::from(point.y) ).collect_vec().as_ptr()
-                        ).collect_vec();
-                        let sample_sizes = out_of_domain_points.iter().map( |points_x_y|
-                            points_x_y.len()
+        polynomials
+                .0
+                .into_iter()
+                .enumerate()
+                .map(|(index, column)| {
+                    let polynomial_sizes: Vec<u32> = column.iter().map( |polynomial| 1 << polynomial.log_size() ).collect();
+                    let polynomial_coefficients: Vec<*const u32> = column.into_iter().map( |polynomial| polynomial.coeffs.device_ptr ).collect();
+                    let out_of_domain_points = &points.0[index];
+                    let points_x = out_of_domain_points.iter().map( |points_x_y|
+                        points_x_y.iter().map( |point| CudaSecureField::from(point.x) ).collect_vec().as_ptr()
+                    ).collect_vec();
+                    let points_y = out_of_domain_points.iter().map( |points_x_y|
+                        points_x_y.iter().map( |point| CudaSecureField::from(point.y) ).collect_vec().as_ptr()
+                    ).collect_vec();
+                    let sample_sizes = out_of_domain_points.iter().map( |points_x_y|
+                        points_x_y.len()
+                    ).collect_vec();
+
+                    let evaluations: Vec<Vec<CudaSecureField>> = (0..polynomial_coefficients.len())
+                        .map( |index|
+                            Vec::with_capacity(sample_sizes[index])
+                        ).collect();
+                    let evaluation_pointers = evaluations
+                        .iter()
+                        .map(|evaluation_vector|
+                            evaluation_vector.as_ptr()
                         ).collect_vec();
 
-                        let evaluations: Vec<Vec<CudaSecureField>> = (0..polynomial_coefficients.len())
-                            .map( |index|
-                                Vec::with_capacity(sample_sizes[index])
-                            ).collect();
-                        let evaluation_pointers = evaluations
-                            .iter()
-                            .map(|evaluation_vector|
-                                evaluation_vector.as_ptr()
-                            ).collect_vec();
+                    unsafe {
+                        cuda::bindings::evaluate_polynomials_out_of_domain(
+                            evaluation_pointers.as_ptr(),
+                            polynomial_coefficients.as_ptr(),
+                            polynomial_sizes.as_ptr(),
+                            polynomial_coefficients.len() as u32,
+                            points_x.as_ptr(),
+                            points_y.as_ptr(),
+                            sample_sizes.as_ptr() as *const u32,
+                        );
+                    }
 
-                        unsafe {
-                            cuda::bindings::evaluate_polynomials_out_of_domain(
-                                evaluation_pointers.as_ptr(),
-                                polynomial_coefficients.as_ptr(),
-                                polynomial_sizes.as_ptr(),
-                                polynomial_coefficients.len() as u32,
-                                points_x.as_ptr(),
-                                points_y.as_ptr(),
-                                sample_sizes.as_ptr() as *const u32,
-                            );
-                        }
-
-                        evaluations
-                            .into_iter()
-                            .zip(out_of_domain_points)
-                            .map(|(values, evaluated_points)|
-                                values
-                                    .into_iter()
-                                    .zip(evaluated_points)
-                                    .map( |(value, point)|
-                                        PointSample {
-                                            point: *point,
-                                            value: SecureField::from(value),
-                                        }
-                                    ).collect()
-                            ).collect()
-                    }).collect(),
+                    evaluations
+                        .into_iter()
+                        .zip(out_of_domain_points)
+                        .map(|(values, evaluated_points)|
+                            values
+                                .into_iter()
+                                .zip(evaluated_points)
+                                .map( |(value, point)|
+                                    PointSample {
+                                        point: *point,
+                                        value: SecureField::from(value),
+                                    }
+                                ).collect()
+                        ).collect()
+                }).collect(),
         )
     }
 
