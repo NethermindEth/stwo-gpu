@@ -125,10 +125,9 @@ impl PolyOps for CudaBackend {
 
                     let evaluations: Vec<Vec<CudaSecureField>> = (0..polynomial_coefficients.len())
                         .map( |index|{
-                            let mut vector = Vec::with_capacity(sample_sizes[index] as usize);
-                            unsafe {
-                                vector.set_len(sample_sizes[index] as usize);
-                            }
+                            let size = sample_sizes[index] as usize;
+                            let mut vector = Vec::with_capacity(size);
+                            unsafe { vector.set_len(size) }
                             vector
                         }).collect();
                     let evaluation_pointers = evaluations

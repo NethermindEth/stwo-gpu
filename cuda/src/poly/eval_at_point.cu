@@ -195,11 +195,7 @@ void evaluate_polynomials_out_of_domain(
         for (int point_index = 0; point_index < sample_size; point_index++) {
             qm31 point_x = poly_points_x[point_index];
             qm31 point_y = poly_points_y[point_index];
-            //printf("%d %d %d %d\n", point_x.a.a, point_x.a.b, point_x.b.a, point_x.b.b);
             result[index][point_index] = eval_at_point(polynomial, polynomial_size, point_x, point_y);
-
-            //qm31 res = result[index][point_index];
-            //printf("%d %d %d %d\n", res.a.a, res.a.b, res.b.a, res.b.b);
         }
     }
 };
