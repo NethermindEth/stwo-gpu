@@ -156,20 +156,97 @@ qm31 eval_at_point(m31 *coeffs, int coeffs_size, qm31 point_x, qm31 point_y) {
 
 /* Many polynomials */
 
+__device__ qm31 eval_at_point_2(m31 *coeffs, int log_coeffs_size, qm31 point_x, qm31 point_y) {
+    int coeffs_size = 1 << log_coeffs_size;
+
+    qm31 *device_mappings = (qm31 *) malloc(sizeof(qm31) * log_coeffs_size);
+    device_mappings[log_coeffs_size - 1] = point_y;
+    device_mappings[log_coeffs_size - 2] = point_x;
+    qm31 x = point_x;
+    for (int i = 2; i < log_coeffs_size; i += 1) {
+        x = sub(mul(qm31{cm31{2, 0}, cm31{0, 0}}, mul(x, x)), qm31{cm31{1, 0}, cm31{0, 0}});
+        device_mappings[log_coeffs_size - 1 - i] = x;
+    }
+
+    int temp_memory_size = 0;
+    int size = coeffs_size;
+    while (size > 1) {
+        size = (size + 511) / 512;
+        temp_memory_size += size;
+    }
+
+    qm31 *temp = (qm31 *) malloc(sizeof(qm31) * temp_memory_size);
+
+    // First pass
+    int block_dim = 256;
+    int num_blocks = ((coeffs_size >> 1) + block_dim - 1) / block_dim;
+    int shared_memory_bytes = 512 * 4 + 512 * 8;
+    int output_offset = temp_memory_size - num_blocks;
+
+    eval_at_point_first_pass<<<num_blocks, block_dim, shared_memory_bytes>>>(coeffs, temp, device_mappings, coeffs_size,
+                                                                             log_coeffs_size, output_offset);
+
+    // Second pass
+    int mappings_offset = log_coeffs_size - 1;
+    int level_offset = output_offset;
+    while (num_blocks > 1) {
+        mappings_offset -= 9;
+        int new_num_blocks = ((num_blocks >> 1) + block_dim - 1) / block_dim;
+        shared_memory_bytes = 512 * 4 * 4;
+        output_offset = level_offset - new_num_blocks;
+        eval_at_point_second_pass<<<new_num_blocks, block_dim, shared_memory_bytes>>>(temp, device_mappings, num_blocks,
+                                                                                      mappings_offset, level_offset,
+                                                                                      output_offset);
+        num_blocks = new_num_blocks;
+        level_offset = output_offset;
+    }
+
+    // sync?
+    qm31 result = temp[0];
+
+    free(temp);
+    free(device_mappings);
+    return result;
+}
+
 __global__ void eval_polys_at_points(
-    qm31 **result, m31 **polynomials, int *polynomial_sizes, int number_of_polynomials,
+    qm31 **result, m31 **polynomials, int *log_polynomial_sizes, int number_of_polynomials,
     qm31 **points_x, qm31 **points_y, int *sample_sizes
 ) {
-    
+    // m31 *polynomial = polynomials[0];
+    // int log_polynomial_size = log_polynomial_sizes[0];
+    // qm31 point_x = points_x[0][0];
+    // qm31 point_y = points_y[0][0];
+    // eval_at_point_2(polynomial, log_polynomial_size, point_x, point_y);
+    // // WAT
+
+    for (int index = 0; index < number_of_polynomials; index++) {
+        m31 *polynomial = polynomials[index];
+        int log_polynomial_size = log_polynomial_sizes[index];
+
+        qm31 *poly_points_x = points_x[index];
+        qm31 *poly_points_y = points_y[index];
+        int sample_size = sample_sizes[index];
+
+        for (int point_index = 0; point_index < sample_size; point_index++) {
+            qm31 point_x = poly_points_x[point_index];
+            qm31 point_y = poly_points_y[point_index];
+            qm31 value = eval_at_point_2(polynomial, log_polynomial_size, point_x, point_y);
+            // printf("***************************** | val: %d %d %d %d", value.a.a, value.a.b, value.b.a, value.b.b);
+            // printf(" | point x: %d %d %d %d", point_x.a.a, point_x.a.b, point_x.b.a, point_x.b.b);
+            // printf(" | point y: %d %d %d %d\n", point_y.a.a, point_y.a.b, point_y.b.a, point_y.b.b);
+            result[index][point_index] = value;
+        }
+    }
 }
 
 void evaluate_polynomials_out_of_domain(
-    qm31 **result, m31 **polynomials, int *polynomial_sizes, int number_of_polynomials,
+    qm31 **result, m31 **polynomials, int *log_polynomial_sizes, int number_of_polynomials,
     qm31 **out_of_domain_points_x, qm31 **out_of_domain_points_y, int *sample_sizes
 ) {
     qm31 **device_result = clone_to_device<qm31*>(result, number_of_polynomials);
     m31 **device_polynomials = clone_to_device<m31*>(polynomials, number_of_polynomials);
-    int *device_polynomial_sizes = clone_to_device<int>(polynomial_sizes, number_of_polynomials);
+    int *device_log_polynomial_sizes = clone_to_device<int>(log_polynomial_sizes, number_of_polynomials);
     qm31 **device_points_x = clone_to_device<qm31*>(out_of_domain_points_x, number_of_polynomials);
     qm31 **device_points_y = clone_to_device<qm31*>(out_of_domain_points_y, number_of_polynomials);
     int *device_sample_sizes = clone_to_device<int>(sample_sizes, number_of_polynomials);
@@ -178,28 +255,14 @@ void evaluate_polynomials_out_of_domain(
     int block_size = 1;  // 1024
     int shared_memory_bytes = 0;  // Calculate
     eval_polys_at_points<<<number_of_blocks, block_size, shared_memory_bytes>>>(
-        device_result, device_polynomials, device_polynomial_sizes, number_of_polynomials,
-        device_points_x, device_points_y, sample_sizes
+        device_result, device_polynomials, device_log_polynomial_sizes, number_of_polynomials,
+        device_points_x, device_points_y, device_sample_sizes
     );
 
     cuda_free_memory(device_result);
     cuda_free_memory(device_polynomials);
-    cuda_free_memory(device_polynomial_sizes);
+    cuda_free_memory(device_log_polynomial_sizes);
     cuda_free_memory(device_points_x);
     cuda_free_memory(device_points_y);
     cuda_free_memory(device_sample_sizes);
-
-    // for (int index = 0; index < number_of_polynomials; index++) {
-    //     m31 *polynomial = polynomials[index];
-    //     int polynomial_size = polynomial_sizes[index];
-    //     qm31 *poly_points_x = out_of_domain_points_x[index];
-    //     qm31 *poly_points_y = out_of_domain_points_y[index];
-    //     int sample_size = sample_sizes[index];
-
-    //     for (int point_index = 0; point_index < sample_size; point_index++) {
-    //         qm31 point_x = poly_points_x[point_index];
-    //         qm31 point_y = poly_points_y[point_index];
-    //         result[index][point_index] = eval_at_point(polynomial, polynomial_size, point_x, point_y);
-    //     }
-    // }
 };

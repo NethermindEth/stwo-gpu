@@ -105,7 +105,7 @@ impl PolyOps for CudaBackend {
                 .into_iter()
                 .enumerate()
                 .map(|(index, column)| {
-                    let polynomial_sizes: Vec<u32> = column.iter().map( |polynomial| 1 << polynomial.log_size() ).collect();
+                    let log_polynomial_sizes: Vec<u32> = column.iter().map( |polynomial| polynomial.log_size() ).collect();
 
                     let polynomial_coefficients: Vec<*const u32> = column.into_iter().map( |polynomial|
                          polynomial.coeffs.device_ptr
@@ -147,7 +147,7 @@ impl PolyOps for CudaBackend {
                         cuda::bindings::evaluate_polynomials_out_of_domain(
                             evaluation_pointers.as_ptr(),
                             polynomial_coefficients.as_ptr(),
-                            polynomial_sizes.as_ptr(),
+                            log_polynomial_sizes.as_ptr(),
                             polynomial_coefficients.len() as u32,
                             points_x_pointers.as_ptr(),
                             points_y_pointers.as_ptr(),
