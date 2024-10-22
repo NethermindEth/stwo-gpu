@@ -1,4 +1,5 @@
 use crate::cuda::bindings::CudaSecureField;
+use crate::cuda::SecureFieldVec;
 use crate::{
     backend::CudaBackend,
     cuda::{self},
@@ -105,35 +106,41 @@ impl PolyOps for CudaBackend {
                 .enumerate()
                 .map(|(index, column)| {
                     let polynomial_sizes: Vec<u32> = column.iter().map( |polynomial| 1 << polynomial.log_size() ).collect();
-                    let polynomial_coefficients: Vec<*const u32> = column.into_iter().map( |polynomial| polynomial.coeffs.device_ptr ).collect();
+
+                    let polynomial_coefficients: Vec<*const u32> = column.into_iter().map( |polynomial|
+                         polynomial.coeffs.device_ptr
+                    ).collect();
+
                     let out_of_domain_points = &points.0[index];
                     let points_x = out_of_domain_points.iter().map( |points_x_y|
-                        points_x_y.iter().map( |point| CudaSecureField::from(point.x) ).collect_vec()
+                        SecureFieldVec::from_vec(
+                            points_x_y.iter().map( |point| point.x ).collect_vec()
+                        )
                     ).collect_vec();
                     let points_y = out_of_domain_points.iter().map( |points_x_y|
-                        points_x_y.iter().map( |point| CudaSecureField::from(point.y) ).collect_vec()
+                        SecureFieldVec::from_vec(
+                            points_x_y.iter().map( |point| point.y ).collect_vec()
+                        )
                     ).collect_vec();
-                    let points_x_pointers = points_x.iter().map( |point_x_for_polynomial|
-                        point_x_for_polynomial.as_ptr()
+                    let points_x_pointers = points_x.iter().map( |points_x_for_polynomial|
+                        points_x_for_polynomial.device_ptr
                     ).collect_vec();
-                    let points_y_pointers = points_y.iter().map( |point_y_for_polynomial|
-                        point_y_for_polynomial.as_ptr()
+                    let points_y_pointers = points_y.iter().map( |points_y_for_polynomial|
+                        points_y_for_polynomial.device_ptr
                     ).collect_vec();
+
                     let sample_sizes = out_of_domain_points.iter().map( |points_x_y|
                         points_x_y.len() as u32
                     ).collect_vec();
 
-                    let evaluations: Vec<Vec<CudaSecureField>> = (0..polynomial_coefficients.len())
-                        .map( |index|{
-                            let size = sample_sizes[index] as usize;
-                            let mut vector = Vec::with_capacity(size);
-                            unsafe { vector.set_len(size) }
-                            vector
-                        }).collect();
+                    let evaluations: Vec<SecureFieldVec> = (0..polynomial_coefficients.len())
+                        .map( |index|
+                            SecureFieldVec::new_uninitialized(sample_sizes[index] as usize)
+                        ).collect();
                     let evaluation_pointers = evaluations
                         .iter()
                         .map(|evaluation_vector|
-                            evaluation_vector.as_ptr()
+                            evaluation_vector.device_ptr
                         ).collect_vec();
 
                     unsafe {
@@ -152,13 +159,13 @@ impl PolyOps for CudaBackend {
                         .into_iter()
                         .zip(out_of_domain_points)
                         .map(|(values, evaluated_points)|
-                            values
+                            values.to_vec()
                                 .into_iter()
                                 .zip(evaluated_points)
                                 .map( |(value, point)|
                                     PointSample {
                                         point: *point,
-                                        value: SecureField::from(value),
+                                        value,
                                     }
                                 ).collect()
                         ).collect()

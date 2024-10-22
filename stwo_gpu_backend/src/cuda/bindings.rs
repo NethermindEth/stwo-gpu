@@ -159,12 +159,12 @@ extern "C" {
     ) -> CudaSecureField;
 
     pub fn evaluate_polynomials_out_of_domain(
-        result: *const *const CudaSecureField,
+        result: *const *const u32,
         polynomials: *const *const u32,
         polynomial_sizes: *const u32,
         number_of_polynomials: u32,
-        out_of_domain_points_x: *const *const CudaSecureField,
-        out_of_domain_points_y: *const *const CudaSecureField,
+        out_of_domain_points_x: *const *const u32,
+        out_of_domain_points_y: *const *const u32,
         sample_sizes: *const u32,
     );
 
