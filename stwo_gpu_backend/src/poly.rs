@@ -113,20 +113,16 @@ impl PolyOps for CudaBackend {
 
                     let out_of_domain_points = &points.0[index];
                     let points_x = out_of_domain_points.iter().map( |points_x_y|
-                        SecureFieldVec::from_vec(
                             points_x_y.iter().map( |point| point.x ).collect_vec()
-                        )
                     ).collect_vec();
                     let points_y = out_of_domain_points.iter().map( |points_x_y|
-                        SecureFieldVec::from_vec(
                             points_x_y.iter().map( |point| point.y ).collect_vec()
-                        )
                     ).collect_vec();
                     let points_x_pointers = points_x.iter().map( |points_x_for_polynomial|
-                        points_x_for_polynomial.device_ptr
+                        points_x_for_polynomial.as_ptr() as *const u32
                     ).collect_vec();
                     let points_y_pointers = points_y.iter().map( |points_y_for_polynomial|
-                        points_y_for_polynomial.device_ptr
+                        points_y_for_polynomial.as_ptr() as *const u32
                     ).collect_vec();
 
                     let sample_sizes = out_of_domain_points.iter().map( |points_x_y|
