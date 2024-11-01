@@ -5,6 +5,8 @@ use stwo_prover::core::{
     fields::{m31::BaseField, qm31::SecureField},
 };
 
+use super::{BaseFieldVec, SecureFieldVec};
+
 #[repr(C)]
 pub struct CudaSecureField {
     a: BaseField,
@@ -267,5 +269,26 @@ extern "C" {
         denominator_inverses: *const u32,
         extended_domain_size: u32,
         number_of_columns: u32,
+    );
+
+    pub fn next_grand_product_layer(
+        layer: *const CudaSecureField,
+        layer_size: usize,
+        next_layer: *const CudaSecureField,
+        next_layer_size: usize,
+    );
+
+    pub fn next_logup_generic_layer(
+        numerators: *const SecureFieldVec,
+        numerators_size: usize,
+        denominators: *const SecureFieldVec,
+        denominators_size: usize, 
+    );
+
+    pub fn next_secure_logup_layer(
+        numerators: *const BaseFieldVec,
+        numerators_size: usize,
+        denominators: *const SecureFieldVec,
+        denominators_size: usize, 
     );
 }

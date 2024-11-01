@@ -36,3 +36,34 @@ void gen_eq_evals(qm31 v, qm31 *y, uint32_t y_size, qm31 *evals, uint32_t evals_
 
     cudaFree(factors_device);
 }
+
+__host__ __device__ Fraction<qm31> add_fraction(Fraction<m31> lhs, Fraction<qm31> rhs) {
+    qm31 numerator = add(mul(lhs.numerator, rhs.denominator), mul(rhs.numerator, lhs.denominator)); 
+    qm31 denominator = mul(lhs.denominator, rhs.denominator); 
+    return Fraction<qm31> {numerator, denominator}; 
+}
+
+__host__ __device__ Fraction<qm31> add_fraction(Fraction<qm31> lhs, Fraction<qm31> rhs) {
+    qm31 numerator = add(mul(lhs.numerator, rhs.denominator), mul(rhs.numerator, lhs.denominator)); 
+    qm31 denominator = mul(lhs.denominator, rhs.denominator); 
+    return Fraction<qm31> {numerator, denominator}; 
+}
+
+
+__global__ void next_grand_product_layer_kernel(qm31 *layer, uint32_t layer_size, qm31 *next_layer, uint32_t next_layer_size) {
+    unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (tid < next_layer_size) {
+        next_layer[tid] = mul(layer[tid * 2], layer[tid * 2 + 1]);
+    }
+}
+
+void next_grand_product_layer(qm31 *layer, uint32_t layer_size, qm31 *next_layer, uint32_t next_layer_size) {
+    const unsigned int BLOCK_SIZE = 1024;
+    const unsigned int NUM_BLOCKS = (layer_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
+    uint32_t next_layer_size = layer_size / 2;
+    qm31 *next_layer = (qm31 *)malloc(sizeof(qm31) * next_layer_size);
+    next_grand_product_layer_kernel<<<NUM_BLOCKS, BLOCK_SIZE>>>(layer, layer_size, next_layer, next_layer_size); 
+    cudaDeviceSynchronize();
+}
