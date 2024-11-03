@@ -8,6 +8,11 @@ use stwo_prover::core::{
 use super::{BaseFieldVec, SecureFieldVec};
 
 #[repr(C)]
+pub struct CudaBaseField {
+    a: BaseField,
+}
+
+#[repr(C)]
 pub struct CudaSecureField {
     a: BaseField,
     b: BaseField,
@@ -279,16 +284,29 @@ extern "C" {
     );
 
     pub fn next_logup_generic_layer(
-        numerators: *const SecureFieldVec,
-        numerators_size: usize,
-        denominators: *const SecureFieldVec,
-        denominators_size: usize, 
+        numerators: *const CudaSecureField,
+        denominators: *const CudaSecureField,
+        size: usize, 
+        next_numerators: *const CudaSecureField,
+        next_denominators: *const CudaSecureField,
+        next_size: usize, 
     );
 
-    pub fn next_secure_logup_layer(
-        numerators: *const BaseFieldVec,
-        numerators_size: usize,
-        denominators: *const SecureFieldVec,
-        denominators_size: usize, 
+    pub fn next_logup_multiplicities_layer(
+        numerators: *const CudaBaseField,
+        denominators: *const CudaSecureField,
+        size: usize, 
+        next_numerators: *const CudaSecureField,
+        next_denominators: *const CudaSecureField,
+        next_size: usize, 
     );
+
+    pub fn next_logup_singles_layer(
+        denominators: *const CudaSecureField,
+        size: usize, 
+        next_numerators: *const CudaSecureField,
+        next_denominators: *const CudaSecureField,
+        next_size: usize, 
+    );
+
 }

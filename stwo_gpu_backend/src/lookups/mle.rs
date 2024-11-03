@@ -77,7 +77,7 @@ mod tests {
         let mle_cpu = Mle::<CpuBackend, BaseField>::new(values);
         let random_assignment = SecureField::from_u32_unchecked(7, 12, 3, 2);
         let mle_fixed_cpu = MleOps::<BaseField>::fix_first_variable(mle_cpu, random_assignment);
-
+        
         let mle_fixed_simd = MleOps::<BaseField>::fix_first_variable(mle_cuda, random_assignment);
 
         assert_eq!(mle_fixed_simd.into_evals().to_cpu(), *mle_fixed_cpu)
