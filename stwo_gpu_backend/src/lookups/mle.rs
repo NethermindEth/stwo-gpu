@@ -39,8 +39,6 @@ impl MleOps<SecureField> for CudaBackend {
     where
         Self: MleOps<SecureField>,
     {
-        println!("mle {:?}", mle.clone().to_cpu());
-
         let evals_size = mle.len();
         let result_evals = SecureFieldVec::new_uninitialized(evals_size >> 1);
         unsafe {
@@ -51,7 +49,6 @@ impl MleOps<SecureField> for CudaBackend {
                 result_evals.device_ptr,
             )
         }
-        println!("evals {:?}\n", result_evals.clone().to_cpu());
 
         Mle::new(result_evals)
     }

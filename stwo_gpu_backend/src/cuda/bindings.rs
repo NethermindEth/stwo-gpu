@@ -317,4 +317,33 @@ extern "C" {
         eval_at_2: *const CudaSecureField,
     );
 
+    pub fn eval_logup_generic_sum(
+        eq_evals: *const CudaSecureField,
+        numerators: *const CudaSecureField,
+        denominators: *const CudaSecureField,
+        n_terms: usize,
+        lambda: CudaSecureField,
+        eval_at_0: *const CudaSecureField,
+        eval_at_2: *const CudaSecureField,
+    );
+
+    pub fn eval_logup_multiplicities_sum(
+        eq_evals: *const CudaSecureField,
+        numerators: *const CudaBaseField,
+        denominators: *const CudaSecureField,
+        n_terms: usize,
+        lambda: CudaSecureField,
+        eval_at_0: *const CudaSecureField,
+        eval_at_2: *const CudaSecureField,
+    );
+
+    pub fn eval_logup_singles_sum(
+        eq_evals: *const CudaSecureField,
+        denominators: *const CudaSecureField,
+        n_terms: usize,
+        lambda: CudaSecureField,
+        eval_at_0: *const CudaSecureField,
+        eval_at_2: *const CudaSecureField,
+    );
+
 }
