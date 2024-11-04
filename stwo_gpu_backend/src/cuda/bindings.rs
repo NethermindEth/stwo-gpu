@@ -309,4 +309,12 @@ extern "C" {
         next_size: usize, 
     );
 
+    pub fn eval_grand_product_sum(
+        eq_evals: *const CudaSecureField,
+        input_layer: *const CudaSecureField,
+        n_terms: usize,
+        eval_at_0: *const CudaSecureField,
+        eval_at_2: *const CudaSecureField,
+    );
+
 }

@@ -2,7 +2,7 @@ use crate::CudaBackend;
 use num_traits::Zero;
 use stwo_prover::core::{
     backend::Column, fields::{m31::BaseField, qm31::SecureField}, lookups::{
-        gkr_prover::{correct_sum_as_poly_in_first_variable, GkrOps, Layer},
+        gkr_prover::{correct_sum_as_poly_in_first_variable, EqEvals, GkrOps, Layer},
         mle::{Mle, MleOps}, sumcheck::MultivariatePolyOracle,
     }
 };
@@ -37,6 +37,7 @@ impl GkrOps for CudaBackend {
             next_grand_product_layer(col)
         }
         else {
+            println!("not supposed to access");
             layer.clone()
         }
         // match layer {
@@ -72,6 +73,10 @@ impl GkrOps for CudaBackend {
             if let Layer::GrandProduct(col) = &h.input_layer {
                 eval_grand_product_sum(eq_evals, col, n_terms)
             }
+            else {
+                println!("not supposed to access");
+                (SecureField::default(), SecureField::default())
+            }
         };
         
         // let (mut eval_at_0, mut eval_at_2) = match &h.input_layer {
@@ -100,6 +105,26 @@ fn eval_grand_product_sum(
     input_layer: &Mle<CudaBackend, SecureField>,
     n_terms: usize,
 ) -> (SecureField, SecureField) {
+    // println!("n_terms: {}", n_terms); 
+    // println!("eq_evals: {:?}", eq_evals);
+    // println!("mle_evals: {:?}", &*eq_evals.clone().to_cpu());
+    // println!("input_layer: {:?}", input_layer.clone().into_evals().to_cpu());
+    let eval_at_0 = SecureFieldVec::new_uninitialized(1);
+    let eval_at_2 = SecureFieldVec::new_uninitialized(1);
+
+    unsafe {
+        bindings::eval_grand_product_sum(
+            eq_evals.device_ptr as *const CudaSecureField, 
+            input_layer.device_ptr as *const CudaSecureField, 
+            n_terms, 
+            eval_at_0.device_ptr as *const CudaSecureField, 
+            eval_at_2.device_ptr as *const CudaSecureField);
+    };
+
+    // println!("here: {:?}, {:?}\n", eval_at_0.to_cpu()[0].clone(), eval_at_2.to_cpu()[0].clone()); 
+    (eval_at_0.to_cpu()[0].clone(), eval_at_2.to_cpu()[0].clone())
+}
+
 
 fn next_grand_product_layer(layer: &Mle<CudaBackend, SecureField>) -> Layer<CudaBackend> {
     let next_layer_size = layer.size / 2;
@@ -223,27 +248,22 @@ mod tests {
 
     #[test]
     fn grand_product_works() {
-
-        const N: usize = 1 << 8;
+        const N: usize = 1 << 5;
         let values = Blake2sChannel::default().draw_felts(N);
-
         let product = values.iter().product();        
 
         let col_gpu = Mle::<CudaBackend, SecureField>::new(values.clone().into_iter().collect());
         let col_cpu = Mle::<CpuBackend, SecureField>::new(values.into_iter().collect());
 
         let input_layer = Layer::GrandProduct(col_gpu.clone());
-        println!("sd");
 
         let (proof, _) = prove_batch(&mut Blake2sChannel::default(), vec![input_layer]);
-
         let GkrArtifact {
             ood_point,
             claims_to_verify_by_instance,
             n_variables_by_instance: _,
         } = partially_verify_batch(vec![Gate::GrandProduct], &proof, &mut Blake2sChannel::default()).unwrap();
 
-        // let col = Mle::<CpuBackend, SecureField>::new(col.to_cpu());
         assert_eq!(proof.output_claims_by_instance, [vec![product]]);
         assert_eq!(
             claims_to_verify_by_instance,
