@@ -297,7 +297,7 @@ mod tests {
 
     #[test]
     fn grand_product_works() {
-        const N: usize = 1 << 12;
+        const N: usize = 1 << 18;
         let values = Blake2sChannel::default().draw_felts(N);
         let product = values.iter().product();        
 
@@ -322,7 +322,7 @@ mod tests {
 
     #[test]
     fn logup_with_generic_trace_works() {
-        const N: usize = 1 << 12;
+        const N: usize = 1 << 18;
         let mut rng = SmallRng::seed_from_u64(0);
         let numerator_values = (0..N).map(|_| rng.gen()).collect::<Vec<SecureField>>();
         let denominator_values = (0..N).map(|_| rng.gen()).collect::<Vec<SecureField>>();
@@ -363,7 +363,7 @@ mod tests {
 
     #[test]
     fn logup_with_multiplicities_trace_works() {
-        const N: usize = 1 << 12;
+        const N: usize = 1 << 18;
         let mut rng = SmallRng::seed_from_u64(0);
         let numerator_values = (0..N).map(|_| rng.gen()).collect::<Vec<BaseField>>();
         let denominator_values = (0..N).map(|_| rng.gen()).collect::<Vec<SecureField>>();
@@ -404,7 +404,7 @@ mod tests {
 
     #[test]
     fn logup_with_singles_trace_works() {
-        const N: usize = 1 << 12;
+        const N: usize = 1 << 18;
         let mut rng = SmallRng::seed_from_u64(0);
         let denominator_values = (0..N).map(|_| rng.gen()).collect::<Vec<SecureField>>();
         let sum = denominator_values
