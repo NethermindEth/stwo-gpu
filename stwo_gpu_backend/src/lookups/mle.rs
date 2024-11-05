@@ -16,7 +16,7 @@ impl MleOps<BaseField> for CudaBackend {
     ) -> Mle<Self, SecureField>
     where
         Self: MleOps<SecureField>,
-    {   
+    {
         let evals_size = mle.len();
         let result_evals = SecureFieldVec::new_uninitialized(evals_size >> 1);
         unsafe {
