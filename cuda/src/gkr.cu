@@ -55,6 +55,30 @@ __device__ Fraction<qm31> add_reciprocal(Reciprocal<qm31> lhs, Reciprocal<qm31> 
     return Fraction<qm31>(add(lhs.x, rhs.x), mul(lhs.x, rhs.x));
 }
 
+// Function performs a tree-style reduction for efficient value aggregation
+// Size of output is the number of blocks
+__global__ void reduction_kernel(qm31 *input, uint32_t input_size, qm31 *output) {
+    unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    __shared__ qm31 shared_eval[1024];
+    if (tid < input_size) {
+        shared_eval[threadIdx.x] = input[tid];
+    }
+    else {
+        shared_eval[threadIdx.x] = {0, 0, 0, 0};
+    }
+    __syncthreads();
+
+    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (threadIdx.x < s) {
+            shared_eval[threadIdx.x] = add(shared_eval[threadIdx.x], shared_eval[threadIdx.x + s]);
+        }
+        __syncthreads();
+    }
+
+    if (threadIdx.x == 0) output[blockIdx.x] = shared_eval[0];
+}
+
 __global__ void next_grand_product_layer_kernel(qm31 *layer, uint32_t layer_size, qm31 *next_layer, uint32_t next_layer_size) {
     unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid < next_layer_size) {
@@ -69,7 +93,106 @@ void next_grand_product_layer(qm31 *layer, uint32_t layer_size, qm31 *next_layer
     cudaDeviceSynchronize();
 }
 
-// optimize(daniel): use uint4 built in?
+__global__ void next_logup_generic_layer_kernel(
+    qm31 *numerators, 
+    qm31 *denominators, 
+    uint32_t size, 
+    qm31 *next_numerators, 
+    qm31 *next_denominators, 
+    uint32_t next_size
+) {
+    unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid < next_size) {
+        Fraction<qm31> a = Fraction<qm31>(numerators[tid * 2], denominators[tid * 2]);
+        Fraction<qm31> b = Fraction<qm31>(numerators[tid * 2 + 1], denominators[tid * 2 + 1]);
+
+        Fraction<qm31> res = add_fraction(a, b);
+        next_numerators[tid] = res.numerator; 
+        next_denominators[tid] = res.denominator; 
+    }
+}
+
+void next_logup_generic_layer(
+    qm31 *numerators, 
+    qm31 *denominators, 
+    uint32_t size, 
+    qm31 *next_numerators, 
+    qm31 *next_denominators, 
+    uint32_t next_size
+) {
+    const unsigned int BLOCK_SIZE = 1024;
+    const unsigned int NUM_BLOCKS = (next_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
+    next_logup_generic_layer_kernel<<<NUM_BLOCKS, BLOCK_SIZE>>>(numerators, denominators, size, next_numerators, next_denominators, next_size); 
+    cudaDeviceSynchronize();
+}
+
+__global__ void next_logup_multiplicities_layer_kernel(
+    m31 *numerators, 
+    qm31 *denominators, 
+    uint32_t size, 
+    qm31 *next_numerators, 
+    qm31 *next_denominators, 
+    uint32_t next_size
+) {
+    unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid < next_size) {
+        Fraction<m31> a = Fraction<m31>(numerators[tid * 2], denominators[tid * 2]);
+        Fraction<m31> b = Fraction<m31>(numerators[tid * 2 + 1], denominators[tid * 2 + 1]);
+
+        Fraction<qm31> res = add_fraction(a, b);
+        next_numerators[tid] = res.numerator; 
+        next_denominators[tid] = res.denominator; 
+    }
+}
+
+void next_logup_multiplicities_layer(
+    m31 *numerators, 
+    qm31 *denominators, 
+    uint32_t size, 
+    qm31 *next_numerators, 
+    qm31 *next_denominators, 
+    uint32_t next_size
+) {
+    const unsigned int BLOCK_SIZE = 1024;
+    const unsigned int NUM_BLOCKS = (next_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
+    next_logup_multiplicities_layer_kernel<<<NUM_BLOCKS, BLOCK_SIZE>>>(numerators, denominators, size, next_numerators, next_denominators, next_size); 
+    cudaDeviceSynchronize();
+}
+
+__global__ void next_logup_singles_layer_kernel(
+    qm31 *denominators, 
+    uint32_t size, 
+    qm31 *next_numerators, 
+    qm31 *next_denominators, 
+    uint32_t next_size
+) {
+    unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid < next_size) {
+        Reciprocal<qm31> even = Reciprocal<qm31>(denominators[tid * 2]);
+        Reciprocal<qm31> odd = Reciprocal<qm31>(denominators[tid * 2 + 1]);
+        Fraction<qm31> res = add_reciprocal(even, odd);
+
+        next_numerators[tid] = res.numerator; 
+        next_denominators[tid] = res.denominator; 
+    }
+}
+
+void next_logup_singles_layer(
+    qm31 *denominators, 
+    uint32_t size, 
+    qm31 *next_numerators, 
+    qm31 *next_denominators, 
+    uint32_t next_size
+) {
+    const unsigned int BLOCK_SIZE = 1024;
+    const unsigned int NUM_BLOCKS = (next_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
+    next_logup_singles_layer_kernel<<<NUM_BLOCKS, BLOCK_SIZE>>>(denominators, size, next_numerators, next_denominators, next_size); 
+    cudaDeviceSynchronize();
+}
+
 __global__ void eval_grand_product_sum_kernel( 
     qm31 *eq_evals, 
     qm31 *input_layer, 
@@ -131,8 +254,6 @@ void eval_grand_product_sum(
     const unsigned int NUM_BLOCKS = (n_terms + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
     // Arrays for intra-block reduction
-    qm31 *eval_at_0_temp_h = (qm31 *)malloc(sizeof(qm31) * NUM_BLOCKS);
-    qm31 *eval_at_2_temp_h = (qm31 *)malloc(sizeof(qm31) * NUM_BLOCKS);
     qm31 *eval_at_0_temp_d;
     qm31 *eval_at_2_temp_d;
 
@@ -147,59 +268,46 @@ void eval_grand_product_sum(
         eval_at_0_temp_d,
         eval_at_2_temp_d
     );
-    cudaDeviceSynchronize();
 
-    // Post intra-block reduction
-    // todo(daniel): move to kernel
-    cudaMemcpy(eval_at_0_temp_h, eval_at_0_temp_d, sizeof(qm31) * NUM_BLOCKS, cudaMemcpyDeviceToHost);
-    cudaMemcpy(eval_at_2_temp_h, eval_at_2_temp_d, sizeof(qm31) * NUM_BLOCKS, cudaMemcpyDeviceToHost);
-
-    for (int i = 1; i < NUM_BLOCKS; ++i) {
-        eval_at_0_temp_h[0] = add(eval_at_0_temp_h[0], eval_at_0_temp_h[i]);
-        eval_at_2_temp_h[0] = add(eval_at_2_temp_h[0], eval_at_2_temp_h[i]);
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        fprintf(stderr, "eval_grand_product_sum_kernel launch error: %s\n", cudaGetErrorString(err));
     }
 
-    cudaMemcpy(eval_at_0, eval_at_0_temp_h, sizeof(qm31), cudaMemcpyHostToDevice);
-    cudaMemcpy(eval_at_2, eval_at_2_temp_h, sizeof(qm31), cudaMemcpyHostToDevice);
+    // Synchronize to catch any runtime errors
+    err = cudaDeviceSynchronize();
+    if (err != cudaSuccess) {
+        fprintf(stderr, "eval_grand_product_sum_kernel execution error: %s\n", cudaGetErrorString(err));
+    }
 
-    free(eval_at_0_temp_h);
-    free(eval_at_2_temp_h);
+    // Post intra-block reduction 
+    const int BLOCK_REDUCTION_SIZE = 1024;
+    unsigned int input_size = NUM_BLOCKS; 
+    while (input_size > 1) {
+        unsigned int num_blocks = (input_size + BLOCK_REDUCTION_SIZE - 1) / BLOCK_REDUCTION_SIZE;
+
+        // eval 0
+        qm31 *reduction_output_0;
+        cudaMalloc((void **)&reduction_output_0, sizeof(qm31) * num_blocks);
+        reduction_kernel<<<num_blocks, BLOCK_REDUCTION_SIZE>>>(eval_at_0_temp_d, input_size, reduction_output_0);
+        cudaFree(eval_at_0_temp_d); 
+        eval_at_0_temp_d = reduction_output_0;
+
+        // eval 2
+        qm31 *reduction_output_2;
+        cudaMalloc((void **)&reduction_output_2, sizeof(qm31) * num_blocks);
+        reduction_kernel<<<num_blocks, BLOCK_REDUCTION_SIZE>>>(eval_at_2_temp_d, input_size, reduction_output_2);
+        cudaFree(eval_at_2_temp_d); 
+        eval_at_2_temp_d = reduction_output_2;
+
+        input_size = num_blocks;
+    }
+
+    cudaMemcpy(eval_at_0, eval_at_0_temp_d, sizeof(qm31), cudaMemcpyDeviceToDevice);
+    cudaMemcpy(eval_at_2, eval_at_2_temp_d, sizeof(qm31), cudaMemcpyDeviceToDevice);
+
     cudaFree(eval_at_0_temp_d);
     cudaFree(eval_at_2_temp_d);
-}
-
-__global__ void next_logup_generic_layer_kernel(
-    qm31 *numerators, 
-    qm31 *denominators, 
-    uint32_t size, 
-    qm31 *next_numerators, 
-    qm31 *next_denominators, 
-    uint32_t next_size
-) {
-    unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid < next_size) {
-        Fraction<qm31> a = Fraction<qm31>(numerators[tid * 2], denominators[tid * 2]);
-        Fraction<qm31> b = Fraction<qm31>(numerators[tid * 2 + 1], denominators[tid * 2 + 1]);
-
-        Fraction<qm31> res = add_fraction(a, b);
-        next_numerators[tid] = res.numerator; 
-        next_denominators[tid] = res.denominator; 
-    }
-}
-
-void next_logup_generic_layer(
-    qm31 *numerators, 
-    qm31 *denominators, 
-    uint32_t size, 
-    qm31 *next_numerators, 
-    qm31 *next_denominators, 
-    uint32_t next_size
-) {
-    const unsigned int BLOCK_SIZE = 1024;
-    const unsigned int NUM_BLOCKS = (next_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
-
-    next_logup_generic_layer_kernel<<<NUM_BLOCKS, BLOCK_SIZE>>>(numerators, denominators, size, next_numerators, next_denominators, next_size); 
-    cudaDeviceSynchronize();
 }
 
 __global__ void eval_logup_generic_sum_kernel(
@@ -241,9 +349,6 @@ __global__ void eval_logup_generic_sum_kernel(
 
         shared_eval_0[threadIdx.x] = mul(eq_evals[tid], add(fraction_eval_0.numerator, mul(lambda, fraction_eval_0.denominator))); 
         shared_eval_2[threadIdx.x] = mul(eq_evals[tid], add(fraction_eval_2.numerator, mul(lambda, fraction_eval_2.denominator))); 
-
-        // shared_eval_0[threadIdx.x] = inp_numer_at_r0i1;
-        // shared_eval_2[threadIdx.x] = inp_denom_at_r0i1;
     }
     __syncthreads();
 
@@ -277,8 +382,6 @@ void eval_logup_generic_sum(
     const unsigned int NUM_BLOCKS = (n_terms + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
     // Arrays for intra-block reduction
-    qm31 *eval_at_0_temp_h = (qm31 *)malloc(sizeof(qm31) * NUM_BLOCKS);
-    qm31 *eval_at_2_temp_h = (qm31 *)malloc(sizeof(qm31) * NUM_BLOCKS);
     qm31 *eval_at_0_temp_d;
     qm31 *eval_at_2_temp_d;
 
@@ -294,38 +397,44 @@ void eval_logup_generic_sum(
         eval_at_0_temp_d,
         eval_at_2_temp_d
     );
-     //   printf("ASDA\n\n\n");
 
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
-        printf("eval_logup_generic_sum_kernel launch error: %s\n", cudaGetErrorString(err));
+        fprintf(stderr, "eval_logup_generic_sum_kernel launch error: %s\n", cudaGetErrorString(err));
     }
 
     // Synchronize to catch any runtime errors
     err = cudaDeviceSynchronize();
     if (err != cudaSuccess) {
-        printf("eval_logup_generic_sum_kernel execution error: %s\n", cudaGetErrorString(err));
+        fprintf(stderr, "eval_logup_generic_sum_kernel execution error: %s\n", cudaGetErrorString(err));
     }
 
-    // Post intra-block reduction
-    cudaMemcpy(eval_at_0_temp_h, eval_at_0_temp_d, sizeof(qm31) * NUM_BLOCKS, cudaMemcpyDeviceToHost);
-    cudaMemcpy(eval_at_2_temp_h, eval_at_2_temp_d, sizeof(qm31) * NUM_BLOCKS, cudaMemcpyDeviceToHost);
+    // Post intra-block reduction 
+    const int BLOCK_REDUCTION_SIZE = 1024;
+    unsigned int input_size = NUM_BLOCKS; 
+    while (input_size > 1) {
+        unsigned int num_blocks = (input_size + BLOCK_REDUCTION_SIZE - 1) / BLOCK_REDUCTION_SIZE;
 
-    // for (int i = 1; i < NUM_BLOCKS; ++i) {
-    //     eval_at_0_temp_h[0] = add(eval_at_0_temp_h[0], eval_at_0_temp_h[i]);
-    //     eval_at_2_temp_h[0] = add(eval_at_2_temp_h[0], eval_at_2_temp_h[i]);
-    // }
+        // eval 0
+        qm31 *reduction_output_0;
+        cudaMalloc((void **)&reduction_output_0, sizeof(qm31) * num_blocks);
+        reduction_kernel<<<num_blocks, BLOCK_REDUCTION_SIZE>>>(eval_at_0_temp_d, input_size, reduction_output_0);
+        cudaFree(eval_at_0_temp_d); 
+        eval_at_0_temp_d = reduction_output_0;
 
-    // printf("num: %u, %u, %u, %u", eval_at_0_temp_h[0].a.a, eval_at_0_temp_h[0].a.b, eval_at_0_temp_h[0].b.a, eval_at_0_temp_h[0].b.b);
-    // printf("den: %u, %u, %u, %u", eval_at_2_temp_h[0].a.a, eval_at_2_temp_h[0].a.b, eval_at_2_temp_h[0].b.a, eval_at_2_temp_h[0].b.b);
-    //     printf("ASDA\n\n\n");
+        // eval 2
+        qm31 *reduction_output_2;
+        cudaMalloc((void **)&reduction_output_2, sizeof(qm31) * num_blocks);
+        reduction_kernel<<<num_blocks, BLOCK_REDUCTION_SIZE>>>(eval_at_2_temp_d, input_size, reduction_output_2);
+        cudaFree(eval_at_2_temp_d); 
+        eval_at_2_temp_d = reduction_output_2;
 
-    
-    cudaMemcpy(eval_at_0, eval_at_0_temp_h, sizeof(qm31), cudaMemcpyHostToDevice);
-    cudaMemcpy(eval_at_2, eval_at_2_temp_h, sizeof(qm31), cudaMemcpyHostToDevice);
+        input_size = num_blocks;
+    }
 
-    free(eval_at_0_temp_h);
-    free(eval_at_2_temp_h);
+    cudaMemcpy(eval_at_0, eval_at_0_temp_d, sizeof(qm31), cudaMemcpyDeviceToDevice);
+    cudaMemcpy(eval_at_2, eval_at_2_temp_d, sizeof(qm31), cudaMemcpyDeviceToDevice);
+
     cudaFree(eval_at_0_temp_d);
     cudaFree(eval_at_2_temp_d);
 }
@@ -369,9 +478,6 @@ __global__ void eval_logup_multiplicities_sum_kernel(
 
         shared_eval_0[threadIdx.x] = mul(eq_evals[tid], add(fraction_eval_0.numerator, mul(lambda, fraction_eval_0.denominator))); 
         shared_eval_2[threadIdx.x] = mul(eq_evals[tid], add(fraction_eval_2.numerator, mul(lambda, fraction_eval_2.denominator))); 
-
-        // shared_eval_0[threadIdx.x] = inp_numer_at_r0i1;
-        // shared_eval_2[threadIdx.x] = inp_denom_at_r0i1;
     }
     __syncthreads();
 
@@ -405,8 +511,6 @@ void eval_logup_multiplicities_sum(
     const unsigned int NUM_BLOCKS = (n_terms + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
     // Arrays for intra-block reduction
-    qm31 *eval_at_0_temp_h = (qm31 *)malloc(sizeof(qm31) * NUM_BLOCKS);
-    qm31 *eval_at_2_temp_h = (qm31 *)malloc(sizeof(qm31) * NUM_BLOCKS);
     qm31 *eval_at_0_temp_d;
     qm31 *eval_at_2_temp_d;
 
@@ -422,38 +526,43 @@ void eval_logup_multiplicities_sum(
         eval_at_0_temp_d,
         eval_at_2_temp_d
     );
-     //   printf("ASDA\n\n\n");
 
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
-        printf("eval_logup_multiplicities_sum launch error: %s\n", cudaGetErrorString(err));
+        fprintf(stderr, "eval_logup_multiplicities_sum_kernel launch error: %s\n", cudaGetErrorString(err));
     }
 
     // Synchronize to catch any runtime errors
     err = cudaDeviceSynchronize();
     if (err != cudaSuccess) {
-        printf("eval_logup_multiplicities_sum execution error: %s\n", cudaGetErrorString(err));
+        fprintf(stderr, "eval_logup_multiplicities_sum_kernel execution error: %s\n", cudaGetErrorString(err));
     }
 
-    // Post intra-block reduction
-    cudaMemcpy(eval_at_0_temp_h, eval_at_0_temp_d, sizeof(qm31) * NUM_BLOCKS, cudaMemcpyDeviceToHost);
-    cudaMemcpy(eval_at_2_temp_h, eval_at_2_temp_d, sizeof(qm31) * NUM_BLOCKS, cudaMemcpyDeviceToHost);
+    // Post intra-block reduction 
+    const int BLOCK_REDUCTION_SIZE = 1024;
+    unsigned int input_size = NUM_BLOCKS; 
+    while (input_size > 1) {
+        unsigned int num_blocks = (input_size + BLOCK_REDUCTION_SIZE - 1) / BLOCK_REDUCTION_SIZE;
 
-    // for (int i = 1; i < NUM_BLOCKS; ++i) {
-    //     eval_at_0_temp_h[0] = add(eval_at_0_temp_h[0], eval_at_0_temp_h[i]);
-    //     eval_at_2_temp_h[0] = add(eval_at_2_temp_h[0], eval_at_2_temp_h[i]);
-    // }
+        // eval 0
+        qm31 *reduction_output_0;
+        cudaMalloc((void **)&reduction_output_0, sizeof(qm31) * num_blocks);
+        reduction_kernel<<<num_blocks, BLOCK_REDUCTION_SIZE>>>(eval_at_0_temp_d, input_size, reduction_output_0);
+        cudaFree(eval_at_0_temp_d); 
+        eval_at_0_temp_d = reduction_output_0;
 
-    // printf("num: %u, %u, %u, %u", eval_at_0_temp_h[0].a.a, eval_at_0_temp_h[0].a.b, eval_at_0_temp_h[0].b.a, eval_at_0_temp_h[0].b.b);
-    // printf("den: %u, %u, %u, %u", eval_at_2_temp_h[0].a.a, eval_at_2_temp_h[0].a.b, eval_at_2_temp_h[0].b.a, eval_at_2_temp_h[0].b.b);
-    //     printf("ASDA\n\n\n");
+        // eval 2
+        qm31 *reduction_output_2;
+        cudaMalloc((void **)&reduction_output_2, sizeof(qm31) * num_blocks);
+        reduction_kernel<<<num_blocks, BLOCK_REDUCTION_SIZE>>>(eval_at_2_temp_d, input_size, reduction_output_2);
+        cudaFree(eval_at_2_temp_d); 
+        eval_at_2_temp_d = reduction_output_2;
 
-    
-    cudaMemcpy(eval_at_0, eval_at_0_temp_h, sizeof(qm31), cudaMemcpyHostToDevice);
-    cudaMemcpy(eval_at_2, eval_at_2_temp_h, sizeof(qm31), cudaMemcpyHostToDevice);
+        input_size = num_blocks;
+    }
 
-    free(eval_at_0_temp_h);
-    free(eval_at_2_temp_h);
+    cudaMemcpy(eval_at_0, eval_at_0_temp_d, sizeof(qm31), cudaMemcpyDeviceToDevice);
+    cudaMemcpy(eval_at_2, eval_at_2_temp_d, sizeof(qm31), cudaMemcpyDeviceToDevice);
     cudaFree(eval_at_0_temp_d);
     cudaFree(eval_at_2_temp_d);
 }
@@ -490,9 +599,6 @@ __global__ void eval_logup_singles_sum_kernel(
 
         shared_eval_0[threadIdx.x] = mul(eq_evals[tid], add(fraction_eval_0.numerator, mul(lambda, fraction_eval_0.denominator))); 
         shared_eval_2[threadIdx.x] = mul(eq_evals[tid], add(fraction_eval_2.numerator, mul(lambda, fraction_eval_2.denominator))); 
-
-        // shared_eval_0[threadIdx.x] = inp_numer_at_r0i1;
-        // shared_eval_2[threadIdx.x] = inp_denom_at_r0i1;
     }
     __syncthreads();
 
@@ -525,8 +631,6 @@ void eval_logup_singles_sum(
     const unsigned int NUM_BLOCKS = (n_terms + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
     // Arrays for intra-block reduction
-    qm31 *eval_at_0_temp_h = (qm31 *)malloc(sizeof(qm31) * NUM_BLOCKS);
-    qm31 *eval_at_2_temp_h = (qm31 *)malloc(sizeof(qm31) * NUM_BLOCKS);
     qm31 *eval_at_0_temp_d;
     qm31 *eval_at_2_temp_d;
 
@@ -541,105 +645,44 @@ void eval_logup_singles_sum(
         eval_at_0_temp_d,
         eval_at_2_temp_d
     );
-     //   printf("ASDA\n\n\n");
 
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
-        printf("eval_logup_singles_sum launch error: %s\n", cudaGetErrorString(err));
+        fprintf(stderr, "eval_logup_singles_sum_kernel launch error: %s\n", cudaGetErrorString(err));
     }
 
     // Synchronize to catch any runtime errors
     err = cudaDeviceSynchronize();
     if (err != cudaSuccess) {
-        printf("eval_logup_singles_sum execution error: %s\n", cudaGetErrorString(err));
+        fprintf(stderr, "eval_logup_singles_sum_kernel execution error: %s\n", cudaGetErrorString(err));
     }
 
-    // Post intra-block reduction
-    cudaMemcpy(eval_at_0_temp_h, eval_at_0_temp_d, sizeof(qm31) * NUM_BLOCKS, cudaMemcpyDeviceToHost);
-    cudaMemcpy(eval_at_2_temp_h, eval_at_2_temp_d, sizeof(qm31) * NUM_BLOCKS, cudaMemcpyDeviceToHost);
+    // Post intra-block reduction 
+    const int BLOCK_REDUCTION_SIZE = 1024;
+    unsigned int input_size = NUM_BLOCKS; 
+    while (input_size > 1) {
+        unsigned int num_blocks = (input_size + BLOCK_REDUCTION_SIZE - 1) / BLOCK_REDUCTION_SIZE;
 
-    // for (int i = 1; i < NUM_BLOCKS; ++i) {
-    //     eval_at_0_temp_h[0] = add(eval_at_0_temp_h[0], eval_at_0_temp_h[i]);
-    //     eval_at_2_temp_h[0] = add(eval_at_2_temp_h[0], eval_at_2_temp_h[i]);
-    // }
+        // eval 0
+        qm31 *reduction_output_0;
+        cudaMalloc((void **)&reduction_output_0, sizeof(qm31) * num_blocks);
+        reduction_kernel<<<num_blocks, BLOCK_REDUCTION_SIZE>>>(eval_at_0_temp_d, input_size, reduction_output_0);
+        cudaFree(eval_at_0_temp_d); 
+        eval_at_0_temp_d = reduction_output_0;
 
-    // printf("num: %u, %u, %u, %u", eval_at_0_temp_h[0].a.a, eval_at_0_temp_h[0].a.b, eval_at_0_temp_h[0].b.a, eval_at_0_temp_h[0].b.b);
-    // printf("den: %u, %u, %u, %u", eval_at_2_temp_h[0].a.a, eval_at_2_temp_h[0].a.b, eval_at_2_temp_h[0].b.a, eval_at_2_temp_h[0].b.b);
-    //     printf("ASDA\n\n\n");
+        // eval 2
+        qm31 *reduction_output_2;
+        cudaMalloc((void **)&reduction_output_2, sizeof(qm31) * num_blocks);
+        reduction_kernel<<<num_blocks, BLOCK_REDUCTION_SIZE>>>(eval_at_2_temp_d, input_size, reduction_output_2);
+        cudaFree(eval_at_2_temp_d); 
+        eval_at_2_temp_d = reduction_output_2;
 
-    
-    cudaMemcpy(eval_at_0, eval_at_0_temp_h, sizeof(qm31), cudaMemcpyHostToDevice);
-    cudaMemcpy(eval_at_2, eval_at_2_temp_h, sizeof(qm31), cudaMemcpyHostToDevice);
+        input_size = num_blocks;
+    }
 
-    free(eval_at_0_temp_h);
-    free(eval_at_2_temp_h);
+    cudaMemcpy(eval_at_0, eval_at_0_temp_d, sizeof(qm31), cudaMemcpyDeviceToDevice);
+    cudaMemcpy(eval_at_2, eval_at_2_temp_d, sizeof(qm31), cudaMemcpyDeviceToDevice);
     cudaFree(eval_at_0_temp_d);
     cudaFree(eval_at_2_temp_d);
-}
-
-__global__ void next_logup_multiplicities_layer_kernel(
-    m31 *numerators, 
-    qm31 *denominators, 
-    uint32_t size, 
-    qm31 *next_numerators, 
-    qm31 *next_denominators, 
-    uint32_t next_size
-) {
-    unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid < next_size) {
-        Fraction<m31> a = Fraction<m31>(numerators[tid * 2], denominators[tid * 2]);
-        Fraction<m31> b = Fraction<m31>(numerators[tid * 2 + 1], denominators[tid * 2 + 1]);
-
-        Fraction<qm31> res = add_fraction(a, b);
-        next_numerators[tid] = res.numerator; 
-        next_denominators[tid] = res.denominator; 
-    }
-}
-
-__global__ void next_logup_singles_layer_kernel(
-    qm31 *denominators, 
-    uint32_t size, 
-    qm31 *next_numerators, 
-    qm31 *next_denominators, 
-    uint32_t next_size
-) {
-    unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    if (tid < next_size) {
-        Reciprocal<qm31> even = Reciprocal<qm31>(denominators[tid * 2]);
-        Reciprocal<qm31> odd = Reciprocal<qm31>(denominators[tid * 2 + 1]);
-        Fraction<qm31> res = add_reciprocal(even, odd);
-
-        next_numerators[tid] = res.numerator; 
-        next_denominators[tid] = res.denominator; 
-    }
-}
-
-void next_logup_multiplicities_layer(
-    m31 *numerators, 
-    qm31 *denominators, 
-    uint32_t size, 
-    qm31 *next_numerators, 
-    qm31 *next_denominators, 
-    uint32_t next_size
-) {
-    const unsigned int BLOCK_SIZE = 1024;
-    const unsigned int NUM_BLOCKS = (next_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
-
-    next_logup_multiplicities_layer_kernel<<<NUM_BLOCKS, BLOCK_SIZE>>>(numerators, denominators, size, next_numerators, next_denominators, next_size); 
-    cudaDeviceSynchronize();
-}
-
-void next_logup_singles_layer(
-    qm31 *denominators, 
-    uint32_t size, 
-    qm31 *next_numerators, 
-    qm31 *next_denominators, 
-    uint32_t next_size
-) {
-    const unsigned int BLOCK_SIZE = 1024;
-    const unsigned int NUM_BLOCKS = (next_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
-
-    next_logup_singles_layer_kernel<<<NUM_BLOCKS, BLOCK_SIZE>>>(denominators, size, next_numerators, next_denominators, next_size); 
-    cudaDeviceSynchronize();
 }
 
