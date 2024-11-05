@@ -32,29 +32,18 @@ impl GkrOps for CudaBackend {
     fn next_layer(
         layer: &stwo_prover::core::lookups::gkr_prover::Layer<Self>,
     ) -> stwo_prover::core::lookups::gkr_prover::Layer<Self> {
-
-        if let Layer::GrandProduct(col) = layer {
-            next_grand_product_layer(col)
+        match layer {
+            Layer::GrandProduct(col) => next_grand_product_layer(col),
+            Layer::LogUpGeneric {
+                numerators,
+                denominators,
+            } => next_logup_generic_layer::<SecureField>(numerators, denominators),
+            Layer::LogUpMultiplicities {
+                numerators,
+                denominators,
+            } => next_logup_multiplicities_layer::<SecureField>(numerators, denominators),
+            Layer::LogUpSingles { denominators } => next_logup_singles_layer::<SecureField>(denominators),
         }
-        else if let Layer::LogUpGeneric {numerators, denominators} = layer {
-            next_logup_generic_layer::<SecureField>(numerators, denominators)
-        } 
-        else {
-            println!("not supposed to access");
-            layer.clone()
-        }
-        // match layer {
-        //     Layer::GrandProduct(col) => next_grand_product_layer(col),
-        //     Layer::LogUpGeneric {
-        //         numerators,
-        //         denominators,
-        //     } => next_logup_generic_layer::<SecureField>(numerators, denominators),
-        //     Layer::LogUpMultiplicities {
-        //         numerators,
-        //         denominators,
-        //     } => next_logup_multiplicities_layer::<SecureField>(numerators, denominators),
-        //     Layer::LogUpSingles { denominators } => next_logup_singles_layer::<SecureField>(denominators),
-        // }
     }
 
     fn sum_as_poly_in_first_variable(
@@ -72,33 +61,20 @@ impl GkrOps for CudaBackend {
         let y = eq_evals.y();
         let lambda = h.lambda;
 
-        let (mut eval_at_0, mut eval_at_2) = {
-            if let Layer::GrandProduct(col) = &h.input_layer {
-                eval_grand_product_sum(eq_evals, col, n_terms)
-            }
-            else if let Layer::LogUpGeneric {numerators, denominators} = &h.input_layer {
-                eval_logup_generic_sum(eq_evals, numerators, denominators, n_terms, lambda)
-            }
-            else {
-                println!("not supposed to access");
-                (SecureField::default(), SecureField::default())
+        let (mut eval_at_0, mut eval_at_2) = match &h.input_layer {
+            Layer::GrandProduct(col) => eval_grand_product_sum(eq_evals, col, n_terms),
+            Layer::LogUpGeneric {
+                numerators,
+                denominators,
+            } => eval_logup_generic_sum(eq_evals, numerators, denominators, n_terms, lambda),
+            Layer::LogUpMultiplicities {
+                numerators,
+                denominators,
+            } => eval_logup_multiplicities_sum(eq_evals, numerators, denominators, n_terms, lambda),
+            Layer::LogUpSingles { denominators } => {
+                eval_logup_singles_sum(eq_evals, denominators, n_terms, lambda)
             }
         };
-        
-        // let (mut eval_at_0, mut eval_at_2) = match &h.input_layer {
-        //     Layer::GrandProduct(col) => eval_grand_product_sum(eq_evals, col, n_terms),
-        //     Layer::LogUpGeneric {
-        //         numerators,
-        //         denominators,
-        //     } => eval_logup_sum(eq_evals, numerators, denominators, n_terms, lambda),
-        //     Layer::LogUpMultiplicities {
-        //         numerators,
-        //         denominators,
-        //     } => eval_logup_sum(eq_evals, numerators, denominators, n_terms, lambda),
-        //     Layer::LogUpSingles { denominators } => {
-        //         eval_logup_singles_sum(eq_evals, denominators, n_terms, lambda)
-        //     }
-        // };
 
         eval_at_0 *= h.eq_fixed_var_correction;
         eval_at_2 *= h.eq_fixed_var_correction;
@@ -136,27 +112,86 @@ fn eval_logup_generic_sum(
     let eval_at_0 = SecureFieldVec::new_uninitialized(1);
     let eval_at_2 = SecureFieldVec::new_uninitialized(1);
 
-    println!("n_terms: {}", n_terms); 
-    println!("eq_evals: {:?}", eq_evals);
-    println!("mle evals: {:?}", &*eq_evals.to_cpu());
-    println!("numerators: {:?}", numerators.clone().to_cpu());
-    println!("denominators: {:?}", denominators.clone().to_cpu());
+    // println!("n_terms: {}", n_terms); 
+    // println!("eq_evals: {:?}", eq_evals);
+    // println!("mle evals: {:?}", &*eq_evals.clone().to_cpu());
+    // println!("numerators: {:?}", numerators.clone().to_cpu());
+    // println!("denominators: {:?}", denominators.clone().to_cpu());
 
     unsafe {
         bindings::eval_logup_generic_sum(
             eq_evals.device_ptr as *const CudaSecureField, 
-            denominators.device_ptr as *const CudaSecureField, 
+            numerators.device_ptr as *const CudaSecureField, 
             denominators.device_ptr as *const CudaSecureField, 
             n_terms, 
             CudaSecureField::from(lambda),
             eval_at_0.device_ptr as *const CudaSecureField, 
             eval_at_2.device_ptr as *const CudaSecureField);
     };
-    println!("here: {:?}, {:?}\n", eval_at_0.to_cpu()[0].clone(), eval_at_2.to_cpu()[0].clone()); 
+    // println!("here: {:?}, {:?}\n", eval_at_0.to_cpu()[0].clone(), eval_at_2.to_cpu()[0].clone()); 
 
     (eval_at_0.to_cpu()[0].clone(), eval_at_2.to_cpu()[0].clone())
 }
 
+fn eval_logup_multiplicities_sum(
+    eq_evals: &EqEvals<CudaBackend>,
+    numerators: &Mle<CudaBackend, BaseField>,
+    denominators: &Mle<CudaBackend, SecureField>,
+    n_terms: usize,
+    lambda: SecureField,
+) -> (SecureField, SecureField) {
+    let eval_at_0 = SecureFieldVec::new_uninitialized(1);
+    let eval_at_2 = SecureFieldVec::new_uninitialized(1);
+
+    // println!("n_terms: {}", n_terms); 
+    // println!("eq_evals: {:?}", eq_evals);
+    // println!("mle evals: {:?}", &*eq_evals.clone().to_cpu());
+    // println!("numerators: {:?}", numerators.clone().to_cpu());
+    // println!("denominators: {:?}", denominators.clone().to_cpu());
+
+    unsafe {
+        bindings::eval_logup_multiplicities_sum(
+            eq_evals.device_ptr as *const CudaSecureField, 
+            numerators.device_ptr as *const CudaBaseField, 
+            denominators.device_ptr as *const CudaSecureField, 
+            n_terms, 
+            CudaSecureField::from(lambda),
+            eval_at_0.device_ptr as *const CudaSecureField, 
+            eval_at_2.device_ptr as *const CudaSecureField);
+    };
+    // println!("here: {:?}, {:?}\n", eval_at_0.to_cpu()[0].clone(), eval_at_2.to_cpu()[0].clone()); 
+
+    (eval_at_0.to_cpu()[0].clone(), eval_at_2.to_cpu()[0].clone())
+}
+
+fn eval_logup_singles_sum(
+    eq_evals: &EqEvals<CudaBackend>,
+    denominators: &Mle<CudaBackend, SecureField>,
+    n_terms: usize,
+    lambda: SecureField,
+) -> (SecureField, SecureField) {
+    let eval_at_0 = SecureFieldVec::new_uninitialized(1);
+    let eval_at_2 = SecureFieldVec::new_uninitialized(1);
+
+    // println!("n_terms: {}", n_terms); 
+    // println!("eq_evals: {:?}", eq_evals);
+    // println!("mle evals: {:?}", &*eq_evals.clone().to_cpu());
+    // println!("numerators: {:?}", numerators.clone().to_cpu());
+    // println!("denominators: {:?}", denominators.clone().to_cpu());
+
+    unsafe {
+        bindings::eval_logup_singles_sum(
+            eq_evals.device_ptr as *const CudaSecureField, 
+            denominators.device_ptr as *const CudaSecureField, 
+            n_terms, 
+            CudaSecureField::from(lambda),
+            eval_at_0.device_ptr as *const CudaSecureField, 
+            eval_at_2.device_ptr as *const CudaSecureField);
+    };
+    // println!("here: {:?}, {:?}\n", eval_at_0.to_cpu()[0].clone(), eval_at_2.to_cpu()[0].clone()); 
+
+    (eval_at_0.to_cpu()[0].clone(), eval_at_2.to_cpu()[0].clone())
+}
 
 fn next_grand_product_layer(layer: &Mle<CudaBackend, SecureField>) -> Layer<CudaBackend> {
     let next_layer_size = layer.size / 2;
@@ -167,7 +202,8 @@ fn next_grand_product_layer(layer: &Mle<CudaBackend, SecureField>) -> Layer<Cuda
             layer.device_ptr as *const CudaSecureField, 
             layer.size, 
             next_layer.device_ptr as *const CudaSecureField, 
-            next_layer_size);
+            next_layer_size
+        );
     };
     
     Layer::GrandProduct(Mle::new(next_layer))
@@ -185,10 +221,11 @@ fn next_logup_generic_layer<F>(
         bindings::next_logup_generic_layer(
             numerators.device_ptr as *const CudaSecureField, 
             denominators.device_ptr as *const CudaSecureField, 
-            numerators.size, 
+            denominators.size, 
             next_numerators.device_ptr as *const CudaSecureField, 
             next_denominators.device_ptr as *const CudaSecureField, 
-            next_layer_len);
+            next_layer_len
+        );
     };
 
     Layer::LogUpGeneric {
@@ -209,10 +246,11 @@ fn next_logup_multiplicities_layer<F>(
         bindings::next_logup_multiplicities_layer(
             numerators.device_ptr as *const CudaBaseField, 
             denominators.device_ptr as *const CudaSecureField, 
-            numerators.size, 
+            denominators.size, 
             next_numerators.device_ptr as *const CudaSecureField, 
             next_denominators.device_ptr as *const CudaSecureField, 
-            next_layer_len);
+            next_layer_len
+        );
     };
 
     Layer::LogUpGeneric {
@@ -234,7 +272,8 @@ fn next_logup_singles_layer<F>(
             denominators.size, 
             next_numerators.device_ptr as *const CudaSecureField, 
             next_denominators.device_ptr as *const CudaSecureField, 
-            next_layer_len);
+            next_layer_len
+        );
     };
 
     Layer::LogUpGeneric {
@@ -246,23 +285,18 @@ fn next_logup_singles_layer<F>(
 mod tests {
     use std::iter::zip;
     use itertools::Itertools;
+    use num_traits::One;
     use rand::rngs::SmallRng;
     use rand::{Rng, SeedableRng};
+    use stwo_prover::core::fields::{ExtensionOf, Field};
     use crate::CudaBackend;
     use stwo_prover::core::backend::{Column, CpuBackend};
     use stwo_prover::core::fields::m31::{BaseField, M31};
     use stwo_prover::core::fields::qm31::SecureField;
-    use stwo_prover::core::lookups::gkr_prover::GkrOps;
-
     
-    use stwo_prover::core::backend::simd::SimdBackend;
-    // use stwo_prover::core::backend::{Column, CpuBackend};
-    // use stwo_prover::core::channel::Channel;
-    // use stwo_prover::core::fields::m31::BaseField;
-    // use stwo_prover::core::fields::qm31::SecureField;
-    use stwo_prover::core::lookups::gkr_prover::{prove_batch, Layer};
+    use stwo_prover::core::lookups::gkr_prover::{prove_batch, GkrOps, Layer};
     use stwo_prover::core::lookups::gkr_verifier::{partially_verify_batch, Gate, GkrArtifact, GkrError};
-    use stwo_prover::core::lookups::mle::Mle;
+    use stwo_prover::core::lookups::mle::{Mle, MleOps};
     use stwo_prover::core::lookups::utils::Fraction;
     use stwo_prover::core::channel::{Blake2sChannel, Channel};
 
@@ -306,10 +340,9 @@ mod tests {
         );
     }
 
-        
     #[test]
     fn logup_with_generic_trace_works() {
-        const N: usize = 1 << 2;
+        const N: usize = 1 << 5;
         let mut rng = SmallRng::seed_from_u64(0);
         let numerator_values = (0..N).map(|_| rng.gen()).collect::<Vec<SecureField>>();
         let denominator_values = (0..N).map(|_| rng.gen()).collect::<Vec<SecureField>>();
@@ -348,7 +381,91 @@ mod tests {
         );
     }
 
-    pub(crate) fn eval_at_point(input: &Mle<CpuBackend, SecureField>, point: &[SecureField]) -> SecureField {
+    #[test]
+    fn logup_with_multiplicities_trace_works() {
+        const N: usize = 1 << 5;
+        let mut rng = SmallRng::seed_from_u64(0);
+        let numerator_values = (0..N).map(|_| rng.gen()).collect::<Vec<BaseField>>();
+        let denominator_values = (0..N).map(|_| rng.gen()).collect::<Vec<SecureField>>();
+        let sum = zip(&numerator_values, &denominator_values)
+            .map(|(&n, &d)| Fraction::new(n.into(), d))
+            .sum::<Fraction<SecureField, SecureField>>();
+        let numerators = Mle::<CudaBackend, BaseField>::new(numerator_values.clone().into_iter().collect());
+        let denominators = Mle::<CudaBackend, SecureField>::new(denominator_values.clone().into_iter().collect());
+        let numerators_cpu = Mle::<CpuBackend, BaseField>::new(numerator_values.into_iter().collect());
+        let denominators_cpu = Mle::<CpuBackend, SecureField>::new(denominator_values.into_iter().collect());
+        
+        let top_layer = Layer::LogUpMultiplicities {
+            numerators: numerators.clone(),
+            denominators: denominators.clone(),
+        };
+        let (proof, _) = prove_batch(&mut Blake2sChannel::default(), vec![top_layer]);
+
+        let GkrArtifact {
+            ood_point,
+            claims_to_verify_by_instance,
+            n_variables_by_instance: _,
+        } = partially_verify_batch(vec![Gate::LogUp], &proof, &mut Blake2sChannel::default()).unwrap();
+
+        assert_eq!(claims_to_verify_by_instance.len(), 1);
+        assert_eq!(proof.output_claims_by_instance.len(), 1);
+        assert_eq!(
+            claims_to_verify_by_instance[0],
+            [
+                eval_at_point(&numerators_cpu.into(), &ood_point),
+                eval_at_point(&denominators_cpu, &ood_point)
+            ]
+        );
+        assert_eq!(
+            proof.output_claims_by_instance[0],
+            [sum.numerator, sum.denominator]
+        );
+    }
+
+    #[test]
+    fn logup_with_singles_trace_works() {
+        const N: usize = 1 << 5;
+        let mut rng = SmallRng::seed_from_u64(0);
+        let denominator_values = (0..N).map(|_| rng.gen()).collect::<Vec<SecureField>>();
+        let sum = denominator_values
+        .iter()
+            .map(|&d| Fraction::new(SecureField::one(), d))
+            .sum::<Fraction<SecureField, SecureField>>();
+        let denominators = Mle::<CudaBackend, SecureField>::new(denominator_values.clone().into_iter().collect());
+        let denominators_cpu = Mle::<CpuBackend, SecureField>::new(denominator_values.into_iter().collect());
+        
+        let top_layer = Layer::LogUpSingles {
+            denominators: denominators.clone(),
+        };
+        let (proof, _) = prove_batch(&mut Blake2sChannel::default(), vec![top_layer]);
+
+        let GkrArtifact {
+            ood_point,
+            claims_to_verify_by_instance,
+            n_variables_by_instance: _,
+        } = partially_verify_batch(vec![Gate::LogUp], &proof, &mut Blake2sChannel::default()).unwrap();
+
+        assert_eq!(claims_to_verify_by_instance.len(), 1);
+        assert_eq!(proof.output_claims_by_instance.len(), 1);
+        assert_eq!(
+            claims_to_verify_by_instance[0],
+            [
+                SecureField::one(),
+                eval_at_point(&denominators_cpu, &ood_point)
+            ]
+        );
+        assert_eq!(
+            proof.output_claims_by_instance[0],
+            [sum.numerator, sum.denominator]
+        );
+    }
+
+    pub(crate) fn eval_at_point<B, F>(input: &Mle<B, F>, point: &[SecureField]) -> SecureField 
+    where 
+        F: Field,
+        SecureField: ExtensionOf<F>,
+        B: MleOps<F>,
+    {
         pub fn eval(mle_evals: &[SecureField], p: &[SecureField]) -> SecureField {
             match p {
                 [] => mle_evals[0],
