@@ -200,7 +200,7 @@ mod test {
         }
     }
 
-    //#[test_log::test]
+    #[test_log::test]
     fn test_cuda_constraints_for_wide_fib_prove() {
         // Note: To see time measurement, run test with
         //   RUST_LOG_SPAN_EVENTS=enter,close RUST_LOG=info RUST_BACKTRACE=1
